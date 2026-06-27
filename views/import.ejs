@@ -1,0 +1,200 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Import - Home Accounting</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .import-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 2.5rem 1.5rem;
+            text-align: center;
+            background: var(--surface-2);
+            transition: all var(--transition);
+            cursor: pointer;
+        }
+        .import-zone:hover {
+            border-color: var(--primary);
+            background: rgba(74, 144, 226, 0.05);
+        }
+        .import-zone i {
+            font-size: 2.5rem;
+            color: var(--primary);
+            margin-bottom: 1rem;
+        }
+        .results-box {
+            display: none;
+            margin-top: 1.5rem;
+            border-radius: var(--radius);
+            padding: 1.25rem;
+        }
+        .errors-list {
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.825rem;
+            background: rgba(0,0,0,0.05);
+            padding: 0.75rem;
+            border-radius: var(--radius-sm);
+        }
+        [data-theme="dark"] .errors-list {
+            background: rgba(255,255,255,0.05);
+        }
+        .preview-table-wrap { max-height: 360px; overflow-y: auto; border-radius: var(--radius-sm); }
+        .table-danger td  { background: rgba(220,53,69,0.08) !important; }
+        .table-success td { background: rgba(25,135,84,0.06) !important; }
+        .preview-error-list { max-height: 180px; overflow-y: auto; font-size: 0.82rem; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar -->
+    <%- include('partials/sidebar') %>
+
+<div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5">Data Import Center</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+            <!-- Access Denied -->
+            <div id="accessDeniedPanel" class="d-none">
+                <div class="glass-card p-5 text-center my-5">
+                    <i class="fas fa-shield-alt text-danger mb-4" style="font-size:4rem"></i>
+                    <h3 class="mb-3">Access Denied</h3>
+                    <p class="text-muted mb-4">Only Administrators and Supervisors have permissions to import datasets.</p>
+                    <a href="/dashboard" class="btn btn-primary"><i class="fas fa-arrow-left me-2"></i>Back to Dashboard</a>
+                </div>
+            </div>
+
+            <!-- Main Import Panel -->
+            <div id="importPanel" class="d-none">
+                <div class="glass-card p-4">
+                    <h5 class="mb-4"><i class="fas fa-file-import me-2 text-primary"></i>Import Datasets</h5>
+
+                    <ul class="nav nav-tabs mb-4" id="importTabs" role="tablist">
+                        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" type="button" onclick="selectDataset('patients')">Patients</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('pharmacies')">Pharmacies</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('patient-transport')">Patient Transport</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('pharmacy-transport')">Pharmacy Transport</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('workflow-actions')">Workflow Actions</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('clinics')">Clinics</button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" type="button" onclick="selectDataset('users')">Users</button></li>
+                    </ul>
+
+                    <div class="row">
+                        <!-- Left: specs -->
+                        <div class="col-lg-5 mb-4 mb-lg-0">
+                            <div class="card border-0 h-100" style="background:var(--surface-2)">
+                                <div class="card-body p-4">
+                                    <h6 class="fw-bold mb-3" id="datasetNameTitle">Patients Import</h6>
+                                    <p class="text-muted small mb-4" id="datasetDescription"></p>
+                                    <h6 class="small fw-bold text-uppercase text-muted mb-2">CSV Column Specifications:</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-borderless align-middle mb-4" style="font-size:0.8rem">
+                                            <thead><tr class="border-bottom"><th>Column Name</th><th>Required</th><th>Format / Details</th></tr></thead>
+                                            <tbody id="csvFieldsBody"></tbody>
+                                        </table>
+                                    </div>
+                                    <div class="d-grid gap-2">
+                                        <button class="btn btn-outline-primary w-100" id="downloadTemplateBtn">
+                                            <i class="fas fa-download me-2"></i>Download CSV Template
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: upload + results -->
+                        <div class="col-lg-7">
+                            <div class="d-flex flex-column h-100 justify-content-between">
+                                <form id="importForm">
+                                    <div class="import-zone mb-3" id="dropZone" onclick="document.getElementById('csvFile').click()">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <h5 class="fw-bold mb-1">Select a CSV File</h5>
+                                        <p class="text-muted small mb-0">Drag and drop or click to browse files</p>
+                                        <p id="fileNameDisplay" class="mt-2 fw-semibold text-primary small d-none"></p>
+                                        <input type="file" id="csvFile" name="file" accept=".csv" class="d-none" onchange="fileSelected(this)">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary w-100 py-2 fw-semibold" id="uploadBtn" disabled>
+                                        <span id="uploadSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                                        <i class="fas fa-search me-2" id="uploadIcon"></i>Preview &amp; Validate
+                                    </button>
+                                </form>
+
+                                <!-- Results Console -->
+                                <div class="results-box alert mt-3" id="resultsBox" style="display:none">
+                                    <h6 class="alert-heading fw-bold mb-2" id="resultsHeading">Import Completed</h6>
+                                    <p class="small mb-2" id="resultsSummary"></p>
+                                    <div id="errorsSection" class="d-none">
+                                        <h6 class="small fw-bold text-danger mb-2">Import Logs &amp; Warnings:</h6>
+                                        <div class="errors-list" id="errorsList"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Preview Section -->
+                    <div id="previewSection" class="d-none mt-4">
+                        <hr>
+                        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                            <h6 class="mb-0"><i class="fas fa-table me-2 text-primary"></i>Validation Preview
+                                <span id="previewBadge" class="badge bg-secondary ms-2"></span>
+                            </h6>
+                            <small class="text-muted" id="previewCount"></small>
+                        </div>
+
+                        <div id="previewErrors" class="alert alert-danger py-2 mb-3 d-none">
+                            <strong><i class="fas fa-exclamation-triangle me-1"></i>Row Errors:</strong>
+                            <div class="preview-error-list mt-2" id="previewErrorList"></div>
+                        </div>
+
+                        <div class="preview-table-wrap mb-3">
+                            <table class="table table-sm table-bordered align-middle" style="font-size:0.8rem;min-width:600px">
+                                <thead class="table-light sticky-top" id="previewHead"></thead>
+                                <tbody id="previewBody"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="d-flex gap-2 justify-content-end">
+                            <button class="btn btn-outline-secondary" id="cancelPreviewBtn">
+                                <i class="fas fa-times me-1"></i>Cancel
+                            </button>
+                            <button class="btn btn-success px-4" id="confirmImportBtn">
+                                <i class="fas fa-check me-1"></i>Confirm Import
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/js/base.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+
+<script src="/js/import.js"></script>
+
+</body>
+</html>
+

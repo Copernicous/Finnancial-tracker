@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="wrapper">
+        <!-- Sidebar -->
+        <nav id="sidebar" class="d-none">
+            <div class="sidebar-header">
+                <h3>Home Accounting</h3>
+            </div>
+            <ul class="list-unstyled components">
+                <li><a href="/dashboard"><i class="fas fa-home"></i> Dashboard</a></li>
+                <li><a href="/patients"><i class="fas fa-wallet"></i> Accounts</a></li>
+                <li><a href="/rx-records"><i class="fas fa-receipt"></i> Transactions</a></li>
+                <li>
+                    <a href="#settingsSubmenu" data-bs-toggle="collapse" aria-expanded="false" class="dropdown-toggle"><i class="fas fa-cogs"></i> Settings</a>
+                    <ul class="collapse list-unstyled" id="settingsSubmenu">
+                        <li><a href="/pharmacies">Financial Institutions</a></li>
+                        <li><a href="/patient-transport">Payees</a></li>
+                        <li><a href="/pharmacy-transport">Payment Methods</a></li>
+                        <li><a href="/workflow-actions">Review Workflow</a></li>
+                        <li><a href="/medication-catalog">Accounting Actions</a></li>
+                        <li><a href="/users">User Management</a></li>
+                        <li><a href="/system-settings">System Settings</a></li>
+                        <li><a href="/backups">Backups</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Page Content -->
+        <div id="content" class="w-100 m-0 p-0">
+            <%- body %>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div class="toast-container"></div>
+
+    <script src="/assets/bootstrap.bundle.min.js"></script>
+    <!-- xa-base: FortiGate rewrites <a href> — used by base.js to derive proxy path prefix -->
+    <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
+    <script src="/js/base.js"></script>
+    <script src="/js/main.js"></script>
+</body>
+</html>

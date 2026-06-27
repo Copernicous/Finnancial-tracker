@@ -1,0 +1,116 @@
+{
+  "name": "home-accounting",
+  "version": "0.1.0",
+  "description": "Home Accounting management system with roles, audit, reporting, uploads, staging, and deployment tooling",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "qa:menu": "qa\\qa-menu.bat",
+    "qa:start": "node qa/start-local-qa.js",
+    "qa:seed": "node qa/seed-qa-data.js",
+    "qa:status": "node qa/status.js",
+    "qa:stop": "node qa/stop-local-qa.js",
+    "qa:web": "node qa/web-ui.js",
+    "staging:check": "node scripts/check-staging-config.js",
+    "staging:cycle-context-smoke": "node scripts/smoke-staging-cycle-context.js",
+    "staging:import-smoke": "node scripts/smoke-staging-import-guard.js",
+    "staging:start": "node scripts/start-staging.js",
+    "smoke:qa": "node qa/smoke-qa.js",
+    "test:permissions": "node scripts/test-rx-override-permissions.js",
+    "drive:auth": "node scripts/setup-google-drive-oauth.js",
+    "db:migrate": "sequelize-cli db:migrate",
+    "db:seed": "sequelize-cli db:seed:all",
+    "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip && node scripts/post-build.js"
+  },
+  "nodemonConfig": {
+    "watch": [
+      "app.js",
+      "package.json",
+      "controllers",
+      "middleware",
+      "models",
+      "routes",
+      "services",
+      "views",
+      "public",
+      "config"
+    ],
+    "ignore": [
+      "data/*",
+      "logs/*",
+      "backups/*",
+      "dist/*",
+      "*.log",
+      "*.log.json"
+    ],
+    "ext": "js,mjs,cjs,json,ejs"
+  },
+  "pkg": {
+    "targets": [
+      "node22-win-x64"
+    ],
+    "scripts": [
+      "models/**/*.js",
+      "controllers/**/*.js",
+      "routes/**/*.js",
+      "middleware/**/*.js",
+      "services/**/*.js",
+      "utils/**/*.js",
+      "node_modules/bcryptjs/**/*.js",
+      "node_modules/ejs/**/*.js",
+      "node_modules/jsonwebtoken/**/*.js",
+      "node_modules/qrcode/**/*.js",
+      "node_modules/speakeasy/**/*.js",
+      "node_modules/csv-parser/**/*.js",
+      "node_modules/nodemailer/**/*.js",
+      "node_modules/node-cron/**/*.js",
+      "node_modules/multer/**/*.js",
+      "node_modules/sequelize/**/*.js",
+      "node_modules/pg/**/*.js"
+    ],
+    "assets": [
+      "views/**/*",
+      "public/**/*",
+      "config/**/*",
+      "migrations/**/*",
+      "seeders/**/*",
+      "data/**/*",
+      "CHANGELOG.md",
+      ".env.example"
+    ],
+    "outputPath": "dist"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.3.0",
+    "cors": "^2.8.6",
+    "csv-parser": "^3.2.1",
+    "dotenv": "^17.4.2",
+    "ejs": "^6.0.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "googleapis": "^173.0.0",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "morgan": "^1.11.0",
+    "multer": "^2.2.0",
+    "node-cron": "^4.4.1",
+    "nodemailer": "^9.0.1",
+    "pg": "^8.22.0",
+    "pg-hstore": "^2.3.4",
+    "qrcode": "^1.5.4",
+    "sequelize": "^6.37.8",
+    "speakeasy": "^2.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14",
+    "playwright-core": "^1.61.1",
+    "sequelize-cli": "^6.6.5"
+  }
+}

@@ -1,0 +1,284 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Changelog - Home Accounting</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/assets/marked.min.js"></script>
+    <style>
+        /* â”€â”€ Markdown styles â”€â”€ */
+        .changelog-body h2 {
+            font-size:1.1rem;font-weight:700;
+            border-bottom:2px solid var(--primary,#4a90e2);
+            padding-bottom:6px;margin-top:2rem;margin-bottom:1rem;
+        }
+        .changelog-body h3 { font-size:.9rem;font-weight:700;margin-top:1.2rem;margin-bottom:.4rem;color:var(--text-muted,#64748b); }
+        .changelog-body h4 { font-size:.85rem;font-weight:700;margin-top:1rem;margin-bottom:.3rem; }
+        .changelog-body ul  { padding-left:1.3rem;margin-bottom:.6rem; }
+        .changelog-body li  { margin-bottom:.3rem;font-size:.86rem;line-height:1.6; }
+        .changelog-body code{font-size:.8rem;background:rgba(99,102,241,.09);padding:1px 5px;border-radius:4px;color:#4f46e5;}
+        [data-theme="dark"] .changelog-body code{background:rgba(99,102,241,.2);color:#a5b4fc;}
+        .changelog-body table{width:100%;border-collapse:collapse;font-size:.8rem;margin:.75rem 0;}
+        .changelog-body th{background:rgba(74,144,226,.12);padding:5px 10px;text-align:left;border-bottom:2px solid rgba(74,144,226,.2);}
+        .changelog-body td{padding:4px 10px;border-bottom:1px solid rgba(0,0,0,.05);}
+        [data-theme="dark"] .changelog-body td{border-bottom-color:rgba(255,255,255,.05);}
+        .changelog-body strong{font-weight:700;}
+        .changelog-body hr{margin:1.8rem 0;opacity:.12;}
+
+        /* â”€â”€ Git log styles â”€â”€ */
+        .commit-card{border-radius:10px;border:1px solid var(--border,rgba(0,0,0,.08));margin-bottom:10px;overflow:hidden;transition:box-shadow .15s;}
+        .commit-card:hover{box-shadow:0 4px 16px rgba(0,0,0,.1);}
+        .commit-header{padding:10px 14px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;}
+        .commit-hash{font-family:monospace;font-size:.75rem;background:rgba(74,144,226,.1);color:#4a90e2;padding:2px 8px;border-radius:6px;flex-shrink:0;}
+        .commit-msg{font-size:.85rem;font-weight:600;flex:1;}
+        .commit-meta{font-size:.72rem;color:var(--text-muted,#64748b);white-space:nowrap;}
+        .commit-files{padding:0 14px 10px;display:none;}
+        .commit-files.open{display:block;}
+        .file-row{display:flex;align-items:center;gap:8px;padding:3px 0;font-size:.78rem;border-bottom:1px solid rgba(0,0,0,.04);}
+        [data-theme="dark"] .file-row{border-bottom-color:rgba(255,255,255,.04);}
+        .file-name{font-family:monospace;flex:1;color:var(--text,#1e293b);}
+        .file-changes{font-size:.72rem;color:var(--text-muted,#64748b);white-space:nowrap;}
+        .diff-bar{height:6px;border-radius:3px;background:#e2e8f0;width:60px;flex-shrink:0;overflow:hidden;}
+        .diff-fill{height:100%;background:linear-gradient(90deg,#22c55e,#4ade80);border-radius:3px;}
+        .commit-summary{font-size:.72rem;color:var(--text-muted);padding:4px 0 0;font-style:italic;}
+
+        /* type badges */
+        .badge-feat{background:rgba(34,197,94,.12);color:#16a34a;}
+        .badge-fix {background:rgba(239,68,68,.12);color:#dc2626;}
+        .badge-perf{background:rgba(245,158,11,.12);color:#d97706;}
+        .badge-build{background:rgba(139,92,246,.12);color:#7c3aed;}
+        .badge-chore{background:rgba(100,116,139,.12);color:#475569;}
+        .type-badge{font-size:.65rem;font-weight:700;padding:2px 7px;border-radius:10px;text-transform:uppercase;flex-shrink:0;}
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <%- include('partials/sidebar') %>
+    <div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-scroll me-2 text-primary"></i>Changelog</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+            <div class="row justify-content-center">
+                <div class="col-lg-10">
+
+                    <!-- Version header card -->
+                    <div class="glass-card p-4 mb-4" style="border-left:4px solid var(--primary,#4a90e2);">
+                        <div class="d-flex align-items-center gap-3 flex-wrap">
+                            <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(135deg,#4a90e2,#357abd);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:#fff;flex-shrink:0;">
+                                <i class="fas fa-code-branch"></i>
+                            </div>
+                            <div>
+                                <h5 class="fw-bold mb-0">Home Accounting â€” Version History</h5>
+                                <p class="text-muted small mb-0">Full changelog with git commit references and file-level detail</p>
+                            </div>
+                            <div class="ms-auto d-flex gap-4 text-center flex-wrap">
+                                <div>
+                                    <div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Version</div>
+                                    <div class="fw-bold fs-5 text-primary" id="currentVersion">â€”</div>
+                                </div>
+                                <div>
+                                    <div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Node.js</div>
+                                    <div class="fw-bold" id="nodeVersion" style="font-size:.85rem">â€”</div>
+                                </div>
+                                <div>
+                                    <div class="text-muted" style="font-size:.7rem;text-transform:uppercase;letter-spacing:.06em">Uptime</div>
+                                    <div class="fw-bold" id="uptimeDisplay" style="font-size:.85rem">â€”</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tabs -->
+                    <ul class="nav nav-pills mb-3 gap-2" id="changelogTabs">
+                        <li class="nav-item">
+                            <a class="nav-link active" href="#" onclick="showTab('changelog'); return false;" id="tab-changelog">
+                                <i class="fas fa-file-alt me-1"></i>Release Notes
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#" onclick="showTab('gitlog'); return false;" id="tab-gitlog" title="Git commit history â€” only available when running via node app.js (not server.exe)">
+                                <i class="fas fa-history me-1"></i>Git Commits
+                                <span class="badge bg-secondary ms-1" id="commitCount" style="font-size:.65rem">â€”</span>
+                                <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem" title="Not available in compiled server.exe">Dev Only</span>
+                            </a>
+                        </li>
+                    </ul>
+
+                    <!-- RELEASE NOTES TAB -->
+                    <div id="panel-changelog">
+                        <div class="glass-card p-4 p-lg-5">
+                            <div class="changelog-body" id="changelogContent">
+                                <div class="text-center text-muted py-5">
+                                    <i class="fas fa-spinner fa-spin fa-2x mb-3 d-block"></i>Loadingâ€¦
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- GIT LOG TAB -->
+                    <div id="panel-gitlog" style="display:none;">
+                        <div class="glass-card p-4">
+                            <div class="d-flex align-items-center justify-content-between mb-3">
+                                <h6 class="fw-bold mb-0"><i class="fas fa-code-branch me-2 text-primary"></i>Recent Git Commits</h6>
+                                <div class="d-flex align-items-center gap-2">
+                                    <select class="form-select form-select-sm" id="commitLimit" onchange="loadGitLog()" style="width:auto;">
+                                        <option value="20">Last 20</option>
+                                        <option value="50">Last 50</option>
+                                        <option value="100">Last 100</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="loadGitLog()"><i class="fas fa-sync-alt"></i></button>
+                                </div>
+                            </div>
+                            <div id="gitLogContent">
+                                <div class="text-center text-muted py-5">
+                                    <i class="fas fa-spinner fa-spin fa-2x mb-3 d-block"></i>Loading git logâ€¦
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+<script>
+    var _gitCommits = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+        initApp();
+
+        // Version info
+        try {
+            var vr = await fetchWithAuth(window.rxUrl('/api/version'));
+            var vd = await vr.json();
+            document.getElementById('currentVersion').textContent = 'v' + vd.version;
+            document.getElementById('nodeVersion').textContent   = vd.node;
+            var s = vd.uptime, h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+            document.getElementById('uptimeDisplay').textContent = h > 0 ? h+'h '+m+'m' : m+'m';
+        } catch {}
+
+        // Render markdown changelog
+        var raw = <%- JSON.stringify(markdown || '') %>;
+        if (raw.trim()) {
+            document.getElementById('changelogContent').innerHTML = marked.parse(raw);
+        } else {
+            document.getElementById('changelogContent').innerHTML =
+                '<p class="text-muted text-center py-4"><i class="fas fa-exclamation-circle me-1"></i>No CHANGELOG.md found next to server.exe.</p>';
+        }
+
+        // Pre-load git log silently
+        loadGitLog();
+    });
+
+    function showTab(name) {
+        ['changelog','gitlog'].forEach(function(t) {
+            document.getElementById('panel-' + t).style.display = t === name ? '' : 'none';
+            document.getElementById('tab-' + t).classList.toggle('active', t === name);
+        });
+    }
+
+    async function loadGitLog() {
+        var n   = document.getElementById('commitLimit').value;
+        var box = document.getElementById('gitLogContent');
+        box.innerHTML = '<div class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin fa-2x d-block mb-2"></i>Running git logâ€¦</div>';
+        try {
+            var res  = await fetchWithAuth(window.rxUrl('/api/git-log?n=' + n));
+            var data = await res.json();
+            if (!data.available) {
+                box.innerHTML = '<div class="alert alert-info"><i class="fas fa-info-circle me-2"></i>' +
+                    (data.reason || 'Git log not available in this environment.') +
+                    '<br><small class="d-block mt-1">Git history is only available when running via <code>node app.js</code>. The compiled server.exe embeds the snapshot at build time.</small></div>';
+                return;
+            }
+            _gitCommits = data.commits;
+            document.getElementById('commitCount').textContent = data.commits.length;
+            renderGitLog(data.commits);
+        } catch(e) {
+            box.innerHTML = '<div class="alert alert-danger">Failed to load git log: ' + e.message + '</div>';
+        }
+    }
+
+    function commitTypeBadge(msg) {
+        var m = msg.match(/^(feat|fix|perf|build|chore|refactor|docs|style|test)/i);
+        if (!m) return '';
+        var t = m[1].toLowerCase();
+        var cls = {feat:'badge-feat',fix:'badge-fix',perf:'badge-perf',build:'badge-build'}[t] || 'badge-chore';
+        return '<span class="type-badge ' + cls + '">' + t + '</span>';
+    }
+
+    function renderGitLog(commits) {
+        if (!commits.length) {
+            document.getElementById('gitLogContent').innerHTML = '<p class="text-muted text-center py-4">No commits found.</p>';
+            return;
+        }
+        var html = '';
+        commits.forEach(function(c, i) {
+            var badge    = commitTypeBadge(c.message);
+            var cleanMsg = c.message.replace(/^(feat|fix|perf|build|chore|refactor|docs|style|test)(\([^)]+\))?:\s*/i, '');
+            var maxChg   = Math.max.apply(null, c.files.map(function(f){ return f.changes || 0; }).concat([1]));
+
+            var filesHtml = '';
+            c.files.forEach(function(f) {
+                var pct  = Math.min(100, Math.round((f.changes / maxChg) * 100));
+                var adds = (f.diff.match(/\+/g) || []).length;
+                var dels = (f.diff.match(/-/g)  || []).length;
+                filesHtml += '<div class="file-row">' +
+                    '<i class="fas fa-file-code text-muted me-2" style="font-size:.7rem;min-width:12px"></i>' +
+                    '<span class="file-name">' + f.file + '</span>' +
+                    '<span class="file-changes text-success me-1">+' + adds + '</span>' +
+                    '<span class="file-changes text-danger me-2">-' + dels + '</span>' +
+                    '<div class="diff-bar"><div class="diff-fill" style="width:' + pct + '%"></div></div>' +
+                    '<span class="file-changes ms-1">' + f.changes + ' changes</span>' +
+                '</div>';
+            });
+
+            if (c.summary) filesHtml += '<div class="commit-summary">' + c.summary + '</div>';
+
+            html += '<div class="commit-card">' +
+                '<div class="commit-header" onclick="toggleCommit(this)">' +
+                    '<code class="commit-hash">' + c.hash + '</code>' +
+                    badge +
+                    '<span class="commit-msg">' + cleanMsg + '</span>' +
+                    '<span class="commit-meta"><i class="fas fa-calendar me-1"></i>' + c.date +
+                        (c.files.length ? ' &nbsp;Â·&nbsp; <i class="fas fa-file me-1"></i>' + c.files.length + ' file' + (c.files.length > 1 ? 's' : '') : '') +
+                    '</span>' +
+                    '<i class="fas fa-chevron-down ms-2 text-muted" style="font-size:.7rem;transition:transform .2s;"></i>' +
+                '</div>' +
+                (filesHtml ? '<div class="commit-files px-3">' + filesHtml + '</div>' : '') +
+            '</div>';
+        });
+        document.getElementById('gitLogContent').innerHTML = html;
+    }
+
+    function toggleCommit(header) {
+        var files = header.nextElementSibling;
+        var chev  = header.querySelector('.fa-chevron-down, .fa-chevron-up');
+        if (!files) return;
+        var open  = files.classList.toggle('open');
+        if (chev) { chev.className = chev.className.replace(open ? 'fa-chevron-down' : 'fa-chevron-up', open ? 'fa-chevron-up' : 'fa-chevron-down'); }
+    }
+</script>
+</body>
+</html>
+

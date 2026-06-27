@@ -1,0 +1,820 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>System Settings - Home Accounting</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .setting-card { border-left: 4px solid var(--primary-color, #6366f1); transition: box-shadow .2s; }
+        .setting-card:hover { box-shadow: 0 4px 20px rgba(99,102,241,.12); }
+        .setting-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; }
+        .tz-badge { display:inline-block; background:rgba(99,102,241,.12); color:#6366f1; border-radius:20px; padding:2px 12px; font-size:.78rem; font-weight:600; }
+        .save-indicator { display:none; align-items:center; gap:6px; color:#22c55e; font-size:.85rem; font-weight:600; }
+        .save-indicator.visible { display:flex; }
+        .clock-live { font-family:'Inter',monospace; font-size:1.4rem; font-weight:700; letter-spacing:.04em; color:var(--primary-color,#6366f1); }
+        .restart-notice { background:rgba(245,166,35,.08); border:1px solid rgba(245,166,35,.3); border-radius:10px; padding:10px 16px; font-size:.82rem; }
+
+        /* API Key styles */
+        .apikey-reveal {
+            font-family: 'Courier New', monospace;
+            font-size: .85rem;
+            background: #0d1117;
+            color: #58a6ff;
+            border-radius: 8px;
+            padding: 12px 16px;
+            letter-spacing: .04em;
+            word-break: break-all;
+        }
+        .key-prefix {
+            font-family: 'Courier New', monospace;
+            font-size: .82rem;
+            background: rgba(99,102,241,.08);
+            color: #6366f1;
+            border-radius: 6px;
+            padding: 2px 8px;
+        }
+        .key-row { transition: background .15s; }
+        .key-row:hover { background: rgba(99,102,241,.04); }
+        .status-dot { width:8px; height:8px; border-radius:50%; display:inline-block; margin-right:5px; }
+        .status-dot.active   { background:#22c55e; box-shadow: 0 0 6px rgba(34,197,94,.5); }
+        .status-dot.inactive { background:#ef4444; }
+        .expiry-warning { color: #f59e0b; font-size: .75rem; }
+        .new-key-banner {
+            border: 1.5px solid #22c55e;
+            border-radius: 12px;
+            background: rgba(34,197,94,.05);
+            padding: 16px;
+            animation: fadeIn .4s ease;
+        }
+        @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        .copy-btn { cursor: pointer; transition: color .15s; }
+        .copy-btn:hover { color: #22c55e !important; }
+        .api-usage-box {
+            font-family: 'Courier New', monospace;
+            font-size: .78rem;
+            background: #0d1117;
+            color: #8b949e;
+            border-radius: 8px;
+            padding: 10px 14px;
+        }
+        .api-usage-box .hl { color: #58a6ff; }
+        .api-usage-box .val { color: #a5d6ff; }
+
+        .api-filter {
+            font-size:.72rem; padding:3px 10px; border-radius:20px;
+            border:1px solid rgba(99,102,241,.3); background:transparent;
+            color:#6366f1; transition:all .15s; cursor:pointer;
+        }
+        .api-filter.active, .api-filter:hover {
+            background:rgba(99,102,241,.15); border-color:#6366f1; font-weight:600;
+        }
+        .endpoint-row {
+            border-left:3px solid transparent; border-radius:6px;
+            padding:7px 12px; margin-bottom:3px; transition:background .12s;
+        }
+        .endpoint-row:hover { background:rgba(99,102,241,.04); }
+        .endpoint-row.get    { border-left-color:#22c55e; }
+        .endpoint-row.post   { border-left-color:#6366f1; }
+        .endpoint-row.put    { border-left-color:#f59e0b; }
+        .endpoint-row.patch  { border-left-color:#06b6d4; }
+        .endpoint-row.delete { border-left-color:#ef4444; }
+        .method-badge {
+            font-size:.65rem; font-weight:700; padding:2px 7px; border-radius:4px;
+            font-family:monospace; min-width:48px; display:inline-block; text-align:center;
+        }
+        .method-badge.get    { background:rgba(34,197,94,.15);  color:#16a34a; }
+        .method-badge.post   { background:rgba(99,102,241,.15); color:#4f46e5; }
+        .method-badge.put    { background:rgba(245,158,11,.15); color:#b45309; }
+        .method-badge.patch  { background:rgba(6,182,212,.15);  color:#0e7490; }
+        .method-badge.delete { background:rgba(239,68,68,.15);  color:#dc2626; }
+        .endpoint-path { font-family:'Courier New',monospace; font-size:.8rem; font-weight:600; }
+        .perm-badge { font-size:.68rem; padding:1px 6px; border-radius:3px; background:rgba(107,114,128,.1); color:#6b7280; }
+        .perm-badge.admin { background:rgba(239,68,68,.1); color:#ef4444; }
+        .section-divider { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; padding:10px 0 4px; }
+    </style>
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar -->
+    <%- include('partials/sidebar') %>
+
+<div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5"><i class="fas fa-sliders-h me-2 text-primary"></i>System Settings</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+
+            <!-- Page Header -->
+            <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(99,102,241,.08) 0%,rgba(139,92,246,.05) 100%);border-left:4px solid #6366f1;">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="setting-icon" style="background:rgba(99,102,241,.15);color:#6366f1;font-size:1.5rem;width:56px;height:56px;border-radius:16px;">
+                        <i class="fas fa-sliders-h"></i>
+                    </div>
+                    <div>
+                        <h4 class="mb-0 fw-bold">System Settings</h4>
+                        <p class="text-muted small mb-0">Configure system-wide preferences. Changes take effect immediately.</p>
+                    </div>
+                    <div class="ms-auto text-end">
+                        <div class="text-muted small mb-1"><i class="fas fa-clock me-1"></i>Server Current Time</div>
+                        <div class="clock-live" id="liveClock">&mdash;</div>
+                        <div class="text-muted" style="font-size:.72rem" id="liveTimezone">Loading...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Admin guard -->
+            <div id="adminGuard" class="d-none">
+                <div class="glass-card p-5 text-center">
+                    <i class="fas fa-lock fa-3x text-muted mb-3"></i>
+                    <h5 class="fw-bold">Administrator Access Required</h5>
+                    <p class="text-muted">Only Administrators can manage system settings.</p>
+                </div>
+            </div>
+
+            <div id="settingsContent">
+
+                <!-- â”€â”€ Tab navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ -->
+                <ul class="nav nav-pills mb-4 gap-2" id="settingsTabs">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-tab="general"><i class="fas fa-cog me-2"></i>General</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-tab="email"><i class="fas fa-envelope me-2"></i>Email Setup</button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-tab="manual"><i class="fas fa-book me-2"></i>Manual</button>
+                    </li>
+                </ul>
+
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• GENERAL TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+                <div id="tab-general">
+
+                    <!-- Timezone Card -->
+                    <div class="glass-card p-4 mb-4 setting-card">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(99,102,241,.12);color:#6366f1;">
+                                <i class="fas fa-globe"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h6 class="mb-0 fw-bold">Application Timezone</h6>
+                                    <span class="tz-badge" id="currentTzBadge">Loading...</span>
+                                </div>
+                                <p class="text-muted small mb-3">All dates and times recorded by the system &mdash; workflow steps, audit logs, and patient records &mdash; will use this timezone.</p>
+
+                                <div class="p-3 mb-3 rounded-3" style="background:rgba(99,102,241,.05);border:1px dashed rgba(99,102,241,.2);">
+                                    <div class="row g-3 align-items-center">
+                                        <div class="col-auto">
+                                            <div class="text-muted small">Current server time in selected zone:</div>
+                                            <div class="fw-bold fs-5" id="previewClock">&mdash;</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="text-muted small">UTC offset:</div>
+                                            <div class="fw-bold" id="previewOffset">&mdash;</div>
+                                        </div>
+                                        <div class="col-auto">
+                                            <div class="text-muted small">Current UTC time:</div>
+                                            <div class="fw-bold" id="previewUtc">&mdash;</div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-semibold small">Select Timezone</label>
+                                        <select class="form-select form-select-sm" id="tzSelect" style="max-width:340px;"><option value="">Loading...</option></select>
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-primary btn-sm" id="saveTzBtn"><i class="fas fa-save me-1"></i>Save Timezone</button>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="save-indicator" id="tzSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
+                                    </div>
+                                </div>
+
+                                <div class="restart-notice mt-3">
+                                    <i class="fas fa-info-circle me-2" style="color:#f5a623"></i>
+                                    <strong>Note for Windows servers:</strong> After saving a new timezone, <strong>restart the server once</strong> to fully apply it. On Linux/macOS it takes effect immediately.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- App Name Card -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#22c55e;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(34,197,94,.12);color:#22c55e;">
+                                <i class="fas fa-tag"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Application Name</h6>
+                                <p class="text-muted small mb-3">Displayed in the browser tab. Default: "Home Accounting".</p>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control form-control-sm" id="appNameInput" placeholder="Home Accounting" style="max-width:300px;">
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-success btn-sm" id="saveNameBtn"><i class="fas fa-save me-1"></i>Save Name</button>
+                                    </div>
+                                    <div class="col-auto">
+                                        <div class="save-indicator" id="nameSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security / 2FA Global Toggle Card -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#ef4444;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(239,68,68,.12);color:#ef4444;">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1 flex-wrap">
+                                    <h6 class="mb-0 fw-bold">Global Two-Factor Authentication (2FA)</h6>
+                                    <span id="twoFaBadge" class="badge bg-success">Enabled</span>
+                                </div>
+                                <p class="text-muted small mb-3">
+                                    Controls whether 2FA is enforced system-wide at login. When <strong>disabled</strong>, users
+                                    who have 2FA set up will skip the code step &mdash; their authenticator app setup is preserved and
+                                    will work again if you re-enable it. This does <strong>not</strong> delete anyone's 2FA configuration.
+                                </p>
+
+                                <div class="p-3 rounded-3 mb-3 d-flex align-items-center gap-4 flex-wrap"
+                                     style="background:rgba(239,68,68,.05);border:1px dashed rgba(239,68,68,.2);">
+                                    <!-- Toggle switch -->
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="form-check form-switch mb-0" style="font-size:1.4rem;">
+                                            <input class="form-check-input" type="checkbox" id="twoFaToggle"
+                                                   style="width:3rem;height:1.5rem;cursor:pointer;">
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold small" id="twoFaToggleLabel">2FA is <strong>Enabled</strong></div>
+                                            <div class="text-muted" style="font-size:.75rem;">Users with 2FA set up will be prompted for their code</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Status pills -->
+                                    <div class="d-flex gap-2 flex-wrap ms-auto">
+                                        <div class="d-flex align-items-center gap-1 small">
+                                            <span class="status-dot" id="twoFaDot" style="background:#22c55e;width:8px;height:8px;border-radius:50%;display:inline-block;"></span>
+                                            <span id="twoFaStatusText" class="text-muted">Active</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2">
+                                    <button class="btn btn-danger btn-sm" id="saveTwoFaBtn">
+                                        <i class="fas fa-save me-1"></i>Save 2FA Setting
+                                    </button>
+                                    <div class="save-indicator" id="twoFaSaveOk"><i class="fas fa-check-circle"></i> Saved!</div>
+                                </div>
+                                <div class="alert alert-warning py-2 small mt-3 mb-0" id="twoFaDisabledWarning" style="display:none;">
+                                    <i class="fas fa-exclamation-triangle me-1"></i>
+                                    <strong>Warning:</strong> Disabling 2FA globally means all users will log in with password only &mdash; even those who have an authenticator app configured.
+                                    Only disable this if you are sure about the security implications.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Security Settings Card (Session Timeout + Max Failed Logins) -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#f59e0b;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(245,158,11,.12);color:#f59e0b;">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex align-items-center gap-2 mb-1">
+                                    <h6 class="mb-0 fw-bold">Security Settings</h6>
+                                    <span class="badge bg-warning text-dark" style="font-size:.7rem;">Admin Only</span>
+                                </div>
+                                <p class="text-muted small mb-3">
+                                    Control how long idle sessions remain active and how many failed login attempts
+                                    are allowed before an account is locked.
+                                </p>
+
+                                <div class="row g-3 mb-3">
+                                    <div class="col-md-5">
+                                        <label class="form-label fw-semibold small" for="sessionTimeoutInput">
+                                            <i class="fas fa-hourglass-half me-1 text-warning"></i>
+                                            Session Timeout
+                                            <span class="text-muted fw-normal">(minutes)</span>
+                                        </label>
+                                        <div class="input-group input-group-sm" style="max-width:200px;">
+                                            <input type="number" class="form-control form-control-sm"
+                                                   id="sessionTimeoutInput"
+                                                   min="1" max="480" step="1"
+                                                   placeholder="30">
+                                            <span class="input-group-text text-muted small">min</span>
+                                        </div>
+                                        <div class="form-text">1 â€“ 480 minutes. Default: 30. Requires server restart to apply.</div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <label class="form-label fw-semibold small" for="maxFailedLoginsInput">
+                                            <i class="fas fa-ban me-1 text-danger"></i>
+                                            Max Failed Logins
+                                            <span class="text-muted fw-normal">(attempts)</span>
+                                        </label>
+                                        <div class="input-group input-group-sm" style="max-width:160px;">
+                                            <input type="number" class="form-control form-control-sm"
+                                                   id="maxFailedLoginsInput"
+                                                   min="1" max="20" step="1"
+                                                   placeholder="5">
+                                            <span class="input-group-text text-muted small">tries</span>
+                                        </div>
+                                        <div class="form-text">1 â€“ 20 attempts. Default: 5. Account locked after N failures.</div>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <button class="btn btn-warning btn-sm text-dark" id="saveSecurityBtn">
+                                        <i class="fas fa-save me-1"></i>Save Security Settings
+                                    </button>
+                                    <div class="save-indicator" id="securitySaveOk">
+                                        <i class="fas fa-check-circle"></i> Saved!
+                                    </div>
+                                    <div class="save-indicator text-danger" id="securitySaveErr" style="color:#ef4444!important;">
+                                        <i class="fas fa-times-circle"></i> <span id="securityErrMsg">Error</span>
+                                    </div>
+                                </div>
+
+                                <div class="alert alert-info py-2 small mt-3 mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    <strong>Note:</strong> Session Timeout and Max Failed Logins are also configurable
+                                    in the <code>.env</code> file. The UI value overrides the <code>.env</code> value
+                                    and is stored in the database â€” it persists across server restarts without editing files.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-card p-4 mb-4">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-list-alt me-2 text-muted"></i>All Current Settings</h6>
+                        <table class="table table-sm table-hover align-middle">
+                            <thead><tr><th>Setting Key</th><th>Current Value</th></tr></thead>
+                            <tbody id="allSettingsBody">
+                                <tr><td colspan="2" class="text-muted text-center py-3">Loading...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div><!-- /tab-general -->
+
+                <!-- API Keys tab moved to Backoffice -->
+
+
+
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• EMAIL TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+                <div id="tab-email" class="d-none">
+
+                    <!-- Status header card -->
+                    <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(99,102,241,.06) 0%,rgba(139,92,246,.03) 100%);border-left:4px solid #6366f1;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(99,102,241,.12);color:#6366f1;width:52px;height:52px;border-radius:14px;font-size:1.3rem;">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Email / SMTP Configuration</h6>
+                                <p class="text-muted small mb-0">
+                                    Configure outgoing email so the system can send reports directly from the Reports page.
+                                    Settings are stored in the database &mdash; no need to edit <code>.env</code> files.
+                                </p>
+                            </div>
+                            <div class="ms-auto text-end">
+                                <div class="text-muted small mb-1">Status</div>
+                                <div id="emailStatusBadge" class="badge bg-secondary">Loading...</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Provider quick-fill buttons -->
+                    <div class="glass-card p-4 mb-4">
+                        <h6 class="fw-bold mb-2"><i class="fas fa-bolt me-2 text-warning"></i>Quick Setup &mdash; Choose Your Email Provider</h6>
+                        <p class="text-muted small mb-3">Click a provider to auto-fill the server settings. You still need to enter your email address and password.</p>
+                        <div class="d-flex gap-2 flex-wrap" id="providerBtns">
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.gmail.com" data-port="587" data-name="Gmail">
+                                <i class="fab fa-google me-1"></i>Gmail
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp-mail.outlook.com" data-port="587" data-name="Outlook / Hotmail">
+                                <i class="fab fa-microsoft me-1"></i>Outlook / Hotmail
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.office365.com" data-port="587" data-name="Office 365">
+                                <i class="fas fa-building me-1"></i>Office 365
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.yahoo.com" data-port="465" data-name="Yahoo Mail">
+                                <i class="fab fa-yahoo me-1"></i>Yahoo Mail
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="email-smtp.us-east-1.amazonaws.com" data-port="587" data-name="Amazon SES">
+                                <i class="fab fa-aws me-1"></i>Amazon SES
+                            </button>
+                            <button class="btn btn-sm btn-outline-secondary provider-btn" data-host="smtp.sendgrid.net" data-port="587" data-name="SendGrid">
+                                <i class="fas fa-paper-plane me-1"></i>SendGrid
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Config form -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#6366f1;">
+                        <h6 class="fw-bold mb-3"><i class="fas fa-server me-2 text-muted"></i>SMTP Server Settings</h6>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">SMTP Host</label>
+                                <input type="text" class="form-control form-control-sm" id="smtpHost" placeholder="smtp.gmail.com">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label fw-semibold small">Port</label>
+                                <input type="number" class="form-control form-control-sm" id="smtpPort" placeholder="587" min="1" max="65535">
+                                <div class="form-text">587 = TLS, 465 = SSL</div>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label fw-semibold small">Sender Display Name</label>
+                                <input type="text" class="form-control form-control-sm" id="smtpFromName" placeholder="Home Accounting">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">Email Address (Username)</label>
+                                <input type="email" class="form-control form-control-sm" id="smtpUser" placeholder="youremail@gmail.com">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label fw-semibold small">
+                                    Password / App Password
+                                    <span class="text-muted" style="font-weight:400;font-size:.72rem" id="smtpPassHint">&nbsp;</span>
+                                </label>
+                                <div class="input-group input-group-sm">
+                                    <input type="password" class="form-control form-control-sm" id="smtpPass" placeholder="Leave blank to keep current password">
+                                    <button class="btn btn-outline-secondary" type="button" id="togglePassBtn" title="Show/hide password">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">Leave blank to keep the currently saved password.</div>
+                            </div>
+                        </div>
+
+                        <!-- Gmail App Password guide -->
+                        <div id="gmailGuide" class="mt-3 p-3 rounded-3 d-none" style="background:rgba(234,179,8,.06);border:1px solid rgba(234,179,8,.25);">
+                            <div class="fw-semibold small mb-2"><i class="fab fa-google me-1 text-warning"></i>Gmail requires an App Password (not your regular password)</div>
+                            <ol class="text-muted small mb-0 ps-3">
+                                <li>Go to <a href="https://myaccount.google.com/security" target="_blank" rel="noopener">myaccount.google.com/security</a></li>
+                                <li>Enable <strong>2-Step Verification</strong> if not already on</li>
+                                <li>Search <strong>"App Passwords"</strong> in the search bar</li>
+                                <li>Create one for <strong>Mail</strong> &mdash; copy the 16-character code</li>
+                                <li>Paste that code in the Password field above (spaces are OK)</li>
+                            </ol>
+                        </div>
+
+                        <div class="d-flex align-items-center gap-2 mt-3 flex-wrap">
+                            <button class="btn btn-primary btn-sm" id="saveSmtpBtn">
+                                <i class="fas fa-save me-1"></i>Save Settings
+                            </button>
+                            <button class="btn btn-outline-secondary btn-sm" id="testSmtpSettingsBtn">
+                                <i class="fas fa-plug me-1"></i>Test Connection
+                            </button>
+                            <div class="save-indicator" id="smtpSaveOk">
+                                <i class="fas fa-check-circle"></i> Saved!
+                            </div>
+                        </div>
+
+                        <!-- Test result inline -->
+                        <div id="smtpTestInlineResult" class="alert d-none mt-3 mb-0" role="alert"></div>
+                    </div>
+
+                    <!-- Send a test email -->
+                    <div class="glass-card p-4 mb-4 setting-card" style="border-left-color:#22c55e;">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="setting-icon" style="background:rgba(34,197,94,.12);color:#22c55e;">
+                                <i class="fas fa-vial"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-1 fw-bold">Send a Test Email</h6>
+                                <p class="text-muted small mb-2">Verify everything works end-to-end by sending a test message to any address.</p>
+                                <div class="row g-2 align-items-end">
+                                    <div class="col-md-5">
+                                        <input type="email" class="form-control form-control-sm" id="testEmailTo" placeholder="test@example.com">
+                                    </div>
+                                    <div class="col-auto">
+                                        <button class="btn btn-success btn-sm" id="sendTestEmailBtn">
+                                            <i class="fas fa-paper-plane me-1"></i>Send Test
+                                        </button>
+                                    </div>
+                                </div>
+                                <div id="testEmailResult" class="alert d-none mt-2 mb-0 py-2 small" role="alert"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div><!-- /tab-email -->
+
+
+                <!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• MANUAL TAB â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+                <div id="tab-manual" class="d-none">
+
+                    <div class="glass-card p-4 mb-4" style="background:linear-gradient(135deg,rgba(74,144,226,.06) 0%,rgba(26,58,92,.03) 100%);border-left:4px solid #4a90e2;">
+                        <div class="d-flex align-items-center gap-3">
+                            <div class="setting-icon" style="background:rgba(74,144,226,.12);color:#4a90e2;width:52px;height:52px;border-radius:14px;font-size:1.3rem;">
+                                <i class="fas fa-book-open"></i>
+                            </div>
+                            <div>
+                                <h5 class="mb-1 fw-bold">Home Accounting &mdash; User Manual</h5>
+                                <p class="text-muted small mb-0">Complete reference guide for all features. Click any question to expand the answer. Use the search in the <strong>? Help</strong> button (top-right navbar) for quick lookup.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Nav -->
+                    <div class="glass-card p-3 mb-4">
+                        <div class="d-flex flex-wrap gap-2" id="manualNavPills">
+                            <a class="btn btn-sm btn-outline-primary" href="#man-dashboard">ðŸ“Š Dashboard</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-patients">ðŸ‘¥ Patients</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-rx">ðŸ’Š RX Records</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-workflow">âœ… Workflow</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-reports">ðŸ“ˆ Reports</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-audit">ðŸ“‹ Audit Log</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-users">ðŸ‘¤ Users</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-settings">âš™ï¸ Settings</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-email">ðŸ“§ Email</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-multiuser">ðŸ‘ï¸ Multi-User</a>
+                            <a class="btn btn-sm btn-outline-primary" href="#man-import">ðŸ“¥ Import</a>
+                        </div>
+                    </div>
+
+                    <div id="manualContent">
+
+                        <!-- DASHBOARD -->
+                        <div class="glass-card p-4 mb-3" id="man-dashboard">
+                            <h6 class="fw-bold mb-3" style="color:#4a90e2"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</h6>
+                            <p class="text-muted small">The Dashboard is your real-time overview. Every number is clickable.</p>
+                            <div class="accordion" id="accDashboard">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d1">What are the stat cards at the top?</button>
+                                    <div id="d1" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
+                                        <div class="accordion-body small text-muted">The four cards &mdash; <strong>Active Patients</strong>, <strong>Pending RX</strong>, <strong>Total RX</strong>, and <strong>Total Patients</strong> &mdash; update live. Clicking any card number opens a filtered modal showing exactly those records. Use the date range filter to scope to any period.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d2">What is a Pending RX?</button>
+                                    <div id="d2" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
+                                        <div class="accordion-body small text-muted">An RX is "pending" when its workflow is not 100% complete &mdash; at least one step is still unchecked. Once all workflow steps are marked complete, it leaves the pending count.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#d3">RX Pipeline chart</button>
+                                    <div id="d3" class="accordion-collapse collapse" data-bs-parent="#accDashboard">
+                                        <div class="accordion-body small text-muted">Shows how many RX records are stuck at each workflow step. The longest bar is your bottleneck. Hover any bar for the exact count.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- PATIENTS -->
+                        <div class="glass-card p-4 mb-3" id="man-patients">
+                            <h6 class="fw-bold mb-3" style="color:#6366f1"><i class="fas fa-user-injured me-2"></i>Patients</h6>
+                            <p class="text-muted small">The core of the system. Every patient has a record, clinical notes, and a full RX history timeline.</p>
+                            <div class="accordion" id="accPatients">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p1">Adding a new patient</button>
+                                    <div id="p1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click <strong>"+ Add Patient"</strong>. Fill in First Name, Last Name, Date of Birth, Phone. Optionally add Patient Code, Clinic, and Transport companies. The system checks for duplicates by name + date of birth before saving.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p2">Editing a patient &mdash; and the Audit Log</button>
+                                    <div id="p2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click the <strong>pencil âœï¸</strong> icon. Every saved change is automatically recorded in the Audit Log with the old and new values.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p3">â­ Clicking the bold action in the Audit Log</button>
+                                    <div id="p3" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">In the Audit Log, each row shows an action like <strong>"UPDATE"</strong> in bold. <strong>Click that word</strong> &mdash; a panel expands showing the exact before and after values for every field that changed. Old values appear with a red strikethrough. New values appear highlighted in green. Works for patients, RX records, users, settings, API keys, and workflow completions.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p4">Patient Timeline &mdash; full RX history</button>
+                                    <div id="p4" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click the <strong>clock/timeline icon ðŸ•</strong> to open the patient's full RX history. Shows every RX record as a vertical timeline with progress bars, workflow steps, medications, and who completed each step.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#p5">Soft delete and restore</button>
+                                    <div id="p5" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Patients are never permanently deleted. Deleting hides them from the main list but admins can restore them. This protects against accidental data loss.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- RX RECORDS -->
+                        <div class="glass-card p-4 mb-3" id="man-rx">
+                            <h6 class="fw-bold mb-3" style="color:#22c55e"><i class="fas fa-prescription me-2"></i>RX Records</h6>
+                            <p class="text-muted small">Each RX record is a prescription delivery tracked through workflow steps.</p>
+                            <div class="accordion" id="accRx">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx1">Creating an RX record</button>
+                                    <div id="rx1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click <strong>"+ Add RX Record"</strong>. Select the patient, pharmacy, arrival date, service date, transport companies, and optionally medications. The RX starts with 0/N steps complete.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx2">Workflow step dots &mdash; what they mean</button>
+                                    <div id="rx2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted"><strong>Green dot = completed step. Grey dot = pending.</strong> Hover any dot to see the step name, who completed it, and the date/time. Click a step in the expanded view to mark it complete.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rx3">Undo last workflow step</button>
+                                    <div id="rx3" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Each RX has an <strong>"Undo"</strong> button that reverts the most recently completed step. Only the last step can be undone at a time. Useful when a step was marked complete by mistake.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- WORKFLOW -->
+                        <div class="glass-card p-4 mb-3" id="man-workflow">
+                            <h6 class="fw-bold mb-3" style="color:#f59e0b"><i class="fas fa-tasks me-2"></i>Workflow Actions (Steps)</h6>
+                            <p class="text-muted small">The configurable steps that every RX must go through. Go to Settings &rarr; Workflow Actions to manage them.</p>
+                            <div class="accordion" id="accWF">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#wf1">What are Workflow Actions?</button>
+                                    <div id="wf1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Named steps of your delivery process. Examples: "Prescription Received", "Medication Packaged", "Dispatched", "Delivered", "Patient Confirmed". Every RX is tracked against this list.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#wf2">Adding / editing steps</button>
+                                    <div id="wf2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Go to <strong>Settings &rarr; Workflow Actions</strong>. Click "+ Add Step". Give it a name and description. Steps apply immediately to all new RX records. Existing records keep their current progress.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- REPORTS -->
+                        <div class="glass-card p-4 mb-3" id="man-reports">
+                            <h6 class="fw-bold mb-3" style="color:#06b6d4"><i class="fas fa-chart-bar me-2"></i>Reports & Analytics</h6>
+                            <p class="text-muted small">Export, print, and email reports from the Reports page.</p>
+                            <div class="accordion" id="accReports">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rep1">Report tabs</button>
+                                    <div id="rep1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Four views: <strong>Summary</strong> (KPI overview), <strong>Patients</strong> (full list), <strong>RX Records</strong> (all prescriptions), <strong>Workflow Actions</strong> (step completion per RX).</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#rep2">ðŸ“§ Email Report button</button>
+                                    <div id="rep2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Click <strong>"ðŸ“§ Email Report"</strong> in the report tab bar. Choose the report type, enter recipient email(s) (comma-separated), optional subject, and date range. Click <strong>"Test Connection"</strong> first to verify SMTP works, then <strong>"Send Report"</strong>. SMTP must be configured in System Settings &rarr; Email Setup first.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- AUDIT LOG -->
+                        <div class="glass-card p-4 mb-3" id="man-audit">
+                            <h6 class="fw-bold mb-3" style="color:#8b5cf6"><i class="fas fa-history me-2"></i>Audit Log</h6>
+                            <p class="text-muted small">Records every action taken by every user. Nothing is hidden. Administrators only.</p>
+                            <div class="accordion" id="accAudit">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#au1">â­ Clicking the bold action word (most important)</button>
+                                    <div id="au1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted"><strong>Click the bold action word</strong> (e.g. "UPDATE", "CREATE", "DELETE") in any audit log row. A panel expands showing the complete before/after diff. Old values have red strikethrough. New values are green. Fields that did not change are grey. Works for ALL record types.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#au2">Filters</button>
+                                    <div id="au2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Filter by date range, user, module (Patients / RX / Users / Settings etc.), and action type. Combine multiple filters. Click "Clear" to reset.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- USERS -->
+                        <div class="glass-card p-4 mb-3" id="man-users">
+                            <h6 class="fw-bold mb-3" style="color:#ef4444"><i class="fas fa-users-cog me-2"></i>User Management</h6>
+                            <p class="text-muted small">Manage staff accounts. Administrator access only.</p>
+                            <div class="accordion" id="accUsers">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#u1">Roles and permissions</button>
+                                    <div id="u1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted"><strong>Administrator</strong> &mdash; full access including user management and system settings. <strong>Manager</strong> &mdash; all patient/RX data and reports, no user/settings management. <strong>Staff</strong> &mdash; add/edit patients and RX records, complete workflow steps. <strong>Viewer</strong> &mdash; read-only access, no editing.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#u2">Changing a password</button>
+                                    <div id="u2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Edit the user, enter a new password. Leave blank to keep the current password. Passwords are stored as bcrypt hashes &mdash; they cannot be read by anyone, including admins.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SETTINGS GENERAL -->
+                        <div class="glass-card p-4 mb-3" id="man-settings">
+                            <h6 class="fw-bold mb-3" style="color:#64748b"><i class="fas fa-cog me-2"></i>System Settings &mdash; General</h6>
+                            <div class="accordion" id="accSetGen">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#sg1">Timezone setting</button>
+                                    <div id="sg1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Sets the timezone for ALL timestamps &mdash; audit logs, RX dates, workflow completions. Applies immediately without server restart. Stored in the database so it persists across restarts. If the server runs in UTC but you're in Eastern time, set "America/New_York" here.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- EMAIL SETUP -->
+                        <div class="glass-card p-4 mb-3" id="man-email">
+                            <h6 class="fw-bold mb-3" style="color:#6366f1"><i class="fas fa-envelope me-2"></i>System Settings &mdash; Email Setup</h6>
+                            <div class="accordion" id="accEmail">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#em1">Gmail &mdash; App Password required</button>
+                                    <div id="em1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Gmail requires a special <strong>App Password</strong> (not your regular password). 1) Go to <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a>. 2) Enable 2-Step Verification. 3) Search "App Passwords". 4) Create one for "Mail". 5) Paste the 16-character code in the Password field. Use the Quick Setup button to auto-fill Gmail server settings.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#em2">Test Connection and Send Test Email</button>
+                                    <div id="em2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">Always click <strong>"Test Connection"</strong> after saving to verify SMTP credentials work. Then use <strong>"Send Test Email"</strong> to verify end-to-end delivery to any address.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- API Keys manual section moved to Backoffice -->
+
+                        <!-- MULTI-USER -->
+                        <div class="glass-card p-4 mb-3" id="man-multiuser">
+                            <h6 class="fw-bold mb-3" style="color:#22c55e"><i class="fas fa-users me-2"></i>Multi-User / Concurrent Access</h6>
+                            <div class="accordion" id="accMulti">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu1">ðŸ‘ï¸ The yellow viewer banner</button>
+                                    <div id="mu1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">If a colleague has the same patient open, a <strong>yellow banner</strong> appears: "ðŸ‘ï¸ Maria is also viewing this patient." This is informational only &mdash; it does not block editing. The banner updates every 60 seconds.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu2">TTL &mdash; what is the 5-minute expiry?</button>
+                                    <div id="mu2" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">TTL = "Time To Live." When a user opens a patient, a 5-minute lock is created. The page sends a <strong>heartbeat every 60 seconds</strong> to renew it. If the user closes the tab or goes idle, the lock expires after 5 minutes and the banner disappears automatically. This prevents phantom "someone is viewing" notices when a user just forgot to close a tab.</div>
+                                    </div>
+                                </div>
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#mu3">Two users saving the same patient</button>
+                                    <div id="mu3" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">"Last save wins" &mdash; whoever saves last overwrites the previous save for any overlapping fields. The yellow banner warns you this might happen. The Audit Log records both saves so you can always see what each user changed and restore values if needed.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- IMPORT -->
+                        <div class="glass-card p-4 mb-3" id="man-import">
+                            <h6 class="fw-bold mb-3" style="color:#0ea5e9"><i class="fas fa-file-import me-2"></i>Data Import</h6>
+                            <div class="accordion" id="accImport">
+                                <div class="accordion-item border-0 mb-1" style="background:var(--bg-subtle,#f8fafc);border-radius:8px;overflow:hidden">
+                                    <button class="accordion-button collapsed fw-semibold small" style="background:transparent" type="button" data-bs-toggle="collapse" data-bs-target="#im1">How to import patients from CSV</button>
+                                    <div id="im1" class="accordion-collapse collapse">
+                                        <div class="accordion-body small text-muted">1) Click "Download Template" to get the correct column headers. 2) Fill in the template &mdash; dates must be YYYY-MM-DD format. 3) Upload the CSV. 4) Review the results table showing which rows succeeded and which failed (with reasons). Duplicates (same name + DOB) are skipped with a warning.</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div><!-- /manualContent -->
+
+                </div><!-- /tab-manual -->
+
+                </div><!-- /tab-manual -->
+
+            </div><!-- /settingsContent -->
+        </div>
+    </div>
+</div>
+
+<!-- Revoke API Key modal moved to Backoffice -->
+
+
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/js/base.js"></script>
+<script src="/js/app.js"></script>
+<script src="/js/help.js"></script>
+
+<script src="/js/system-settings.js"></script>
+
+</body>
+</html>
+

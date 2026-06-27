@@ -1,0 +1,1583 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>document.documentElement.setAttribute('data-theme','dark');</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Back Office &mdash; Data Control Center</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <script src="/assets/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0f1e;
+            --surface: #111827;
+            --surface-2: #1a2235;
+            --surface-3: #212d42;
+            --border: rgba(255,255,255,0.07);
+            --text: #e2e8f0;
+            --text-muted: #64748b;
+            --red: #ef4444;
+            --radius: 14px;
+            --radius-sm: 8px;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+        /* â”€â”€ Header â”€â”€ */
+        .bo-header {
+            background: linear-gradient(135deg, #0d1117 0%, #1a0a0a 50%, #0d1117 100%);
+            border-bottom: 1px solid rgba(239,68,68,0.25);
+            padding: 1.25rem 2rem;
+            display: flex; align-items: center; justify-content: space-between;
+            position: sticky; top: 0; z-index: 200;
+            backdrop-filter: blur(20px);
+        }
+        .bo-brand { display: flex; align-items: center; gap: 0.875rem; }
+        .bo-brand-icon {
+            width: 40px; height: 40px; border-radius: 10px;
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem; box-shadow: 0 0 18px rgba(239,68,68,0.4);
+        }
+        .bo-brand h1 { font-size: 1.1rem; font-weight: 700; margin: 0; }
+        .bo-brand small { font-size: 0.68rem; color: var(--red); font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-top: 1px; }
+        .badge-admin { background: rgba(239,68,68,0.15); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; padding: 0.28rem 0.7rem; border-radius: 20px; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+        .btn-bo { border: none; border-radius: var(--radius-sm); padding: 0.5rem 1rem; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 0.4rem; text-decoration: none; }
+        .btn-bo-outline { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+        .btn-bo-outline:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
+        .btn-bo-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; box-shadow: 0 0 14px rgba(239,68,68,0.3); }
+        .btn-bo-danger:hover { box-shadow: 0 0 22px rgba(239,68,68,0.5); transform: translateY(-1px); }
+        .btn-bo-danger:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+        .btn-bo-success { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+        .btn-bo-success:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .btn-bo-primary { background: linear-gradient(135deg, #6366f1, #4f46e5); color: #fff; }
+        .btn-bo-primary:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        /* â”€â”€ Warning Banner â”€â”€ */
+        .warning-banner { background: linear-gradient(135deg, rgba(239,68,68,0.1), rgba(220,38,38,0.05)); border: 1px solid rgba(239,68,68,0.2); border-radius: var(--radius); padding: 0.875rem 1.125rem; display: flex; align-items: flex-start; gap: 0.75rem; margin-bottom: 1.75rem; }
+        .warning-banner i { color: var(--red); font-size: 1.1rem; margin-top: 0.1rem; flex-shrink: 0; }
+        .warning-banner p { margin: 0; font-size: 0.82rem; color: #fca5a5; line-height: 1.5; }
+
+        /* â”€â”€ Stats â”€â”€ */
+        .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.65rem; margin-bottom: 1.75rem; }
+        .stat-pill { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.7rem 1rem; text-align: center; }
+        .stat-pill .num { font-size: 1.5rem; font-weight: 800; line-height: 1; margin-bottom: 0.15rem; }
+        .stat-pill .lbl { font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+        /* â”€â”€ Section Title â”€â”€ */
+        .section-title { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-muted); margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+
+        /* â”€â”€ Table Cards â”€â”€ */
+        .tables-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 0.75rem; margin-bottom: 2rem; }
+        .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; position: relative; overflow: hidden; transition: all 0.2s; }
+        .table-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--card-color, #6366f1), transparent); opacity: 0; transition: opacity 0.2s; }
+        .table-card:hover { border-color: rgba(255,255,255,0.1); transform: translateY(-1px); }
+        .table-card.selected { border-color: var(--card-color, #6366f1) !important; background: var(--surface-2); }
+        .table-card.selected::before { opacity: 1; }
+
+        .tc-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+        .tc-left { display: flex; align-items: center; gap: 0.55rem; }
+        .table-icon { width: 32px; height: 32px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; flex-shrink: 0; }
+        .table-name { font-size: 0.85rem; font-weight: 600; }
+        .table-desc { font-size: 0.7rem; color: var(--text-muted); line-height: 1.4; margin-bottom: 0.625rem; }
+        .tc-count { font-size: 1.4rem; font-weight: 800; line-height: 1; }
+        .tc-count span { font-size: 0.62rem; font-weight: 400; color: var(--text-muted); margin-left: 0.2rem; }
+        .count-zero { color: var(--text-muted) !important; }
+
+        .check-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.12); display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0; cursor: pointer; }
+        .table-card.selected .check-dot { background: var(--card-color, #6366f1); border-color: var(--card-color, #6366f1); }
+        .check-dot i { font-size: 0.6rem; opacity: 0; transition: opacity 0.2s; }
+        .table-card.selected .check-dot i { opacity: 1; }
+
+        /* â”€â”€ Card action buttons â”€â”€ */
+        .tc-actions { display: flex; gap: 0.4rem; margin-top: 0.625rem; }
+        .tc-btn { flex: 1; border: none; border-radius: 6px; padding: 0.4rem 0.6rem; font-size: 0.72rem; font-weight: 600; cursor: pointer; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 0.3rem; }
+        .tc-btn-view { background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.25); color: #a5b4fc; }
+        .tc-btn-view:hover { background: rgba(99,102,241,0.22); border-color: rgba(99,102,241,0.5); color: #c7d2fe; }
+        .tc-btn-export { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.22); color: #6ee7b7; }
+        .tc-btn-export:hover { background: rgba(16,185,129,0.2); border-color: rgba(16,185,129,0.45); color: #a7f3d0; }
+        .tc-btn-select { background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--text-muted); }
+        .tc-btn-select:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+        .table-card.selected .tc-btn-select { background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.25); color: #fca5a5; }
+
+        .dep-badge { font-size: 0.6rem; background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.18); color: #fca5a5; border-radius: 4px; padding: 0.08rem 0.3rem; margin-top: 0.2rem; display: inline-block; }
+
+        /* â”€â”€ Action Bar â”€â”€ */
+        .action-bar { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; position: sticky; bottom: 1.25rem; box-shadow: 0 4px 40px rgba(0,0,0,0.5); }
+        .selected-count { font-size: 0.82rem; color: var(--text-muted); }
+        .selected-count strong { color: var(--text); }
+
+        /* â”€â”€ Data Viewer Overlay â”€â”€ */
+        .viewer-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.88); backdrop-filter: blur(8px);
+            z-index: 9000; display: none; flex-direction: column;
+        }
+        .viewer-overlay.show { display: flex; }
+        .viewer-header {
+            background: var(--surface); border-bottom: 1px solid var(--border);
+            padding: 0.875rem 1.5rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-shrink: 0;
+        }
+        .viewer-title { display: flex; align-items: center; gap: 0.75rem; }
+        .viewer-title h5 { margin: 0; font-size: 1rem; font-weight: 700; }
+        .viewer-title .v-badge { font-size: 0.7rem; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 0.2rem 0.55rem; color: var(--text-muted); }
+        .viewer-actions { display: flex; align-items: center; gap: 0.5rem; }
+
+        /* Search + filter bar */
+        .viewer-toolbar {
+            background: var(--surface-2); border-bottom: 1px solid var(--border);
+            padding: 0.625rem 1.5rem; display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; flex-wrap: wrap;
+        }
+        .viewer-search {
+            flex: 1; min-width: 200px; max-width: 360px;
+            background: var(--surface-3); border: 1px solid var(--border); border-radius: 8px;
+            color: var(--text); padding: 0.4rem 0.75rem; font-size: 0.82rem; outline: none;
+        }
+        .viewer-search:focus { border-color: rgba(99,102,241,0.4); }
+        .viewer-search::placeholder { color: var(--text-muted); }
+        .viewer-info { font-size: 0.75rem; color: var(--text-muted); margin-left: auto; }
+
+        /* Column toggles */
+        .col-toggle-wrap { position: relative; }
+        .col-toggle-btn { background: var(--surface-3); border: 1px solid var(--border); border-radius: 8px; color: var(--text-muted); padding: 0.38rem 0.75rem; font-size: 0.78rem; cursor: pointer; transition: all 0.2s; }
+        .col-toggle-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+        .col-dropdown { position: absolute; top: calc(100% + 6px); right: 0; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.5rem; min-width: 200px; max-height: 280px; overflow-y: auto; z-index: 100; display: none; box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
+        .col-dropdown.open { display: block; }
+        .col-item { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 5px; cursor: pointer; font-size: 0.78rem; transition: background 0.15s; }
+        .col-item:hover { background: rgba(255,255,255,0.04); }
+        .col-item input[type=checkbox] { accent-color: #6366f1; width: 14px; height: 14px; flex-shrink: 0; }
+
+        /* Data table */
+        .viewer-body { flex: 1; overflow: auto; padding: 0; }
+        .data-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; white-space: nowrap; }
+        .data-table thead th {
+            position: sticky; top: 0; background: var(--surface-2);
+            border-bottom: 1px solid var(--border); padding: 0.55rem 0.875rem;
+            font-weight: 600; text-align: left; color: var(--text-muted);
+            cursor: pointer; user-select: none; transition: color 0.15s;
+        }
+        .data-table thead th:hover { color: var(--text); }
+        .data-table thead th .sort-icon { margin-left: 4px; font-size: 0.65rem; opacity: 0.4; }
+        .data-table thead th.sorted .sort-icon { opacity: 1; color: #6366f1; }
+        .data-table tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+        .data-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+        .data-table tbody td { padding: 0.45rem 0.875rem; color: var(--text); max-width: 260px; overflow: hidden; text-overflow: ellipsis; }
+        .data-table tbody td.null-cell { color: var(--text-muted); font-style: italic; }
+        .data-table tbody td.bool-true  { color: #6ee7b7; }
+        .data-table tbody td.bool-false { color: #fca5a5; }
+        .no-rows { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.875rem; }
+
+        /* Pagination */
+        .viewer-footer { background: var(--surface); border-top: 1px solid var(--border); padding: 0.625rem 1.5rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .pag-info { font-size: 0.75rem; color: var(--text-muted); }
+        .pag-controls { display: flex; align-items: center; gap: 0.4rem; }
+        .pag-btn { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); padding: 0.3rem 0.65rem; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; }
+        .pag-btn:hover:not(:disabled) { color: var(--text); border-color: rgba(255,255,255,0.2); }
+        .pag-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .pag-btn.active { background: rgba(99,102,241,0.2); border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
+        .pag-size { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-muted); padding: 0.28rem 0.5rem; font-size: 0.75rem; cursor: pointer; }
+
+        /* â”€â”€ Confirm Purge Modal â”€â”€ */
+        .bo-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.82); backdrop-filter: blur(6px); z-index: 9500; display: none; align-items: center; justify-content: center; }
+        .bo-modal-backdrop.show { display: flex; }
+        .bo-modal { background: var(--surface); border: 1px solid rgba(239,68,68,0.3); border-radius: 20px; width: 100%; max-width: 520px; margin: 1rem; overflow: hidden; animation: modalIn 0.2s ease; }
+        @keyframes modalIn { from { transform: translateY(16px) scale(0.97); opacity: 0; } to { transform: none; opacity: 1; } }
+        .bo-modal-header { background: linear-gradient(135deg, #1a0a0a, #2d0f0f); border-bottom: 1px solid rgba(239,68,68,0.2); padding: 1.125rem 1.5rem; display: flex; align-items: center; gap: 0.75rem; }
+        .bo-modal-header h5 { margin: 0; font-size: 0.95rem; font-weight: 700; color: #fca5a5; }
+        .bo-modal-body { padding: 1.375rem; }
+        .bo-modal-footer { padding: 0.875rem 1.375rem; border-top: 1px solid var(--border); display: flex; gap: 0.625rem; justify-content: flex-end; }
+        .delete-summary { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; margin-bottom: 1rem; max-height: 180px; overflow-y: auto; }
+        .del-item { display: flex; align-items: center; justify-content: space-between; padding: 0.28rem 0; font-size: 0.8rem; border-bottom: 1px solid var(--border); }
+        .del-item:last-child { border-bottom: none; }
+        .del-item .name { color: var(--text); font-weight: 500; }
+        .del-item .cnt { color: var(--red); font-weight: 700; }
+        .confirm-input-wrap { margin-top: 0.875rem; }
+        .confirm-input-wrap label { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 0.35rem; display: block; }
+        .confirm-input-wrap label code { color: #fca5a5; background: rgba(239,68,68,0.1); padding: 0.1rem 0.35rem; border-radius: 4px; }
+        .confirm-input { width: 100%; background: var(--surface-3); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text); padding: 0.6rem 0.8rem; font-size: 0.875rem; outline: none; transition: border-color 0.2s; }
+        .confirm-input:focus { border-color: rgba(239,68,68,0.4); }
+        .confirm-input.valid { border-color: rgba(239,68,68,0.65); background: rgba(239,68,68,0.05); }
+
+        /* â”€â”€ Toast â”€â”€ */
+        .bo-toast-wrap { position: fixed; top: 1.25rem; right: 1.25rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.4rem; }
+        .bo-toast { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.65rem 1.1rem; font-size: 0.8rem; font-weight: 500; min-width: 240px; box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: toastIn 0.2s ease; display: flex; align-items: center; gap: 0.45rem; }
+        @keyframes toastIn { from { transform: translateX(28px); opacity: 0; } to { transform: none; opacity: 1; } }
+        .bo-toast.success { border-color: rgba(16,185,129,0.4); color: #6ee7b7; }
+        .bo-toast.danger  { border-color: rgba(239,68,68,0.4);  color: #fca5a5; }
+        .bo-toast.info    { border-color: rgba(99,102,241,0.4); color: #a5b4fc; }
+
+        /* â”€â”€ Denied / misc â”€â”€ */
+        .denied-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; gap: 1rem; }
+        .main-wrap { max-width: 1200px; margin: 0 auto; padding: 1.75rem 1.5rem 6rem; }
+        .spinner-sm { width: 13px; height: 13px; border: 2px solid rgba(255,255,255,0.25); border-top-color: #fff; border-radius: 50%; animation: spin 0.65s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* â”€â”€ Tab Nav â”€â”€ */
+        .tab-nav { display:flex; gap:0.25rem; margin-bottom:1.5rem; background:var(--surface-2); border:1px solid var(--border); border-radius:10px; padding:0.3rem; }
+        .tab-btn { flex:1; border:none; border-radius:7px; padding:0.55rem 1rem; font-size:0.8rem; font-weight:600; cursor:pointer; transition:all 0.2s; color:var(--text-muted); background:transparent; }
+        .tab-btn.active { background:var(--surface); color:var(--text); box-shadow:0 1px 8px rgba(0,0,0,0.3); }
+        .tab-btn i { margin-right:0.4rem; }
+
+        /* Log Dashboard */
+        .logdash-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(155px,1fr)); gap:0.65rem; margin-bottom:1rem; }
+        .logdash-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:0.95rem; }
+        .logdash-card .logdash-label { font-size:0.66rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:0.4rem; }
+        .logdash-card .logdash-value { font-size:1.5rem; font-weight:800; line-height:1; }
+        .logdash-panel { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; margin-bottom:1rem; }
+        .logdash-panel-head { padding:0.75rem 0.95rem; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; }
+        .logdash-panel-title { font-size:0.8rem; font-weight:700; color:var(--text); text-transform:uppercase; letter-spacing:0.06em; }
+        .logdash-panel-body { padding:0.9rem; }
+        .logdash-two-col { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+        .logdash-list { display:flex; flex-direction:column; gap:0.5rem; }
+        .logdash-row { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; border-bottom:1px solid rgba(255,255,255,0.045); padding:0.45rem 0; font-size:0.78rem; }
+        .logdash-row:last-child { border-bottom:none; }
+        .logdash-muted { color:var(--text-muted); font-size:0.74rem; }
+        .logdash-bar { height:7px; background:rgba(99,102,241,0.15); border-radius:999px; overflow:hidden; min-width:80px; }
+        .logdash-bar > span { display:block; height:100%; background:#6366f1; border-radius:999px; }
+        .logdash-insight { border:1px solid var(--border); border-left:3px solid #6366f1; background:rgba(255,255,255,0.025); border-radius:9px; padding:0.7rem 0.8rem; margin-bottom:0.55rem; }
+        .logdash-insight.good { border-left-color:#10b981; }
+        .logdash-insight.warning { border-left-color:#f59e0b; }
+        .logdash-insight.danger { border-left-color:#ef4444; }
+        .logdash-chip { display:inline-flex; align-items:center; gap:0.3rem; border-radius:999px; padding:0.18rem 0.48rem; font-size:0.68rem; font-weight:700; border:1px solid var(--border); white-space:nowrap; }
+        .logdash-chip.good { background:rgba(16,185,129,0.12); border-color:rgba(16,185,129,0.28); color:#6ee7b7; }
+        .logdash-chip.info { background:rgba(99,102,241,0.12); border-color:rgba(99,102,241,0.28); color:#a5b4fc; }
+        .logdash-chip.warning { background:rgba(245,158,11,0.12); border-color:rgba(245,158,11,0.28); color:#fbbf24; }
+        .logdash-chip.danger { background:rgba(239,68,68,0.12); border-color:rgba(239,68,68,0.28); color:#fca5a5; }
+        .logdash-table { width:100%; border-collapse:collapse; font-size:0.76rem; }
+        .logdash-table th { color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; font-size:0.64rem; font-weight:700; background:var(--surface-2); border-bottom:1px solid var(--border); padding:0.5rem 0.65rem; text-align:left; }
+        .logdash-table td { padding:0.5rem 0.65rem; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:top; }
+        .logdash-table tr:last-child td { border-bottom:none; }
+        .logdash-path { font-family:monospace; color:#a5b4fc; max-width:280px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+        .logdash-pager { display:flex; align-items:center; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; padding:0.7rem 0.85rem; border-bottom:1px solid var(--border); background:rgba(255,255,255,0.025); }
+        .logdash-pager.compact { padding:0 0 0.65rem; border-bottom:none; background:transparent; }
+        .logdash-pager-controls { display:flex; align-items:center; gap:0.45rem; flex-wrap:wrap; }
+        .logdash-pager-select { background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:0.32rem 0.5rem; font-size:0.74rem; }
+        .logdash-pager-btn { background:var(--surface-2); border:1px solid var(--border); color:var(--text); border-radius:7px; padding:0.32rem 0.55rem; font-size:0.74rem; cursor:pointer; }
+        .logdash-pager-btn:disabled { opacity:0.45; cursor:not-allowed; }
+        .logdash-filter-help { margin-top:0.65rem; display:flex; flex-wrap:wrap; gap:0.45rem; align-items:center; }
+        .logdash-filter-tag { display:inline-flex; align-items:center; gap:0.3rem; border:1px solid var(--border); border-radius:999px; padding:0.22rem 0.55rem; color:var(--text-muted); font-size:0.7rem; background:rgba(255,255,255,0.025); }
+        .logdash-collapse-btn { background:transparent; border:1px solid var(--border); color:var(--text-muted); border-radius:999px; padding:0.25rem 0.6rem; font-size:0.7rem; cursor:pointer; }
+        .logdash-collapse-btn:hover { color:var(--text); border-color:#6366f1; }
+        .logdash-chart { min-height:260px; }
+        .logdash-score { display:flex; align-items:center; gap:1rem; }
+        .logdash-score-num { width:86px; height:86px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:1.6rem; font-weight:900; border:6px solid rgba(99,102,241,0.25); background:rgba(255,255,255,0.025); }
+        .logdash-source-table { width:100%; border-collapse:collapse; font-size:0.74rem; }
+        .logdash-source-table td { padding:0.32rem 0; border-bottom:1px solid rgba(255,255,255,0.04); }
+        .logdash-source-table tr:last-child td { border-bottom:none; }
+        @media (max-width: 900px) { .logdash-two-col { grid-template-columns:1fr; } .tab-nav { flex-wrap:wrap; } .tab-btn { flex:1 1 140px; } }
+
+        /* â”€â”€ Schema Panel â”€â”€ */
+        .schema-wrap { display:none; }
+        .schema-wrap.show { display:block; }
+        .schema-layout { display:grid; grid-template-columns:260px 1fr; gap:1rem; align-items:start; min-height:500px; }
+        .schema-sidebar { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; position:sticky; top:80px; }
+        .schema-sidebar-header { padding:0.75rem 1rem; border-bottom:1px solid var(--border); font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:var(--text-muted); display:flex; align-items:center; justify-content:space-between; }
+        .schema-tbl-item { padding:0.5rem 1rem; font-size:0.82rem; cursor:pointer; transition:background 0.15s; display:flex; align-items:center; gap:0.5rem; border-left:2px solid transparent; }
+        .schema-tbl-item:hover { background:rgba(255,255,255,0.03); }
+        .schema-tbl-item.active { background:rgba(99,102,241,0.08); border-left-color:#6366f1; color:#a5b4fc; }
+        .schema-tbl-item .tbl-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+        .schema-tbl-item .fk-count { margin-left:auto; font-size:0.68rem; color:var(--text-muted); }
+
+        .schema-main { display:flex; flex-direction:column; gap:1rem; }
+        .schema-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+        .schema-card-header { padding:0.875rem 1.125rem; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:0.75rem; }
+        .schema-card-header h6 { margin:0; font-size:0.95rem; font-weight:700; }
+        .schema-card-header small { font-size:0.7rem; color:var(--text-muted); margin-left:auto; }
+        .schema-col-table { width:100%; border-collapse:collapse; font-size:0.78rem; }
+        .schema-col-table th { padding:0.4rem 1rem; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); border-bottom:1px solid var(--border); text-align:left; background:var(--surface-2); }
+        .schema-col-table td { padding:0.42rem 1rem; border-bottom:1px solid rgba(255,255,255,0.035); vertical-align:middle; }
+        .schema-col-table tr:last-child td { border-bottom:none; }
+        .schema-col-table tr:hover td { background:rgba(255,255,255,0.02); }
+        .col-name { font-family:monospace; font-size:0.82rem; color:var(--text); }
+        .col-type { font-size:0.72rem; color:var(--text-muted); font-family:monospace; }
+        .badge-pk  { font-size:0.6rem; background:rgba(251,191,36,0.15); border:1px solid rgba(251,191,36,0.3); color:#fbbf24; border-radius:4px; padding:0.1rem 0.4rem; margin-right:0.3rem; font-weight:700; }
+        .badge-fk  { font-size:0.6rem; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); color:#a5b4fc; border-radius:4px; padding:0.1rem 0.4rem; font-weight:700; }
+        .badge-nn  { font-size:0.6rem; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); color:#fca5a5; border-radius:4px; padding:0.1rem 0.35rem; font-weight:600; }
+        .fk-ref  { font-size:0.72rem; color:#a5b4fc; display:flex; align-items:center; gap:0.3rem; }
+        .fk-ref i { font-size:0.65rem; }
+        .fk-ref .fk-target { cursor:pointer; text-decoration:underline; text-underline-offset:2px; }
+        .fk-ref .fk-target:hover { color:#c7d2fe; }
+
+        /* Referenced-by panel */
+        .ref-by-section { padding:0.75rem 1rem; border-top:1px solid var(--border); background:var(--surface-2); }
+        .ref-by-title { font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); margin-bottom:0.5rem; }
+        .ref-by-chips { display:flex; flex-wrap:wrap; gap:0.35rem; }
+        .ref-chip { font-size:0.72rem; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.2); color:#6ee7b7; border-radius:6px; padding:0.2rem 0.6rem; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:0.3rem; }
+        .ref-chip:hover { background:rgba(16,185,129,0.2); border-color:rgba(16,185,129,0.4); }
+
+        /* FK relationship list */
+        .fk-list-section { padding:0; }
+        .fk-list-title { padding:0.625rem 1.125rem; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); border-bottom:1px solid var(--border); }
+        .fk-row { display:grid; grid-template-columns:1fr 40px 1fr; align-items:center; padding:0.5rem 1.125rem; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.78rem; gap:0.5rem; }
+        .fk-row:last-child { border-bottom:none; }
+        .fk-row:hover { background:rgba(255,255,255,0.02); }
+        .fk-from { color:var(--text); } .fk-to { color:#a5b4fc; }
+        .fk-arrow { text-align:center; color:var(--text-muted); font-size:0.8rem; }
+        .schema-search { width:100%; background:var(--surface-3); border:1px solid var(--border); border-radius:8px; color:var(--text); padding:0.45rem 0.75rem; font-size:0.8rem; outline:none; margin-bottom:1rem; }
+        .schema-search:focus { border-color:rgba(99,102,241,0.4); }
+        .schema-search::placeholder { color:var(--text-muted); }
+
+        /* â”€â”€ API Key panel styles (ported from System Settings) â”€â”€ */
+        .api-filter {
+            font-size:.72rem; padding:3px 10px; border-radius:20px;
+            border:1px solid rgba(99,102,241,.3); background:transparent;
+            color:#6366f1; transition:all .15s; cursor:pointer;
+        }
+        .api-filter.active, .api-filter:hover {
+            background:rgba(99,102,241,.15); border-color:#6366f1; font-weight:600;
+        }
+        .endpoint-row {
+            border-left:3px solid transparent; border-radius:6px;
+            padding:7px 12px; margin-bottom:3px; transition:background .12s;
+        }
+        .endpoint-row:hover { background:rgba(99,102,241,.04); }
+        .endpoint-row.get    { border-left-color:#22c55e; }
+        .endpoint-row.post   { border-left-color:#6366f1; }
+        .endpoint-row.put    { border-left-color:#f59e0b; }
+        .endpoint-row.patch  { border-left-color:#06b6d4; }
+        .endpoint-row.delete { border-left-color:#ef4444; }
+        .method-badge {
+            font-size:.65rem; font-weight:700; padding:2px 7px; border-radius:4px;
+            font-family:monospace; min-width:48px; display:inline-block; text-align:center;
+        }
+        .method-badge.get    { background:rgba(34,197,94,.15);  color:#16a34a; }
+        .method-badge.post   { background:rgba(99,102,241,.15); color:#4f46e5; }
+        .method-badge.put    { background:rgba(245,158,11,.15); color:#b45309; }
+        .method-badge.patch  { background:rgba(6,182,212,.15);  color:#0e7490; }
+        .method-badge.delete { background:rgba(239,68,68,.15);  color:#dc2626; }
+        .endpoint-path { font-family:'Courier New',monospace; font-size:.8rem; font-weight:600; }
+        .perm-badge { font-size:.68rem; padding:1px 6px; border-radius:3px; background:rgba(107,114,128,.1); color:#6b7280; }
+        .perm-badge.admin { background:rgba(239,68,68,.1); color:#ef4444; }
+        .section-divider { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:#9ca3af; padding:10px 0 4px; }
+        .bo-api-usage-box {
+            font-family:'Courier New',monospace; font-size:.78rem;
+            background:#0d1117; color:#8b949e; border-radius:8px; padding:10px 14px;
+        }
+        .bo-api-usage-box .hl { color:#58a6ff; }
+        .bo-api-usage-box .val { color:#a5d6ff; }
+    </style>
+</head>
+<body>
+
+<!-- â”€â”€ Header â”€â”€ -->
+<header class="bo-header">
+    <div class="bo-brand">
+        <div class="bo-brand-icon"><i class="fas fa-skull-crossbones"></i></div>
+        <div>
+            <h1>Data Control Center</h1>
+            <small>&#9888; Back Office &mdash; Administrator Only</small>
+        </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:0.75rem">
+        <!-- Live date pill -->
+        <span id="boLiveDate"
+              style="font-size:.75rem;font-weight:700;color:#e2e8f0;white-space:nowrap;padding:3px 10px;border-radius:20px;border:1.5px solid rgba(255,255,255,0.15);display:inline-flex;align-items:center;gap:5px">
+            <i class="fas fa-calendar-day" style="font-size:.65rem;opacity:.6"></i>
+            <span id="boLiveDateText"></span>
+        </span>
+        <span id="boVersionBadge" class="badge-admin" title="Application version">v<%= locals.appVersion || 'â€”' %></span>
+        <span class="badge-admin" id="userBadge">Loading...</span>
+        <button class="btn-bo btn-bo-outline" onclick="loadStats()" id="refreshBtn"><i class="fas fa-sync-alt"></i></button>
+        <a href="/dashboard" class="btn-bo btn-bo-outline"><i class="fas fa-arrow-left me-1"></i>Back</a>
+    </div>
+</header>
+
+<!-- â”€â”€ Main â”€â”€ -->
+<div class="main-wrap" id="mainWrap" style="display:none">
+    <div class="warning-banner">
+        <i class="fas fa-exclamation-triangle"></i>
+        <p><strong>Danger Zone.</strong> Deletions are <strong>permanent and irreversible</strong>. Use <strong>View</strong> to inspect data and <strong>Export CSV</strong> to back up before purging.</p>
+    </div>
+
+    <!-- BO-10: Maintenance Mode Banner (shown when active) -->
+    <div id="maintModeBanner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:0.6rem 1rem;margin-bottom:1rem;display:none;align-items:center;gap:0.75rem">
+        <i class="fas fa-hard-hat" style="color:#f59e0b;font-size:1.1rem"></i>
+        <div style="flex:1">
+            <span style="color:#fbbf24;font-weight:700;font-size:0.82rem">MAINTENANCE MODE IS ON</span>
+            <span style="color:#94a3b8;font-size:0.75rem;margin-left:0.5rem">Non-admin users cannot log in. <button onclick="switchTab('settings')" style="background:none;border:none;color:#a5b4fc;cursor:pointer;font-size:0.75rem;padding:0;text-decoration:underline">Go to Settings to disable</button></span>
+        </div>
+    </div>
+
+    <div id="svcOverrideGlobalBanner" style="display:none;background:rgba(245,158,11,0.12);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:0.6rem 1rem;margin-bottom:1rem;align-items:center;gap:0.75rem">
+        <i class="fas fa-unlock-alt" style="color:#f59e0b;font-size:1.1rem"></i>
+        <div style="flex:1">
+            <span style="color:#fbbf24;font-weight:700;font-size:0.82rem">GLOBAL 90-DAY OVERRIDE IS ON</span>
+            <span style="color:#94a3b8;font-size:0.75rem;margin-left:0.5rem">Service-date 90-day blocks are lifted for all users. <button onclick="switchTab('settings')" style="background:none;border:none;color:#a5b4fc;cursor:pointer;font-size:0.75rem;padding:0;text-decoration:underline">Go to Settings to disable</button></span>
+        </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+        <button class="tab-btn active" id="tabTables" onclick="switchTab('tables')"><i class="fas fa-table"></i>Tables &amp; Data</button>
+        <button class="tab-btn" id="tabSchema" onclick="switchTab('schema')"><i class="fas fa-project-diagram"></i>Schema</button>
+        <button class="tab-btn" id="tabOrphans" onclick="switchTab('orphans')"><i class="fas fa-unlink"></i>Orphans</button>
+        <button class="tab-btn" id="tabDupes" onclick="switchTab('dupes')"><i class="fas fa-users"></i>Duplicates</button>
+        <button class="tab-btn" id="tabAudit" onclick="switchTab('audit')"><i class="fas fa-history"></i>Audit Log</button>
+        <button class="tab-btn" id="tabSettings" onclick="switchTab('settings')"><i class="fas fa-cog"></i>Settings</button>
+        <button class="tab-btn" id="tabBackups" onclick="switchTab('backups')"><i class="fas fa-save"></i>Backups</button>
+        <button class="tab-btn" id="tabHealth" onclick="switchTab('health')"><i class="fas fa-heartbeat"></i>Health</button>
+        <button class="tab-btn" id="tabLocks" onclick="switchTab('locks')"><i class="fas fa-lock"></i>Locks</button>
+        <button class="tab-btn" id="tabUsers" onclick="switchTab('users')"><i class="fas fa-user-shield"></i>Users</button>
+        <button class="tab-btn" id="tabApiKeys" onclick="switchTab('apikeys')"><i class="fas fa-key"></i>API Keys</button>
+        <button class="tab-btn" id="tabErrlog" onclick="switchTab('errlog')"><i class="fas fa-bug"></i>Error Logs</button>
+        <button class="tab-btn" id="tabLogdash" onclick="switchTab('logdash')"><i class="fas fa-chart-pie"></i>Log Dashboard</button>
+        <button class="tab-btn" id="tabAnalytics" onclick="switchTab('analytics')"><i class="fas fa-chart-line"></i>Analytics</button>
+    </div>
+
+    <!-- Stats Overview -->
+    <div class="section-title"><span><i class="fas fa-chart-bar me-1"></i>Database Overview</span><span id="lastRefresh" style="font-size:0.67rem;font-weight:400;text-transform:none;letter-spacing:0;color:var(--text-muted)"></span></div>
+    <div class="stats-row" id="statsRow"></div>
+
+    <!-- Tables tab content -->
+    <div id="tablesContent">
+        <!-- Table Grid -->
+        <div class="section-title mt-1">
+            <span><i class="fas fa-table me-1"></i>Tables</span>
+            <div style="display:flex;gap:0.4rem">
+                <button class="btn-bo btn-bo-outline" onclick="selectAll(true)"  style="padding:0.22rem 0.55rem;font-size:0.7rem"><i class="fas fa-check-double me-1"></i>Select All</button>
+                <button class="btn-bo btn-bo-outline" onclick="selectAll(false)" style="padding:0.22rem 0.55rem;font-size:0.7rem"><i class="fas fa-times me-1"></i>None</button>
+            </div>
+        </div>
+        <div class="tables-grid" id="tablesGrid"></div>
+
+        <!-- Action Bar -->
+        <div class="action-bar">
+            <div class="selected-count"><strong id="selCount">0</strong> table(s) selected &bull; <strong id="selRecordCount">0</strong> records to delete</div>
+            <div style="display:flex;gap:0.6rem;align-items:center">
+                <button class="btn-bo btn-bo-outline" onclick="selectAll(false)"><i class="fas fa-times me-1"></i>Clear</button>
+                <button class="btn-bo btn-bo-danger" id="purgeBtn" disabled onclick="openConfirm()"><i class="fas fa-trash-alt me-1"></i>Purge Selected</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schema tab content -->
+    <div id="schemaContent" class="schema-wrap">
+        <input type="text" class="schema-search" id="schemaSearch" placeholder="Search tables or columns..." oninput="filterSchema()">
+        <div class="schema-layout">
+            <!-- Left sidebar: table list -->
+            <div class="schema-sidebar">
+                <div class="schema-sidebar-header">
+                    <span><i class="fas fa-list me-1"></i>Tables</span>
+                    <span id="schemaTblCount" style="font-weight:400;font-size:0.68rem"></span>
+                </div>
+                <div id="schemaSideList" style="max-height:600px;overflow-y:auto"></div>
+            </div>
+            <!-- Right: columns + relationships -->
+            <div class="schema-main" id="schemaMain">
+                <div style="text-align:center;padding:4rem 2rem;color:var(--text-muted)">
+                    <i class="fas fa-mouse-pointer" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:1rem"></i>
+                    <p>Select a table from the list to view its columns and relationships.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- All FK Relationships table -->
+        <div class="schema-card mt-3" id="allFKSection">
+            <div class="schema-card-header">
+                <div class="table-icon" style="background:rgba(99,102,241,0.15);color:#6366f1"><i class="fas fa-link"></i></div>
+                <div>
+                    <h6>All Foreign Key Relationships</h6>
+                    <div style="font-size:0.7rem;color:var(--text-muted)">Every FK constraint in the database</div>
+                </div>
+                <small id="fkTotalCount"></small>
+            </div>
+            <div id="allFKList" style="max-height:400px;overflow-y:auto">
+                <p style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- â•â• Orphan Records Panel â•â• -->
+    <div id="orphanContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">Orphan Record Detector</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">FK references pointing to non-existent parent records</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn-bo btn-bo-primary" onclick="loadOrphans()"><i class="fas fa-sync-alt me-1"></i>Scan Now</button>
+                <button class="btn-bo btn-bo-outline" id="orphanExportBtn" onclick="exportOrphansCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+        <div id="orphanStatus" style="margin-bottom:1rem"></div>
+        <div id="orphanList">
+            <p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-search" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>Click &ldquo;Scan Now&rdquo; to check for orphaned records.</p>
+        </div>
+    </div>
+
+    <!-- â•â• Duplicate Patients Panel â•â• -->
+    <div id="dupesContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">Duplicate Patient Finder</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Patients sharing the same full name or phone number</div>
+            </div>
+            <div style="display:flex;gap:0.5rem">
+                <button class="tab-btn active" id="dupeTabName" onclick="switchDupeTab('name')" style="flex:unset;padding:0.4rem 0.8rem;font-size:0.75rem">By Name</button>
+                <button class="tab-btn" id="dupeTabPhone" onclick="switchDupeTab('phone')" style="flex:unset;padding:0.4rem 0.8rem;font-size:0.75rem">By Phone</button>
+                <button class="btn-bo btn-bo-primary" onclick="loadDupes()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
+                <button class="btn-bo btn-bo-outline" id="dupesExportBtn" onclick="exportDupesCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+        <div id="dupesStatus" style="margin-bottom:1rem"></div>
+        <div id="dupesList">
+            <p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-users" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>Click &ldquo;Scan&rdquo; to find duplicate patients.</p>
+        </div>
+    </div>
+
+    <!-- â•â• Audit Log Panel â•â• -->
+    <div id="auditContent" class="schema-wrap">
+        <!-- Filters -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:1rem;margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(175px,1fr));gap:0.65rem;margin-bottom:0.65rem">
+                <input type="text"   id="auditSearch"   class="schema-search" style="margin:0" placeholder="Search values..." oninput="auditDebounce()">
+                <select id="auditAction" class="schema-search" style="margin:0" onchange="auditDebounce()">
+                    <option value="">All Actions</option>
+                </select>
+                <input type="text"   id="auditEntity"   class="schema-search" style="margin:0" placeholder="Module (e.g. Patient)" oninput="auditDebounce()">
+                <input type="date"   id="auditDateFrom" class="schema-search" style="margin:0" onchange="auditDebounce()">
+                <input type="date"   id="auditDateTo"   class="schema-search" style="margin:0" onchange="auditDebounce()">
+                <div style="display:flex;gap:0.4rem;align-items:center">
+                    <button class="btn-bo btn-bo-primary" onclick="loadAuditLogs(1)" style="flex:1;padding:0.45rem"><i class="fas fa-search me-1"></i>Apply</button>
+                    <button class="btn-bo btn-bo-outline" onclick="clearAuditFilters()" style="padding:0.45rem 0.7rem"><i class="fas fa-times"></i></button>
+                    <button class="btn-bo btn-bo-outline" id="auditExportBtn" onclick="exportAuditLogsCSV()" style="padding:0.45rem 0.7rem;display:none" title="Export all matching logs as CSV"><i class="fas fa-file-csv"></i></button>
+                </div>
+            </div>
+        </div>
+        <!-- BO-02: Top pagination controls -->
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.5rem">
+            <div id="auditCountBadge" style="font-size:0.75rem;color:var(--text-muted)"></div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+                <span style="font-size:0.73rem;color:var(--text-muted)">Rows per page:</span>
+                <select id="auditPageSizeTop" class="schema-search" style="margin:0;width:auto;padding:0.25rem 0.4rem;font-size:0.75rem" onchange="onAuditPageSizeChange()">
+                    <option value="10">10</option>
+                    <option value="20">20</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+        </div>
+        <div id="auditStatus" style="margin-bottom:0.5rem;font-size:0.78rem;color:var(--text-muted)"></div>
+        <div id="auditList">
+            <p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-history" style="display:block;font-size:2rem;opacity:.3;margin-bottom:1rem"></i>Loading audit logs...</p>
+        </div>
+        <div id="auditPagination" style="display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin-top:1rem"></div>
+    </div>
+
+    <!-- â•â• System Settings Panel â•â• -->
+    <div id="settingsContent" class="schema-wrap">
+        <div style="font-size:1rem;font-weight:700;margin-bottom:0.25rem">System Settings</div>
+        <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.5rem">Configure application and backup behaviour</div>
+        <form id="settingsForm" onsubmit="saveSettings(event)">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:1rem;margin-bottom:1.5rem">
+                <div class="schema-card" style="padding:1rem">
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Application Name</label>
+                    <input type="text" id="sAppName" class="schema-search" style="margin:0.4rem 0 0" placeholder="Home Accounting">
+                </div>
+                <div class="schema-card" style="padding:1rem">
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Backup Folder Path</label>
+                    <input type="text" id="sBackupPath" class="schema-search" style="margin:0.4rem 0 0" placeholder="e.g. C:\\Backups\\PatientRX">
+                    <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.3rem">Folder will be created if it doesn't exist</div>
+                </div>
+                <div class="schema-card" style="padding:1rem">
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Backup Retention (Days)</label>
+                    <input type="number" id="sRetentionDays" class="schema-search" style="margin:0.4rem 0 0" min="1" max="365" placeholder="30">
+                    <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.3rem">Backups older than this are auto-deleted</div>
+                </div>
+                <div class="schema-card" style="padding:1rem">
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Session Timeout (Minutes)</label>
+                    <input type="number" id="sSessionTimeout" class="schema-search" style="margin:0.4rem 0 0" min="5" max="480" placeholder="60">
+                </div>
+                <div class="schema-card" style="padding:1rem">
+                    <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Max Login Attempts</label>
+                    <input type="number" id="sMaxLogin" class="schema-search" style="margin:0.4rem 0 0" min="1" max="20" placeholder="5">
+                </div>
+                <div class="schema-card" style="padding:1rem;display:flex;align-items:center;justify-content:space-between">
+                    <div>
+                        <label style="font-size:0.72rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em">Maintenance Mode</label>
+                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.25rem">Blocks non-admin logins</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+                        <input type="checkbox" id="sMaintenanceMode" style="opacity:0;width:0;height:0">
+                        <span id="sMaintenanceToggle" style="position:absolute;inset:0;background:#334155;border-radius:12px;transition:.2s" onclick="this.style.background=document.getElementById('sMaintenanceMode').checked?'#334155':'#6366f1'"></span>
+                        <span id="sMaintenanceKnob" style="position:absolute;left:4px;top:4px;width:16px;height:16px;background:#94a3b8;border-radius:50%;transition:.2s"></span>
+                    </label>
+                </div>
+                <div class="schema-card" style="padding:1rem;display:flex;align-items:center;justify-content:space-between;border-color:rgba(245,158,11,0.28);background:rgba(245,158,11,0.04)">
+                    <div>
+                        <label style="font-size:0.72rem;color:#fbbf24;text-transform:uppercase;letter-spacing:.07em">Global 90-Day Override</label>
+                        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:0.25rem">Temporarily lifts all 90-day service-date block checks (patient service date + RX workflows) during import corrections.</div>
+                    </div>
+                    <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+                        <input type="checkbox" id="sServiceDateOverrideEnabled" style="opacity:0;width:0;height:0">
+                        <span id="sSvcOverrideToggle" style="position:absolute;inset:0;background:#334155;border-radius:12px;transition:.2s"></span>
+                        <span id="sSvcOverrideKnob" style="position:absolute;left:4px;top:4px;width:16px;height:16px;background:#94a3b8;border-radius:50%;transition:.2s"></span>
+                    </label>
+                </div>
+            </div>
+            <div style="display:flex;gap:0.75rem;align-items:center">
+                <button type="submit" class="btn-bo btn-bo-primary"><i class="fas fa-save me-1"></i>Save Settings</button>
+                <span id="settingsSavedMsg" style="color:#6ee7b7;font-size:0.8rem;opacity:0;transition:opacity .4s"></span>
+            </div>
+        </form>
+    </div>
+
+    <!-- â•â• Backup Manager Panel â•â• -->
+    <div id="backupsContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">Backup Manager</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">CSV export backups of all database tables</div>
+            </div>
+            <div style="display:flex;gap:0.5rem">
+                <button class="btn-bo btn-bo-outline" onclick="loadBackups()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-primary" id="createBackupBtn" onclick="createBackup()"><i class="fas fa-save me-1"></i>Create Backup Now</button>
+            </div>
+        </div>
+        <div id="backupPath" style="font-size:0.72rem;color:var(--text-muted);margin-bottom:1rem;display:flex;align-items:center;gap:0.4rem"><i class="fas fa-folder-open"></i><span id="backupPathText">Loading...</span></div>
+        <div id="backupList">
+            <p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading backups...</p>
+        </div>
+    </div>
+
+    <!-- â•â• System Health Panel â•â• -->
+    <div id="healthContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem">
+            <div><div style="font-size:1rem;font-weight:700">System Health</div><div style="font-size:0.75rem;color:var(--text-muted)">Server, database, and table statistics</div></div>
+            <div style="display:flex;align-items:center;gap:0.5rem">
+                <!-- BO-04: Countdown badge -->
+                <span id="healthCountdown" style="font-size:0.72rem;color:var(--text-muted);display:none"><i class="fas fa-clock me-1"></i><span id="healthCountdownNum">30</span>s</span>
+                <button class="btn-bo btn-bo-outline" onclick="manualHealthRefresh()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <!-- BO-03: Health export button -->
+                <button class="btn-bo btn-bo-outline" id="healthExportBtn" onclick="exportHealthCSV()" style="display:none;font-size:0.78rem"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+        <div id="healthCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:0.875rem;margin-bottom:1.25rem"></div>
+        <div style="font-size:0.8rem;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:0.5rem">Table Sizes</div>
+        <div id="healthTables"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
+    </div>
+
+    <!-- â•â• Lock Manager Panel â•â• -->
+    <div id="locksContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div><div style="font-size:1rem;font-weight:700">Patient Lock Manager</div><div style="font-size:0.75rem;color:var(--text-muted)">View and force-release active or stale patient record locks</div></div>
+            <div style="display:flex;gap:0.5rem">
+                <button class="btn-bo btn-bo-outline" onclick="loadLocks()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-danger" onclick="releaseExpiredLocks()" style="font-size:0.78rem"><i class="fas fa-broom me-1"></i>Clear Expired</button>
+                <!-- BO-03: Lock export button -->
+                <button class="btn-bo btn-bo-outline" id="locksExportBtn" onclick="exportLocksCSV()" style="display:none;font-size:0.78rem"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+        <div class="schema-card" style="padding:1rem;margin-bottom:1rem;border-color:rgba(245,158,11,0.35);background:rgba(245,158,11,0.045)">
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-bottom:0.9rem">
+                <div>
+                    <div style="font-size:0.95rem;font-weight:700;color:#fbbf24"><i class="fas fa-calendar-alt me-2"></i>90-Day Service Date Override</div>
+                    <div style="font-size:0.74rem;color:var(--text-muted);margin-top:0.2rem">Emergency Backoffice tool for correcting imported or mis-keyed service dates while the normal 90-day block stays active for users; RX creation and patient service-date edits respect this override.</div>
+                </div>
+                <span style="font-size:0.68rem;color:#fbbf24;border:1px solid rgba(245,158,11,0.35);background:rgba(245,158,11,0.1);border-radius:20px;padding:0.2rem 0.65rem;font-weight:700">MASTER ONLY</span>
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(240px,1.2fr) 180px minmax(260px,1fr);gap:0.65rem;align-items:end">
+                <div>
+                    <label style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Find Patient</label>
+                    <div style="display:flex;gap:0.45rem;margin-top:0.35rem">
+                        <input type="text" id="svcOverrideSearch" class="schema-search" style="margin:0" placeholder="Name, patient ID, or phone" onkeydown="if(event.key==='Enter')searchSvcOverridePatients()">
+                        <button class="btn-bo btn-bo-primary" id="svcOverrideSearchBtn" onclick="searchSvcOverridePatients()"><i class="fas fa-search me-1"></i>Search</button>
+                    </div>
+                </div>
+                <div>
+                    <label style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">New Service Date</label>
+                    <input type="date" id="svcOverrideDate" class="schema-search" style="margin:0.35rem 0 0" onchange="checkSvcOverrideReady()">
+                </div>
+                <div>
+                    <label style="font-size:0.7rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:.06em">Reason</label>
+                    <input type="text" id="svcOverrideReason" class="schema-search" style="margin:0.35rem 0 0" placeholder="Required for audit log" oninput="checkSvcOverrideReady()">
+                </div>
+            </div>
+            <div id="svcOverrideResults" style="margin-top:0.85rem"></div>
+            <div id="svcOverrideSelected" style="display:none;margin-top:0.85rem"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin-top:0.85rem;border-top:1px solid var(--border);padding-top:0.85rem">
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;font-size:0.76rem;color:var(--text-muted);cursor:pointer;max-width:680px">
+                    <input type="checkbox" id="svcOverrideSyncRx" style="margin-top:0.15rem" onchange="checkSvcOverrideReady()">
+                    <span>Also update active RX records whose service date exactly matches the old patient service date. Their arrival date will be set to the new service date too.</span>
+                </label>
+                <button class="btn-bo btn-bo-danger" id="svcOverrideApplyBtn" disabled onclick="applySvcOverride()"><i class="fas fa-unlock-alt me-1"></i>Override Service Date</button>
+            </div>
+        </div>
+        <div id="locksStatus" style="margin-bottom:1rem"></div>
+        <div id="locksList"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading locks...</p></div>
+    </div>
+
+    <!-- â•â• User Manager Panel â•â• -->
+    <div id="usersContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div><div style="font-size:1rem;font-weight:700">User Manager</div><div style="font-size:0.75rem;color:var(--text-muted)">View users, change roles, enable/disable accounts, reset passwords</div></div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn-bo btn-bo-outline" onclick="loadUsers()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" id="usersExportBtn" onclick="exportUsersCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+        <div id="usersList"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading users...</p></div>
+    </div>
+
+    <!-- â•â• Error Logs Panel â•â• -->
+    <div id="errlogContent" class="schema-wrap">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">Error Log Manager</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Browse, resolve, and purge application error logs</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn-bo btn-bo-outline" onclick="loadErrorLogs(1)"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" id="errlogExportBtn" onclick="exportErrorLogsCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+                <button class="btn-bo" style="background:rgba(234,179,8,0.12);color:#fbbf24;border:1px solid rgba(234,179,8,0.3);font-size:0.78rem" onclick="resolveSelectedErrors()"><i class="fas fa-check-double me-1"></i>Mark Resolved</button>
+                <button class="btn-bo btn-bo-danger" onclick="openPurgeModal()" style="font-size:0.78rem"><i class="fas fa-fire me-1"></i>Purge Logs</button>
+            </div>
+        </div>
+
+        <!-- Stat Cards -->
+        <div id="errlogStats" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:0.65rem;margin-bottom:1.25rem"></div>
+
+        <!-- Filters -->
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.875rem;margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.5rem">
+                <input type="text"   id="errSearch"   class="schema-search" style="margin:0" placeholder="Search message / URL..." oninput="errDebounce()">
+                <select id="errSeverity" class="schema-search" style="margin:0" onchange="errDebounce()">
+                    <option value="">All Severities</option>
+                    <option value="error">Error</option>
+                    <option value="warning">Warning</option>
+                    <option value="info">Info</option>
+                </select>
+                <select id="errSource" class="schema-search" style="margin:0" onchange="errDebounce()">
+                    <option value="">All Sources</option>
+                    <option value="frontend">Frontend</option>
+                    <option value="backend">Backend</option>
+                </select>
+                <select id="errResolved" class="schema-search" style="margin:0" onchange="errDebounce()">
+                    <option value="">All Status</option>
+                    <option value="false">Unresolved</option>
+                    <option value="true">Resolved</option>
+                </select>
+                <input type="date"   id="errDateFrom" class="schema-search" style="margin:0" onchange="errDebounce()">
+                <input type="date"   id="errDateTo"   class="schema-search" style="margin:0" onchange="errDebounce()">
+                <button class="btn-bo btn-bo-outline" style="font-size:0.72rem" onclick="clearErrFilters()"><i class="fas fa-times me-1"></i>Clear</button>
+            </div>
+        </div>
+
+        <!-- Select All + status line -->
+        <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem;font-size:0.75rem;color:var(--text-muted)">
+            <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer">
+                <input type="checkbox" id="errSelectAll" onchange="toggleSelectAllErrors(this.checked)"> Select page
+            </label>
+            <span id="errSelCount" style="color:#6366f1"></span>
+        </div>
+
+        <!-- Table -->
+        <div id="errlogTable"><p style="text-align:center;padding:4rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading error logs...</p></div>
+        <!-- Pagination -->
+        <div id="errlogPagination" style="display:flex;gap:0.4rem;justify-content:center;flex-wrap:wrap;margin-top:1rem"></div>
+    </div>
+
+    <!-- Purge Modal -->
+    <div id="purgeModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:9999;align-items:center;justify-content:center">
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.75rem;width:440px;max-width:95vw">
+            <div style="font-weight:700;font-size:1rem;margin-bottom:0.25rem;display:flex;align-items:center;gap:0.5rem"><i class="fas fa-fire" style="color:#ef4444"></i> Purge Error Logs</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:1.25rem">Select what to delete. This cannot be undone.</div>
+            <div style="display:flex;flex-direction:column;gap:0.625rem;margin-bottom:1.25rem">
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;cursor:pointer;padding:0.625rem;border-radius:8px;border:1px solid var(--border);transition:.15s" id="pmOpt1">
+                    <input type="radio" name="purgeMode" value="age" style="margin-top:0.2rem" onchange="onPurgeModeChange()">
+                    <div><div style="font-weight:600;font-size:0.82rem">Older than N days</div><div style="font-size:0.72rem;color:var(--text-muted)">Delete logs older than a chosen number of days</div></div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;cursor:pointer;padding:0.625rem;border-radius:8px;border:1px solid var(--border);transition:.15s" id="pmOpt2">
+                    <input type="radio" name="purgeMode" value="filter" style="margin-top:0.2rem" onchange="onPurgeModeChange()">
+                    <div><div style="font-weight:600;font-size:0.82rem">By severity / source</div><div style="font-size:0.72rem;color:var(--text-muted)">Delete all logs matching selected severity or source</div></div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;cursor:pointer;padding:0.625rem;border-radius:8px;border:1px solid var(--border);transition:.15s" id="pmOpt3">
+                    <input type="radio" name="purgeMode" value="resolved" style="margin-top:0.2rem" onchange="onPurgeModeChange()">
+                    <div><div style="font-weight:600;font-size:0.82rem">Resolved only</div><div style="font-size:0.72rem;color:var(--text-muted)">Delete only logs marked as resolved</div></div>
+                </label>
+                <label style="display:flex;align-items:flex-start;gap:0.5rem;cursor:pointer;padding:0.625rem;border-radius:8px;border:1px solid var(--border);transition:.15s" id="pmOpt4">
+                    <input type="radio" name="purgeMode" value="all" style="margin-top:0.2rem" onchange="onPurgeModeChange()">
+                    <div><div style="font-weight:600;font-size:0.82rem;color:#ef4444">Purge ALL error logs</div><div style="font-size:0.72rem;color:var(--text-muted)">Deletes every record in the ErrorLogs table</div></div>
+                </label>
+            </div>
+            <!-- Dynamic sub-options -->
+            <div id="purgeAgeOpts" style="display:none;margin-bottom:1rem">
+                <label style="font-size:0.72rem;color:var(--text-muted)">Delete logs older than</label>
+                <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.3rem">
+                    <input type="number" id="purgeAgeDays" class="schema-search" style="margin:0;width:80px" min="1" max="3650" value="30">
+                    <span style="font-size:0.8rem;color:var(--text-muted)">days</span>
+                    <select id="purgeAgeSev" class="schema-search" style="margin:0;flex:1"><option value="">Any severity</option><option value="error">Error only</option><option value="warning">Warning only</option><option value="info">Info only</option></select>
+                    <select id="purgeAgeSrc" class="schema-search" style="margin:0;flex:1"><option value="">Any source</option><option value="frontend">Frontend</option><option value="backend">Backend</option></select>
+                </div>
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;margin-top:0.5rem;cursor:pointer"><input type="checkbox" id="purgeAgeResOnly"> Resolved only</label>
+            </div>
+            <div id="purgeFilterOpts" style="display:none;margin-bottom:1rem">
+                <label style="font-size:0.72rem;color:var(--text-muted)">Filter by</label>
+                <div style="display:flex;gap:0.5rem;margin-top:0.3rem;flex-wrap:wrap">
+                    <select id="purgeFilterSev" class="schema-search" style="margin:0;flex:1"><option value="">Any severity</option><option value="error">Error</option><option value="warning">Warning</option><option value="info">Info</option></select>
+                    <select id="purgeFilterSrc" class="schema-search" style="margin:0;flex:1"><option value="">Any source</option><option value="frontend">Frontend</option><option value="backend">Backend</option></select>
+                </div>
+                <label style="display:flex;align-items:center;gap:0.4rem;font-size:0.72rem;margin-top:0.5rem;cursor:pointer"><input type="checkbox" id="purgeFilterResOnly"> Resolved only</label>
+            </div>
+            <div id="purgeConfirmAll" style="display:none;margin-bottom:1rem;padding:0.75rem;background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.25);border-radius:8px;font-size:0.8rem;color:#fca5a5">
+                <i class="fas fa-exclamation-triangle me-1"></i> This will permanently delete <strong>all</strong> error log records. Type <code>CONFIRM</code> to proceed.
+                <input type="text" id="purgeConfirmInput" class="schema-search" style="margin:0.5rem 0 0" placeholder="Type CONFIRM">
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end">
+                <button class="btn-bo btn-bo-outline" onclick="closePurgeModal()">Cancel</button>
+                <button class="btn-bo btn-bo-danger" id="doPurgeBtn" onclick="doPurge()"><i class="fas fa-fire me-1"></i>Purge</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Log Dashboard Panel -->
+    <div id="logdashContent" class="schema-wrap">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700"><i class="fas fa-chart-pie me-1" style="color:#a5b4fc"></i>RX Log Dashboard</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Operational page activity, stability signals, errors, audit events, and HTTP status explanations.</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <button class="btn-bo btn-bo-outline" onclick="loadLogDashboard()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo btn-bo-outline" id="logdashExportBtn" onclick="exportLogDashboardCSV()" style="display:none"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:0.875rem;margin-bottom:1rem">
+            <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.5rem">
+                <select id="logdashRange" class="schema-search" style="margin:0" onchange="logdashDebounce()">
+                    <option value="live">Last 15 min</option>
+                    <option value="hour">Last hour</option>
+                    <option value="day" selected>Last 24 hours</option>
+                    <option value="today">Today</option>
+                    <option value="week">Last 7 days</option>
+                    <option value="all">All available</option>
+                </select>
+                <input type="text" id="logdashUser" class="schema-search" style="margin:0" placeholder="User / username" list="logdashUserOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashRole" class="schema-search" style="margin:0" placeholder="Role" list="logdashRoleOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashPath" class="schema-search" style="margin:0" placeholder="Page / path / URL" list="logdashPathOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashIp" class="schema-search" style="margin:0" placeholder="IP address" list="logdashIpOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashBrowser" class="schema-search" style="margin:0" placeholder="Browser / device" list="logdashBrowserOptions" autocomplete="off" oninput="logdashDebounce()">
+                <select id="logdashStatusFilter" class="schema-search" style="margin:0" onchange="logdashDebounce()">
+                    <option value="">Any status</option>
+                    <option value="200">200 OK</option>
+                    <option value="201">201 Created</option>
+                    <option value="204">204 No Content</option>
+                    <option value="301">301 Moved</option>
+                    <option value="302">302 Redirect</option>
+                    <option value="304">304 Cached</option>
+                    <option value="400">400 Bad Request</option>
+                    <option value="401">401 Login Required</option>
+                    <option value="403">403 Forbidden</option>
+                    <option value="404">404 Not Found</option>
+                    <option value="409">409 Conflict</option>
+                    <option value="429">429 Rate Limited</option>
+                    <option value="500">500 Server Error</option>
+                    <option value="502">502 Bad Gateway</option>
+                    <option value="503">503 Unavailable</option>
+                    <option value="504">504 Timeout</option>
+                </select>
+                <input type="text" id="logdashSource" class="schema-search" style="margin:0" placeholder="Log source / file" list="logdashSourceOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashMethod" class="schema-search" style="margin:0" placeholder="HTTP method" list="logdashMethodOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashSeverity" class="schema-search" style="margin:0" placeholder="Severity" list="logdashSeverityOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashLogType" class="schema-search" style="margin:0" placeholder="Log type" list="logdashTypeOptions" autocomplete="off" oninput="logdashDebounce()">
+                <input type="text" id="logdashSearch" class="schema-search" style="margin:0" placeholder="Search all signals" oninput="logdashDebounce()">
+            </div>
+            <datalist id="logdashUserOptions"></datalist>
+            <datalist id="logdashRoleOptions"></datalist>
+            <datalist id="logdashPathOptions"></datalist>
+            <datalist id="logdashIpOptions"></datalist>
+            <datalist id="logdashBrowserOptions"></datalist>
+            <datalist id="logdashSourceOptions"></datalist>
+            <datalist id="logdashMethodOptions"></datalist>
+            <datalist id="logdashSeverityOptions"></datalist>
+            <datalist id="logdashTypeOptions"></datalist>
+            <div class="logdash-filter-help">
+                <span class="logdash-filter-tag"><i class="fas fa-mouse-pointer"></i> Page: user, role, browser, page, IP, status</span>
+                <span class="logdash-filter-tag"><i class="fas fa-bug"></i> Error logs: source, severity, browser, URL</span>
+                <span class="logdash-filter-tag"><i class="fas fa-server"></i> Server logs: source/file, method, type, severity, status</span>
+            </div>
+            <div id="logdashStatus" class="logdash-muted" style="margin-top:0.65rem">Open this tab to load operational analysis.</div>
+        </div>
+
+        <div id="logdashKpis" class="logdash-grid"></div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-chart-area me-1" style="color:#10b981"></i>Traffic Over Time</div>
+                    <span class="logdash-muted">Page visits + error trend</span>
+                </div>
+                <div class="logdash-panel-body logdash-chart">
+                    <canvas id="logdashTrafficChart" height="115"></canvas>
+                </div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-chart-pie me-1" style="color:#a5b4fc"></i>HTTP Status Mix</div>
+                    <span class="logdash-muted">What the site is returning</span>
+                </div>
+                <div class="logdash-panel-body logdash-chart">
+                    <canvas id="logdashStatusChart" height="115"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-shield-alt me-1" style="color:#fbbf24"></i>Stability &amp; Risk</div>
+                    <span class="logdash-muted">Fast operational read</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashStability"></div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-network-wired me-1" style="color:#06b6d4"></i>Traffic Variables</div>
+                    <span class="logdash-muted">Users, IPs, browsers, paths</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashTrafficVariables"></div>
+            </div>
+        </div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-lightbulb me-1" style="color:#fbbf24"></i>What Needs Attention</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashInsights">
+                    <p style="color:var(--text-muted);margin:0">Loading insights...</p>
+                </div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-question-circle me-1" style="color:#a5b4fc"></i>HTTP Status Meaning</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashStatusGuide">
+                    <p style="color:var(--text-muted);margin:0">Loading status guide...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-mouse-pointer me-1" style="color:#10b981"></i>Real Page Activity</div>
+                    <span class="logdash-muted">From UserActivityLogs</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashPageActivity"></div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-server me-1" style="color:#ef4444"></i>Server Log Signals</div>
+                    <span class="logdash-muted">Safe summaries only</span>
+                </div>
+                <div class="logdash-panel-body" id="logdashServerSignals"></div>
+            </div>
+        </div>
+
+        <div class="logdash-panel">
+            <div class="logdash-panel-head">
+                <div class="logdash-panel-title"><i class="fas fa-history me-1" style="color:#a5b4fc"></i>Recent Page Visits</div>
+                <span class="logdash-muted">Patient identifiers and query strings are not shown</span>
+            </div>
+            <div id="logdashRecentVisits" style="overflow:auto"></div>
+        </div>
+
+        <div class="logdash-two-col">
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-clipboard-list me-1" style="color:#06b6d4"></i>Audit Activity</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashAuditActivity"></div>
+            </div>
+            <div class="logdash-panel">
+                <div class="logdash-panel-head">
+                    <div class="logdash-panel-title"><i class="fas fa-bug me-1" style="color:#fca5a5"></i>Error Activity</div>
+                </div>
+                <div class="logdash-panel-body" id="logdashErrorActivity"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- â•â• Analytics Panel â•â• -->
+    <div id="analyticsContent" class="schema-wrap">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">ðŸ“Š Daily Analytics</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Automated daily snapshots &mdash; captured every night at 00:05</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <input type="date" id="anlFrom" class="schema-search" style="margin:0" onchange="loadAnalytics()">
+                <input type="date" id="anlTo"   class="schema-search" style="margin:0" onchange="loadAnalytics()">
+                <button class="btn-bo btn-bo-outline" onclick="loadAnalytics()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo" style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.3);font-size:0.78rem" onclick="captureNowSnapshot()"><i class="fas fa-camera me-1"></i>Capture Now</button>
+                <button class="btn-bo btn-bo-outline" style="font-size:0.78rem" onclick="exportAnalyticsCSV()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+
+        <!-- KPI Cards (latest snapshot) -->
+        <div id="anlKpiCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.65rem;margin-bottom:1.5rem"></div>
+
+        <!-- Charts 2Ã—2 grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem" id="anlChartGrid">
+            <!-- Chart 1: Patients -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-user-injured me-1" style="color:#6366f1"></i>PATIENTS OVER TIME</div>
+                <canvas id="chartPatients" height="180"></canvas>
+            </div>
+            <!-- Chart 2: RX Activity -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-prescription-bottle-alt me-1" style="color:#f59e0b"></i>RX RECORDS ACTIVITY</div>
+                <canvas id="chartRX" height="180"></canvas>
+            </div>
+            <!-- Chart 3: Workflow -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-tasks me-1" style="color:#10b981"></i>WORKFLOW COMPLETION RATE %</div>
+                <canvas id="chartWorkflow" height="180"></canvas>
+            </div>
+            <!-- Chart 4: Errors & Audit -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-exclamation-triangle me-1" style="color:#ef4444"></i>ERRORS & AUDIT EVENTS / DAY</div>
+                <canvas id="chartActivity" height="180"></canvas>
+            </div>
+        </div>
+
+        <!-- Raw data table -->
+        <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:.06em">Snapshot Records</div>
+        <div id="anlTableWrap"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
+    </div>
+
+<!-- Access Denied -->
+<div class="main-wrap" id="deniedWrap" style="display:none">
+    <div class="denied-screen">
+        <div style="font-size:3.5rem;color:var(--red);opacity:.7"><i class="fas fa-ban"></i></div>
+        <h3>Access Denied</h3>
+        <p style="color:var(--text-muted)">This page is restricted to <strong style="color:#fca5a5">Administrator</strong> accounts only.</p>
+        <a href="/dashboard" class="btn-bo btn-bo-outline"><i class="fas fa-arrow-left me-1"></i>Return to Dashboard</a>
+    </div>
+</div>
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- Data Viewer Overlay                                                     -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div class="viewer-overlay" id="viewerOverlay">
+
+    <!-- Viewer Header -->
+    <div class="viewer-header">
+        <div class="viewer-title">
+            <div id="viewerIcon" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem"></div>
+            <div>
+                <h5 id="viewerTitle">Table</h5>
+                <div style="font-size:0.7rem;color:var(--text-muted)" id="viewerDesc"></div>
+            </div>
+            <span class="v-badge" id="viewerBadge">0 records</span>
+        </div>
+        <div class="viewer-actions">
+            <button class="btn-bo btn-bo-danger" id="viewerDeleteSelBtn" style="display:none" onclick="openImpactModal()">
+                <i class="fas fa-trash-alt me-1"></i>Delete <span id="viewerDelCount">0</span> selected
+            </button>
+            <button class="btn-bo btn-bo-success" id="viewerExportBtn" onclick="exportCurrentTable()">
+                <i class="fas fa-file-csv me-1"></i>Export CSV
+            </button>
+            <button class="btn-bo btn-bo-outline" onclick="closeViewer()">
+                <i class="fas fa-times me-1"></i>Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="viewer-toolbar">
+        <input type="text" class="viewer-search" id="viewerSearch" placeholder="Search in any column..." oninput="applyViewerFilter()">
+        <div class="col-toggle-wrap">
+            <button class="col-toggle-btn" id="colToggleBtn" onclick="toggleColDropdown()">
+                <i class="fas fa-columns me-1"></i>Columns <i class="fas fa-chevron-down ms-1" style="font-size:0.65rem"></i>
+            </button>
+            <div class="col-dropdown" id="colDropdown"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-left:auto">
+            <span style="font-size:0.73rem;color:var(--text-muted)">Rows/page:</span>
+            <select class="pag-size" id="pageSizeSelect" onchange="changePageSize()">
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="0">All</option>
+            </select>
+        </div>
+        <span class="viewer-info" id="viewerInfo"></span>
+    </div>
+
+    <!-- Selection Bar -->
+    <div class="sel-bar" id="selBar">
+        <span class="sel-bar-info" id="selBarText">0 rows selected</span>
+        <button class="btn-bo btn-bo-danger" onclick="openImpactModal()" style="padding:0.3rem 0.7rem;font-size:0.75rem">
+            <i class="fas fa-trash-alt me-1"></i>Delete Selected
+        </button>
+        <button class="btn-bo btn-bo-outline" onclick="clearRowSelection()" style="padding:0.3rem 0.7rem;font-size:0.75rem">Cancel</button>
+    </div>
+
+    <!-- Table Body -->
+    <div class="viewer-body">
+        <div id="viewerTableWrap" style="min-height:200px">
+            <p class="no-rows"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Pagination Footer -->
+    <div class="viewer-footer">
+        <span class="pag-info" id="pagInfo"></span>
+        <div class="pag-controls" id="pagControls"></div>
+    </div>
+</div>
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- Row Delete Impact Modal                                                  -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div class="bo-modal-backdrop" id="impactBackdrop">
+    <div class="bo-modal" style="max-width:560px">
+        <div class="bo-modal-header">
+            <i class="fas fa-exclamation-triangle" style="color:#f59e0b;font-size:1.1rem"></i>
+            <h5 style="color:#fde68a">Impact Analysis &mdash; Confirm Row Deletion</h5>
+        </div>
+        <div class="bo-modal-body">
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">
+                Deleting <strong id="impactRowCount" style="color:var(--text)">0</strong> row(s) from
+                <strong id="impactTableName" style="color:#a5b4fc"></strong> will also affect:
+            </p>
+            <div id="impactList" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;margin-bottom:1rem;min-height:60px">
+                <p style="color:var(--text-muted);font-size:0.8rem;text-align:center"><i class="fas fa-spinner fa-spin me-2"></i>Analyzing impact...</p>
+            </div>
+            <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.78rem;color:#fca5a5">
+                <i class="fas fa-exclamation-circle me-1"></i>
+                <span id="impactWarning">This action is <strong>permanent and irreversible</strong>.</span>
+            </div>
+            <div class="confirm-input-wrap">
+                <label>Type <code>CONFIRM</code> to proceed:</label>
+                <input type="text" class="confirm-input" id="impactPhrase" placeholder="CONFIRM" autocomplete="off" oninput="checkImpactPhrase()">
+            </div>
+        </div>
+        <div class="bo-modal-footer">
+            <button class="btn-bo btn-bo-outline" onclick="closeImpactModal()"><i class="fas fa-times me-1"></i>Cancel</button>
+            <button class="btn-bo btn-bo-danger" id="impactDeleteBtn" disabled onclick="executeRowDelete()">
+                <span id="impactSpinner" class="spinner-sm" style="display:none"></span>
+                <i class="fas fa-trash-alt me-1" id="impactIcon"></i>Delete Rows
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- ================== API KEYS PANEL ================== -->
+<div id="apiKeysContent" class="schema-wrap">
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1.25rem;flex-wrap:wrap">
+    <div>
+      <div style="font-size:1rem;font-weight:700">API Key Management</div>
+      <div style="font-size:.75rem;color:var(--text-muted)">Generate and revoke machine-access tokens for external integrations</div>
+    </div>
+    <div style="margin-left:auto;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn-bo btn-bo-outline" onclick="boLoadApiKeys()"><i class="fas fa-sync me-1"></i>Refresh</button>
+      <button class="btn-bo btn-bo-primary" id="boShowGenerateFormBtn" onclick="boShowGenerateForm()"><i class="fas fa-plus-circle me-1"></i>Generate New Key</button>
+    </div>
+  </div>
+
+  <!-- âš ï¸ API Key Auth Disabled Notice -->
+  <div style="display:flex;align-items:flex-start;gap:.75rem;background:rgba(245,158,11,.08);border:1.5px solid rgba(245,158,11,.4);border-radius:12px;padding:1rem 1.25rem;margin-bottom:1.25rem">
+    <i class="fas fa-exclamation-triangle" style="color:#f59e0b;font-size:1rem;margin-top:.15rem;flex-shrink:0"></i>
+    <div>
+      <div style="font-weight:700;font-size:.85rem;color:#f59e0b;margin-bottom:.3rem">API Key Authentication â€” Not Currently Active</div>
+      <div style="font-size:.78rem;color:var(--text-muted);line-height:1.6">
+        Keys can be <strong>generated and managed</strong> here, but the <code>X-API-Key</code> header is <strong>not yet wired into the authentication middleware</strong>.
+        External requests using an API key will be rejected by JWT auth â€” they do not bypass it.
+        <br><br>
+        This is a planned feature. Until it is enabled, API keys are <strong>not usable for integrations</strong>.
+        Do not share or use generated keys in production integrations at this time.
+      </div>
+    </div>
+  </div>
+
+  <!-- Generate form -->
+  <div class="schema-card" id="boGenerateFormCard" style="display:none;border:1.5px dashed rgba(245,158,11,.4);margin-bottom:1rem">
+    <div style="font-weight:700;font-size:.9rem;margin-bottom:1rem;color:#f59e0b"><i class="fas fa-plus me-2"></i>Generate New API Key</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.75rem;margin-bottom:1rem">
+      <div>
+        <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem">Key Name / Label <span style="color:#ef4444">*</span></label>
+        <input type="text" id="boKeyName" class="form-control form-control-sm" placeholder="e.g. Integration System">
+      </div>
+      <div>
+        <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem">Description (optional)</label>
+        <input type="text" id="boKeyDescription" class="form-control form-control-sm" placeholder="What will this key be used for?">
+      </div>
+      <div>
+        <label style="font-size:.75rem;font-weight:600;display:block;margin-bottom:.3rem">Expires In</label>
+        <select id="boKeyExpiry" class="form-select form-select-sm">
+          <option value="never">Never expires</option>
+          <option value="30d">30 days</option>
+          <option value="90d">90 days</option>
+          <option value="180d">180 days</option>
+          <option value="1y">1 year</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:flex;gap:.5rem">
+      <button class="btn-bo btn-bo-primary" onclick="boGenerateKey()"><i class="fas fa-key me-1"></i>Generate Key</button>
+      <button class="btn-bo btn-bo-outline" onclick="boCancelGenerateForm()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- New key reveal banner -->
+  <div id="boNewKeyBanner" style="display:none;border:1.5px solid #22c55e;border-radius:12px;background:rgba(34,197,94,.05);padding:1rem;margin-bottom:1rem">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.5rem">
+      <i class="fas fa-check-circle" style="color:#22c55e"></i>
+      <strong>API Key Generated Successfully!</strong>
+      <span class="badge bg-danger ms-auto">Copy now &mdash; will not be shown again</span>
+    </div>
+    <div id="boNewKeyValue" style="font-family:monospace;font-size:.85rem;background:#0d1117;color:#58a6ff;border-radius:8px;padding:12px 16px;word-break:break-all;margin-bottom:.5rem">rxk_...</div>
+    <div style="display:flex;align-items:center;gap:.5rem">
+      <button class="btn-bo btn-bo-outline" onclick="boCopyNewKey()"><i class="fas fa-copy me-1"></i>Copy Key</button>
+      <span style="font-size:.75rem;color:var(--text-muted)">Store this key securely. It cannot be retrieved again.</span>
+    </div>
+  </div>
+
+  <!-- How to use + API Reference -->
+  <div class="schema-card" style="margin-bottom:1rem">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;flex-wrap:wrap;gap:.5rem">
+      <div style="font-weight:700;font-size:.85rem"><i class="fas fa-code me-2" style="color:var(--text-muted)"></i>How to Use API Keys</div>
+      <button class="btn-bo btn-bo-outline" onclick="boToggleApiRef()" style="font-size:.75rem"><i class="fas fa-book me-1"></i>Show API Reference</button>
+    </div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:.75rem">Include the key in the <code>X-API-Key</code> HTTP header. All endpoints are prefixed with <code>/api</code>.</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.75rem">
+      <div style="font-family:monospace;font-size:.76rem;background:#0d1117;color:#8b949e;border-radius:8px;padding:10px 14px">
+        <span style="color:#8b949e"># HTTP Header</span><br>
+        <span style="color:#58a6ff">GET</span> <span style="color:#a5d6ff">http://yourserver/api/patients</span><br>
+        <span style="color:#58a6ff">X-API-Key:</span> <span style="color:#a5d6ff">rxk_your_key_here</span>
+      </div>
+      <div style="font-family:monospace;font-size:.76rem;background:#0d1117;color:#8b949e;border-radius:8px;padding:10px 14px">
+        <span style="color:#8b949e"># curl example</span><br>
+        curl \<br>
+        &nbsp;&nbsp;-H <span style="color:#a5d6ff">"X-API-Key: rxk_your_key"</span> \<br>
+        &nbsp;&nbsp;http://yourserver/api/patients
+      </div>
+    </div>
+    <!-- API Reference panel (collapsed) -->
+    <div id="boApiRefPanel" style="display:none;margin-top:.75rem">
+      <hr style="margin:.75rem 0;opacity:.15">
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap">
+        <span style="font-weight:700;font-size:.82rem"><i class="fas fa-book-open me-2" style="color:#6366f1"></i>Complete API Reference</span>
+        <span style="font-size:.7rem;color:var(--text-muted)">Base URL: <code>http://localhost:3000/api</code></span>
+        <span id="boApiRoutesTotal" style="font-size:.7rem;background:rgba(99,102,241,.12);color:#6366f1;border-radius:20px;padding:2px 10px;font-weight:600">Loading...</span>
+        <button class="btn-bo btn-bo-outline" onclick="boRefreshApiRoutes()" style="margin-left:auto;font-size:.7rem;padding:2px 8px"><i class="fas fa-sync me-1"></i>Refresh</button>
+      </div>
+      <div id="boApiFilterPills" style="display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:.75rem"></div>
+      <div id="boApiEndpointsList"></div>
+    </div>
+  </div>
+
+  <!-- All API Keys table -->
+  <div class="schema-card">
+    <div style="font-weight:700;font-size:.85rem;margin-bottom:1rem"><i class="fas fa-list me-2" style="color:var(--text-muted)"></i>All API Keys</div>
+    <div style="overflow-x:auto">
+      <table class="bo-table" style="width:100%">
+        <thead>
+          <tr>
+            <th>Name / Label</th><th>Key Prefix</th><th>Status</th>
+            <th>Created By</th><th>Created</th><th>Last Used</th><th>Expires</th>
+            <th style="text-align:right">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="boApiKeysBody">
+          <tr><td colspan="8" style="text-align:center;padding:2rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div><!-- /apiKeysContent -->
+
+<!-- Revoke API Key Confirm Modal -->
+<div class="bo-modal-backdrop" id="revokeKeyBackdrop" style="display:none" onclick="if(event.target===this)closeRevokeModal()">
+  <div class="bo-modal" style="max-width:440px">
+    <div class="bo-modal-header">
+      <i class="fas fa-exclamation-triangle" style="color:#ef4444;font-size:1.1rem"></i>
+      <h5>Revoke API Key</h5>
+      <button class="btn-bo btn-bo-outline" style="margin-left:auto;padding:4px 10px" onclick="closeRevokeModal()"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="bo-modal-body">
+      <p style="margin-bottom:.75rem">Permanently revoke <strong id="revokeKeyName"></strong>?</p>
+      <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:8px;padding:.75rem;font-size:.8rem;color:#fca5a5">
+        <i class="fas fa-ban me-1"></i>This action is <strong>irreversible</strong>. Any system using this key will immediately lose access.
+      </div>
+    </div>
+    <div class="bo-modal-footer">
+      <button class="btn-bo btn-bo-outline" onclick="closeRevokeModal()">Cancel</button>
+      <button class="btn-bo btn-bo-danger" id="confirmRevokeBtn" onclick="boExecuteRevoke()"><i class="fas fa-trash me-1"></i>Revoke Key</button>
+    </div>
+  </div>
+</div>
+<!-- ================== END API KEYS PANEL ================== -->
+
+<!-- Purge Confirm Modal                                                      -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div class="bo-modal-backdrop" id="confirmBackdrop">
+    <div class="bo-modal">
+        <div class="bo-modal-header">
+            <i class="fas fa-exclamation-triangle" style="color:#ef4444;font-size:1.1rem"></i>
+            <h5>Confirm Permanent Deletion</h5>
+        </div>
+        <div class="bo-modal-body">
+            <p style="font-size:0.8rem;color:#fca5a5;margin-bottom:0.875rem">You are about to <strong>permanently delete</strong> the following data. This action cannot be undone.</p>
+            <div class="delete-summary" id="confirmSummary"></div>
+            <div class="confirm-input-wrap">
+                <label>Step 1 &mdash; Type <code>DELETE FOREVER</code> to confirm:</label>
+                <input type="text" class="confirm-input" id="confirmPhrase" placeholder="DELETE FOREVER" autocomplete="off" oninput="checkPhrase()">
+            </div>
+            <!-- BO-05: Second confirmation layer -->
+            <div class="confirm-input-wrap" style="margin-top:0.75rem">
+                <label>Step 2 &mdash; Type your <code id="usernameHint" style="color:#a5b4fc">username</code> to authorize:</label>
+                <input type="text" class="confirm-input" id="confirmUsername" placeholder="Your username" autocomplete="off" oninput="checkPhrase()">
+            </div>
+        </div>
+        <div class="bo-modal-footer">
+            <button class="btn-bo btn-bo-outline" onclick="closeConfirm()"><i class="fas fa-times me-1"></i>Cancel</button>
+            <button class="btn-bo btn-bo-danger" id="confirmPurgeBtn" disabled onclick="executePurge()">
+                <span id="purgeSpinner" class="spinner-sm" style="display:none"></span>
+                <i class="fas fa-skull-crossbones me-1" id="purgeIcon"></i>Permanently Delete
+            </button>
+        </div>
+    </div>
+</div>
+    <!-- â•â• Analytics Panel â•â• -->
+    <div id="analyticsContent" class="schema-wrap">
+        <!-- Header -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:0.75rem">
+            <div>
+                <div style="font-size:1rem;font-weight:700">ðŸ“Š Daily Analytics</div>
+                <div style="font-size:0.75rem;color:var(--text-muted)">Automated daily snapshots &mdash; captured every night at 00:05</div>
+            </div>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+                <input type="date" id="anlFrom" class="schema-search" style="margin:0" onchange="loadAnalytics()">
+                <input type="date" id="anlTo"   class="schema-search" style="margin:0" onchange="loadAnalytics()">
+                <button class="btn-bo btn-bo-outline" onclick="loadAnalytics()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+                <button class="btn-bo" style="background:rgba(16,185,129,.12);color:#10b981;border:1px solid rgba(16,185,129,.3);font-size:0.78rem" onclick="captureNowSnapshot()"><i class="fas fa-camera me-1"></i>Capture Now</button>
+                <button class="btn-bo btn-bo-outline" style="font-size:0.78rem" onclick="exportAnalyticsCSV()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            </div>
+        </div>
+
+        <!-- BO-06: Sparkline trend card -->
+        <div class="schema-card" id="anlSparkCard" style="padding:1rem;margin-bottom:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem">
+            <div>
+                <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:0.5rem">
+                    <i class="fas fa-users me-1" style="color:#10b981"></i>PATIENT TREND (30d)
+                </div>
+                <canvas id="sparkPatients" height="60"></canvas>
+                <div id="sparkPatientsDelta" style="font-size:0.7rem;margin-top:0.3rem;color:var(--text-muted)"></div>
+            </div>
+            <div>
+                <div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-muted);margin-bottom:0.5rem">
+                    <i class="fas fa-prescription-bottle-alt me-1" style="color:#f59e0b"></i>RX TREND (30d)
+                </div>
+                <canvas id="sparkRX" height="60"></canvas>
+                <div id="sparkRXDelta" style="font-size:0.7rem;margin-top:0.3rem;color:var(--text-muted)"></div>
+            </div>
+        </div>
+
+        <!-- KPI Cards (latest snapshot) -->
+        <div id="anlKpiCards" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.65rem;margin-bottom:1.5rem"></div>
+
+        <!-- Charts 2Ã—2 grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1.5rem" id="anlChartGrid">
+            <!-- Chart 1: Patients -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-user-injured me-1" style="color:#6366f1"></i>PATIENTS OVER TIME</div>
+                <canvas id="chartPatients" height="180"></canvas>
+            </div>
+            <!-- Chart 2: RX Activity -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-prescription-bottle-alt me-1" style="color:#f59e0b"></i>RX RECORDS ACTIVITY</div>
+                <canvas id="chartRX" height="180"></canvas>
+            </div>
+            <!-- Chart 3: Workflow -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-tasks me-1" style="color:#10b981"></i>WORKFLOW COMPLETION RATE %</div>
+                <canvas id="chartWorkflow" height="180"></canvas>
+            </div>
+            <!-- Chart 4: Errors & Audit -->
+            <div class="schema-card" style="padding:1rem">
+                <div style="font-size:0.78rem;font-weight:600;margin-bottom:0.75rem;color:var(--text-muted)"><i class="fas fa-exclamation-triangle me-1" style="color:#ef4444"></i>ERRORS & AUDIT EVENTS / DAY</div>
+                <canvas id="chartActivity" height="180"></canvas>
+            </div>
+        </div>
+
+        <!-- Raw data table -->
+        <div style="font-size:0.75rem;font-weight:600;color:var(--text-muted);margin-bottom:0.5rem;text-transform:uppercase;letter-spacing:.06em">Snapshot Records</div>
+        <div id="anlTableWrap"><p style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p></div>
+    </div>
+
+<!-- Access Denied -->
+<div class="main-wrap" id="deniedWrap" style="display:none">
+    <div class="denied-screen">
+        <div style="font-size:3.5rem;color:var(--red);opacity:.7"><i class="fas fa-ban"></i></div>
+        <h3>Access Denied</h3>
+        <p style="color:var(--text-muted)">This page is restricted to <strong style="color:#fca5a5">Administrator</strong> accounts only.</p>
+        <a href="/dashboard" class="btn-bo btn-bo-outline"><i class="fas fa-arrow-left me-1"></i>Return to Dashboard</a>
+    </div>
+</div>
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- Data Viewer Overlay                                                     -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div class="viewer-overlay" id="viewerOverlay">
+
+    <!-- Viewer Header -->
+    <div class="viewer-header">
+        <div class="viewer-title">
+            <div id="viewerIcon" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:0.85rem"></div>
+            <div>
+                <h5 id="viewerTitle">Table</h5>
+                <div style="font-size:0.7rem;color:var(--text-muted)" id="viewerDesc"></div>
+            </div>
+            <span class="v-badge" id="viewerBadge">0 records</span>
+        </div>
+        <div class="viewer-actions">
+            <button class="btn-bo btn-bo-danger" id="viewerDeleteSelBtn" style="display:none" onclick="openImpactModal()">
+                <i class="fas fa-trash-alt me-1"></i>Delete <span id="viewerDelCount">0</span> selected
+            </button>
+            <button class="btn-bo btn-bo-success" id="viewerExportBtn" onclick="exportCurrentTable()">
+                <i class="fas fa-file-csv me-1"></i>Export CSV
+            </button>
+            <button class="btn-bo btn-bo-outline" onclick="closeViewer()">
+                <i class="fas fa-times me-1"></i>Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="viewer-toolbar">
+        <input type="text" class="viewer-search" id="viewerSearch" placeholder="Search in any column..." oninput="applyViewerFilter()">
+        <div class="col-toggle-wrap">
+            <button class="col-toggle-btn" id="colToggleBtn" onclick="toggleColDropdown()">
+                <i class="fas fa-columns me-1"></i>Columns <i class="fas fa-chevron-down ms-1" style="font-size:0.65rem"></i>
+            </button>
+            <div class="col-dropdown" id="colDropdown"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.4rem;margin-left:auto">
+            <span style="font-size:0.73rem;color:var(--text-muted)">Rows/page:</span>
+            <select class="pag-size" id="pageSizeSelect" onchange="changePageSize()">
+                <option value="20" selected>20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="0">All</option>
+            </select>
+        </div>
+        <span class="viewer-info" id="viewerInfo"></span>
+    </div>
+
+    <!-- Selection Bar -->
+    <div class="sel-bar" id="selBar">
+        <span class="sel-bar-info" id="selBarText">0 rows selected</span>
+        <button class="btn-bo btn-bo-danger" onclick="openImpactModal()" style="padding:0.3rem 0.7rem;font-size:0.75rem">
+            <i class="fas fa-trash-alt me-1"></i>Delete Selected
+        </button>
+        <button class="btn-bo btn-bo-outline" onclick="clearRowSelection()" style="padding:0.3rem 0.7rem;font-size:0.75rem">Cancel</button>
+    </div>
+
+    <!-- Table Body -->
+    <div class="viewer-body">
+        <div id="viewerTableWrap" style="min-height:200px">
+            <p class="no-rows"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Pagination Footer -->
+    <div class="viewer-footer">
+        <span class="pag-info" id="pagInfo"></span>
+        <div class="pag-controls" id="pagControls"></div>
+    </div>
+</div>
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- Row Delete Impact Modal                                                  -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div class="bo-modal-backdrop" id="impactBackdrop">
+    <div class="bo-modal" style="max-width:560px">
+        <div class="bo-modal-header">
+            <i class="fas fa-exclamation-triangle" style="color:#f59e0b;font-size:1.1rem"></i>
+            <h5 style="color:#fde68a">Impact Analysis &mdash; Confirm Row Deletion</h5>
+        </div>
+        <div class="bo-modal-body">
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:1rem">
+                Deleting <strong id="impactRowCount" style="color:var(--text)">0</strong> row(s) from
+                <strong id="impactTableName" style="color:#a5b4fc"></strong> will also affect:
+            </p>
+            <div id="impactList" style="background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:0.75rem;margin-bottom:1rem;min-height:60px">
+                <p style="color:var(--text-muted);font-size:0.8rem;text-align:center"><i class="fas fa-spinner fa-spin me-2"></i>Analyzing impact...</p>
+            </div>
+            <div style="background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:0.75rem;margin-bottom:1rem;font-size:0.78rem;color:#fca5a5">
+                <i class="fas fa-exclamation-circle me-1"></i>
+                <span id="impactWarning">This action is <strong>permanent and irreversible</strong>.</span>
+            </div>
+            <div class="confirm-input-wrap">
+                <label>Type <code>CONFIRM</code> to proceed:</label>
+                <input type="text" class="confirm-input" id="impactPhrase" placeholder="CONFIRM" autocomplete="off" oninput="checkImpactPhrase()">
+            </div>
+        </div>
+        <div class="bo-modal-footer">
+            <button class="btn-bo btn-bo-outline" onclick="closeImpactModal()"><i class="fas fa-times me-1"></i>Cancel</button>
+            <button class="btn-bo btn-bo-danger" id="impactDeleteBtn" disabled onclick="executeRowDelete()">
+                <span id="impactSpinner" class="spinner-sm" style="display:none"></span>
+                <i class="fas fa-trash-alt me-1" id="impactIcon"></i>Delete Rows
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<!-- Purge Confirm Modal                                                      -->
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<div class="bo-modal-backdrop" id="confirmBackdrop">
+    <div class="bo-modal">
+        <div class="bo-modal-header">
+            <i class="fas fa-exclamation-triangle" style="color:#ef4444;font-size:1.1rem"></i>
+            <h5>Confirm Permanent Deletion</h5>
+        </div>
+        <div class="bo-modal-body">
+            <p style="font-size:0.8rem;color:#fca5a5;margin-bottom:0.875rem">You are about to <strong>permanently delete</strong> the following data. This action cannot be undone.</p>
+            <div class="delete-summary" id="confirmSummary"></div>
+            <div class="confirm-input-wrap">
+                <label>Step 1 &mdash; Type <code>DELETE FOREVER</code> to confirm:</label>
+                <input type="text" class="confirm-input" id="confirmPhrase" placeholder="DELETE FOREVER" autocomplete="off" oninput="checkPhrase()">
+            </div>
+            <!-- BO-05: Second confirmation layer -->
+            <div class="confirm-input-wrap" style="margin-top:0.75rem">
+                <label>Step 2 &mdash; Type your <code id="usernameHint" style="color:#a5b4fc">username</code> to authorize:</label>
+                <input type="text" class="confirm-input" id="confirmUsername" placeholder="Your username" autocomplete="off" oninput="checkPhrase()">
+            </div>
+        </div>
+        <div class="bo-modal-footer">
+            <button class="btn-bo btn-bo-outline" onclick="closeConfirm()"><i class="fas fa-times me-1"></i>Cancel</button>
+            <button class="btn-bo btn-bo-danger" id="confirmPurgeBtn" disabled onclick="executePurge()">
+                <span id="purgeSpinner" class="spinner-sm" style="display:none"></span>
+                <i class="fas fa-skull-crossbones me-1" id="purgeIcon"></i>Permanently Delete
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="bo-toast-wrap" id="toastWrap"></div>
+
+<!-- â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• -->
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
+<script>
+    window.BACKOFFICE_USER = <%- JSON.stringify(locals.currentUser || null) %>;
+</script>
+<script src="/js/backoffice.js?v=<%= encodeURIComponent(locals.appVersion || String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/backoffice-features.js?v=<%= encodeURIComponent(locals.appVersion || String(locals.appBuild || 'dev')) %>"></script>
+</body>
+</html>
+

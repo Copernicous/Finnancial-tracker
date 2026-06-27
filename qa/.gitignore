@@ -1,0 +1,7 @@
+certs/*.pfx
+logs/*
+!logs/.gitkeep
+pids/*
+!pids/.gitkeep
+results/*.json
+results/screenshots/*.png

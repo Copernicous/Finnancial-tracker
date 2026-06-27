@@ -1,0 +1,228 @@
+<%#
+  Shared sidebar partial — server-side permission-aware.
+  Uses res.locals.userPerms set by middleware/webAuth.js from the rxToken cookie.
+  If userPerms is null (no cookie yet), all items are shown and client JS handles auth redirect.
+%>
+<%
+  // Build a visible-set from userPerms
+  const UP      = locals.userPerms || null;
+  const isAdmin = locals.isAdmin || (locals.currentUser && locals.currentUser.role === 'Administrator');
+
+  // Returns true if visible:
+  //   • No UP (no token)     → permissive (JS redirect handles auth)
+  //   • Administrator role   → always visible (bypasses permission checks)
+  //   • Otherwise            → check the module's visible flag
+  function sv(key) {
+    if (!UP) return true;
+    if (isAdmin) return true;
+    const p = UP[key];
+    return !!(p && p.visible);
+  }
+
+  const ap = locals.activePage || '';
+  const refActive   = ['pharmacies','patient-transport','pharmacy-transport','clinics','workflow-actions','medication-catalog'].includes(ap);
+  const rptActive   = ['reports','audit-log'].includes(ap);
+  const adminActive = ['roles','users','system-settings','backups','import','active-users'].includes(ap);
+
+  const refVisible   = sv('pharmacies') || sv('patient_transport') || sv('pharmacy_transport') || sv('clinics') || sv('workflow_actions') || sv('medication_catalog');
+  const rptVisible   = sv('reports') || sv('audit_log');
+  const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users');
+%>
+<!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
+<a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
+<% if (locals.isStaging) { %>
+<script>
+    document.documentElement.classList.add('rx-staging-env');
+    if (document.body) document.body.classList.add('rx-staging-env');
+</script>
+<% } %>
+<nav id="sidebar" class="<%= locals.isStaging ? 'rx-staging-sidebar' : '' %>">
+    <div class="sidebar-header">
+        <span><i class="fas fa-calculator me-2"></i>Home Accounting</span>
+        <% if (locals.isStaging) { %>
+            <span class="rx-staging-sidebar-badge">STAGING</span>
+        <% } %>
+    </div>
+    <ul class="list-unstyled components">
+
+        <li class="<%= ap === 'dashboard' ? 'active' : '' %>">
+            <a href="/dashboard"><i class="fas fa-tachometer-alt me-2"></i>Dashboard</a>
+        </li>
+
+        <% if (!UP || sv('patients')) { %>
+        <li class="<%= ap === 'patients' ? 'active' : '' %>">
+            <a href="/patients"><i class="fas fa-wallet me-2"></i>Accounts</a>
+        </li>
+        <% } %>
+
+        <% if (!UP || sv('rx_records')) { %>
+        <li class="<%= ap === 'rx-records' ? 'active' : '' %>">
+            <a href="/rx-records"><i class="fas fa-receipt me-2"></i>Transactions</a>
+        </li>
+        <% } %>
+
+        <% if (!UP || refVisible) { %>
+        <li>
+            <a href="#refDataSubmenu" data-bs-toggle="collapse"
+               aria-expanded="<%= refActive ? 'true' : 'false' %>"
+               class="dropdown-toggle">
+                <i class="fas fa-book-open me-2"></i>Accounting Setup
+            </a>
+            <ul class="collapse <%= refActive ? 'show' : '' %> list-unstyled ps-3" id="refDataSubmenu">
+                <% if (!UP || sv('pharmacies')) { %>
+                <li class="<%= ap === 'pharmacies' ? 'active' : '' %>">
+                    <a href="/pharmacies"><i class="fas fa-university me-2"></i>Financial Institutions</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('patient_transport')) { %>
+                <li class="<%= ap === 'patient-transport' ? 'active' : '' %>">
+                    <a href="/patient-transport"><i class="fas fa-address-book me-2"></i>Payees</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('pharmacy_transport')) { %>
+                <li class="<%= ap === 'pharmacy-transport' ? 'active' : '' %>">
+                    <a href="/pharmacy-transport"><i class="fas fa-credit-card me-2"></i>Payment Methods</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('clinics')) { %>
+                <li class="<%= ap === 'clinics' ? 'active' : '' %>">
+                    <a href="/clinics"><i class="fas fa-home me-2"></i>Household Entities</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('workflow_actions')) { %>
+                <li class="<%= ap === 'workflow-actions' ? 'active' : '' %>">
+                    <a href="/workflow-actions"><i class="fas fa-tasks me-2"></i>Review Workflow</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('medication_catalog')) { %>
+                <li class="<%= ap === 'medication-catalog' ? 'active' : '' %>">
+                    <a href="/medication-catalog"><i class="fas fa-clipboard-list me-2"></i>Accounting Actions</a>
+                </li>
+                <% } %>
+            </ul>
+        </li>
+        <% } %>
+
+        <% if (!UP || rptVisible) { %>
+        <li>
+            <a href="#reportsSubmenu" data-bs-toggle="collapse"
+               aria-expanded="<%= rptActive ? 'true' : 'false' %>"
+               class="dropdown-toggle">
+                <i class="fas fa-chart-bar me-2"></i>Reports
+            </a>
+            <ul class="collapse <%= rptActive ? 'show' : '' %> list-unstyled ps-3" id="reportsSubmenu">
+                <% if (!UP || sv('reports')) { %>
+                <li class="<%= ap === 'reports' ? 'active' : '' %>">
+                    <a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('audit_log')) { %>
+                <li class="<%= ap === 'audit-log' ? 'active' : '' %>">
+                    <a href="/audit-log"><i class="fas fa-history me-2"></i>Audit Log</a>
+                </li>
+                <% } %>
+            </ul>
+        </li>
+        <% } %>
+
+        <% if (!UP || adminVisible) { %>
+        <li>
+            <a href="#adminSubmenu" data-bs-toggle="collapse"
+               aria-expanded="<%= adminActive ? 'true' : 'false' %>"
+               class="dropdown-toggle">
+                <i class="fas fa-cogs me-2"></i>Administration
+            </a>
+            <ul class="collapse <%= adminActive ? 'show' : '' %> list-unstyled ps-3" id="adminSubmenu">
+
+                <% if (!UP || sv('users')) { %>
+                <li class="<%= ap === 'roles' ? 'active' : '' %>">
+                    <a href="/roles"><i class="fas fa-shield-alt me-2"></i>Roles</a>
+                </li>
+                <li class="<%= ap === 'users' ? 'active' : '' %>">
+                    <a href="/users"><i class="fas fa-users-cog me-2"></i>User Management</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('system_settings')) { %>
+                <li class="<%= ap === 'system-settings' ? 'active' : '' %>">
+                    <a href="/system-settings"><i class="fas fa-sliders-h me-2"></i>System Settings</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('backups')) { %>
+                <li class="<%= ap === 'backups' ? 'active' : '' %>">
+                    <a href="/backups"><i class="fas fa-database me-2"></i>Backups</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('import')) { %>
+                <li class="<%= ap === 'import' ? 'active' : '' %>">
+                    <a href="/import"><i class="fas fa-file-import me-2"></i>Data Import</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('active_users')) { %>
+                <li class="<%= ap === 'active-users' ? 'active' : '' %>">
+                    <a href="/active-users">
+                        <i class="fas fa-users me-2"></i>Who's Online
+                        <span id="sidebarOnlineBadge" style="display:none;margin-left:auto;background:#22c55e;color:#fff;border-radius:20px;padding:1px 7px;font-size:.65rem;font-weight:700;line-height:1.6">0</span>
+                    </a>
+                </li>
+                <% } %>
+            </ul>
+        </li>
+        <% } %>
+
+    </ul>
+
+    <!-- Version badge -->
+    <div id="sidebarVersion" style="
+        position: absolute; bottom: 0; left: 0; right: 0;
+        padding: 10px 16px;
+        border-top: 1px solid rgba(255,255,255,0.07);
+        display: flex; align-items: center; justify-content: space-between;
+        font-size: 0.7rem; color: rgba(255,255,255,0.35);
+    ">
+        <span><i class="fas fa-code-branch me-1"></i>v<span id="sidebarVer">—</span></span>
+        <a href="/changelog" title="View Changelog"
+           style="color:rgba(255,255,255,0.3); text-decoration:none; font-size:0.65rem;"
+           onmouseover="this.style.color='rgba(255,255,255,0.7)'"
+           onmouseout="this.style.color='rgba(255,255,255,0.3)'">
+            Changelog <i class="fas fa-external-link-alt ms-1" style="font-size:.6rem"></i>
+        </a>
+    </div>
+</nav>
+
+<script>
+// Fetch and display version in sidebar — non-blocking, fails silently
+(function() {
+    fetch(window.rxUrl ? window.rxUrl('/api/version') : '/api/version')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var el = document.getElementById('sidebarVer');
+            if (el) el.textContent = d.version || '—';
+        })
+        .catch(function() {});
+})();
+
+// Who's Online badge — polls active sessions count every 30s
+// Hidden automatically for roles without active_users permission (API returns 403)
+(function() {
+    function _loadOnlineBadge() {
+        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
+        if (!token) return;
+        var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/active-sessions') : '/api/active-sessions';
+        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
+            .then(function(r) {
+                if (!r.ok) return null;
+                return r.json();
+            })
+            .then(function(data) {
+                if (!data) return;
+                var badge = document.getElementById('sidebarOnlineBadge');
+                if (!badge) return;
+                badge.textContent = data.length;
+                badge.style.display = 'inline-block';
+            })
+            .catch(function() {});
+    }
+    _loadOnlineBadge();
+    setInterval(_loadOnlineBadge, 30000);
+})();
+</script>

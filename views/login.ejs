@@ -1,0 +1,420 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="light" class="<%= locals.isStaging ? 'rx-staging-env' : '' %>">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - Home Accounting</title>
+    <meta name="description" content="Home Accounting Management System - Secure Login">
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+    <!-- xa-base: FortiGate rewrites <a href> â€” used by base.js to derive proxy path prefix -->
+    <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
+    <script src="/js/base.js"></script>
+    <style>
+        body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Inter', sans-serif;
+        }
+        body.rx-staging-env {
+            background: linear-gradient(135deg, #3b0a45, #86198f 48%, #7c2d12);
+        }
+        .rx-staging-login-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1200;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f59e0b;
+            color: #2b0a1d;
+            font-size: 0.78rem;
+            font-weight: 900;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            box-shadow: 0 8px 22px rgba(0,0,0,0.24);
+        }
+        body.rx-staging-env .login-card {
+            border-color: rgba(251,146,60,0.48);
+            box-shadow: 0 25px 55px rgba(59,10,69,0.44), 0 0 0 1px rgba(251,146,60,0.22);
+        }
+        body.rx-staging-env .login-card .brand-icon,
+        body.rx-staging-env .btn-login {
+            background: linear-gradient(135deg, #f59e0b, #c026d3);
+        }
+        .login-card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 20px;
+            padding: 2.5rem;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 45px rgba(0,0,0,0.3);
+            /* BUG-23 FIX: force GPU compositing layer so backdrop-filter
+               does not block CSS transform animations (shake on wrong password) */
+            transform: translateZ(0);
+        }
+        .login-card .brand-icon {
+            font-size: 3rem;
+            background: linear-gradient(135deg, #4a90e2, #50e3c2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .login-card h2 {
+            color: #fff;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .login-card .subtitle {
+            color: rgba(255,255,255,0.6);
+            font-size: 0.9rem;
+        }
+        .login-card .form-label {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .login-card .form-control {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #fff;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            transition: all 0.3s;
+        }
+        .login-card .form-control:focus {
+            background: rgba(255,255,255,0.15);
+            border-color: #4a90e2;
+            color: #fff;
+            box-shadow: 0 0 0 3px rgba(74,144,226,0.2);
+        }
+        .login-card .form-control::placeholder { color: rgba(255,255,255,0.3); }
+        .btn-login {
+            background: linear-gradient(135deg, #4a90e2, #50e3c2);
+            border: none;
+            border-radius: 10px;
+            padding: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+            color: #fff;
+        }
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(74,144,226,0.4);
+            color: #fff;
+        }
+        .btn-login:active { transform: translateY(0); }
+        .login-notice {
+            border-radius: 12px;
+            padding: 0.85rem 1rem;
+            font-size: 0.88rem;
+            font-weight: 700;
+            line-height: 1.45;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.24);
+        }
+        .login-notice i {
+            color: inherit;
+        }
+        .login-notice-error {
+            background: rgba(220,53,69,0.24);
+            border: 1px solid rgba(255,122,138,0.76);
+            color: #ffe3e7;
+        }
+        .login-notice-timeout {
+            background: rgba(255,193,7,0.26);
+            border: 1px solid rgba(255,213,79,0.86);
+            color: #fff6c2;
+            text-shadow: 0 1px 1px rgba(0,0,0,0.35);
+        }
+        .login-notice-info {
+            background: rgba(13,110,253,0.24);
+            border: 1px solid rgba(110,168,254,0.74);
+            color: #dceaff;
+        }
+        /* IMPROVE-01: shake animation on wrong password */
+        @keyframes loginShake {
+            0%,100% { transform: translate3d(0,0,0); }
+            15%      { transform: translate3d(-8px,0,0); }
+            30%      { transform: translate3d(7px,0,0); }
+            45%      { transform: translate3d(-6px,0,0); }
+            60%      { transform: translate3d(5px,0,0); }
+            75%      { transform: translate3d(-4px,0,0); }
+            90%      { transform: translate3d(3px,0,0); }
+        }
+        .login-card.shake-card {
+            animation: loginShake 0.6s cubic-bezier(.36,.07,.19,.97) both;
+            will-change: transform;
+        }
+        .input-group-text {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.6);
+        }
+    </style>
+</head>
+<body class="<%= locals.isStaging ? 'rx-staging-env' : '' %>">
+    <% if (locals.isStaging) { %>
+    <div class="rx-staging-login-banner">Staging Environment</div>
+    <% } %>
+    <div class="login-card">
+        <div class="text-center mb-4">
+            <div class="brand-icon mb-2">
+                <i class="fas fa-pills"></i>
+            </div>
+            <h2>Home Accounting</h2>
+            <p class="subtitle">Delivery Management System</p>
+        </div>
+
+        <div id="errorMsg" class="mb-3 login-notice login-notice-error d-none"></div>
+
+        <form id="loginForm" novalidate>
+            <div class="mb-3">
+                <label for="username" class="form-label text-uppercase">Username</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                    <input type="text" class="form-control" id="username" name="username"
+                           placeholder="Enter username" autocomplete="username" required>
+                </div>
+            </div>
+            <div class="mb-4">
+                <label for="password" class="form-label text-uppercase">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                    <input type="password" class="form-control" id="password" name="password"
+                           placeholder="Enter password" autocomplete="current-password" required>
+                    <button class="input-group-text" type="button" id="togglePassword" style="cursor:pointer;">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+            </div>
+            <button type="submit" class="btn btn-login w-100" id="loginBtn">
+                <span id="loginSpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                Sign In
+            </button>
+        </form>
+
+        <!-- 2FA second step (hidden until server returns requires2FA) -->
+        <div id="twoFAStep" class="d-none">
+            <div class="text-center mb-4">
+                <div style="font-size:2.5rem;margin-bottom:.5rem"><i class="fas fa-shield-alt" style="color:#4a90e2"></i></div>
+                <h5 style="color:#fff">Two-Factor Authentication</h5>
+                <p style="color:rgba(255,255,255,.55);font-size:.85rem">Enter the 6-digit code from your authenticator app</p>
+            </div>
+            <div id="twoFAError" class="mb-3 login-notice login-notice-error d-none"></div>
+            <div class="mb-4">
+                <input type="text" id="twoFACode" class="form-control text-center fw-bold"
+                       inputmode="numeric" pattern="[0-9]*" maxlength="7"
+                       placeholder="000 000" autocomplete="one-time-code"
+                       style="font-size:1.8rem;letter-spacing:.4rem;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;">
+            </div>
+            <button type="button" class="btn btn-login w-100 mb-2" id="verify2FABtn" onclick="verify2FA()">
+                <span id="verify2FASpinner" class="spinner-border spinner-border-sm me-2 d-none"></span>
+                <i class="fas fa-check-circle me-1"></i>Verify
+            </button>
+            <button type="button" class="btn btn-link w-100" style="color:rgba(255,255,255,.4);font-size:.8rem" onclick="back2Login()">
+                <i class="fas fa-arrow-left me-1"></i>Back to login
+            </button>
+        </div>
+
+        <p class="text-center mt-4" style="color:rgba(255,255,255,0.3);font-size:0.75rem;">
+            Home Accounting &copy; 2026 &mdash; All rights reserved
+        </p>
+    </div>
+
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+    <script>
+        // Show timeout message if redirected due to session expiry
+        (function() {
+            var params = new URLSearchParams(window.location.search);
+            var reason = params.get('reason');
+            var msg = document.getElementById('errorMsg');
+            if (!msg) return;
+            if (reason === 'timeout') {
+                msg.innerHTML = '<i class="fas fa-clock me-1"></i>You were logged out due to inactivity.';
+                msg.className = 'mb-3 login-notice login-notice-timeout';
+            } else if (reason === 'password-changed') {
+                msg.innerHTML = '<i class="fas fa-key me-1"></i>Password changed successfully. Please log in with your new password.';
+                msg.className = 'mb-3 login-notice login-notice-info';
+            }
+        })();
+
+        // Toggle password visibility
+        document.getElementById('togglePassword').addEventListener('click', function() {
+            const pwd = document.getElementById('password');
+            const icon = this.querySelector('i');
+            if (pwd.type === 'password') {
+                pwd.type = 'text';
+                icon.classList.replace('fa-eye', 'fa-eye-slash');
+            } else {
+                pwd.type = 'password';
+                icon.classList.replace('fa-eye-slash', 'fa-eye');
+            }
+        });
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const username = document.getElementById('username').value.trim();
+            const password = document.getElementById('password').value;
+            const btn = document.getElementById('loginBtn');
+            const spinner = document.getElementById('loginSpinner');
+            const errorMsg = document.getElementById('errorMsg');
+
+            errorMsg.className = 'mb-3 login-notice login-notice-error d-none';
+            errorMsg.textContent = '';
+
+            if (!username || !password) {
+                showLoginError(errorMsg, 'Please enter both username and password.');
+                return;
+            }
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            try {
+                const res = await fetch(window.rxUrl('/api/auth/login'), {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                const data = await res.json();
+
+                if (res.ok && data.requires2FA) {
+                    // 2FA required â€” show second step
+                    window._2faTempToken = data.tempToken;
+                    document.getElementById('loginForm').classList.add('d-none');
+                    document.getElementById('twoFAStep').classList.remove('d-none');
+                    setTimeout(() => document.getElementById('twoFACode').focus(), 100);
+                } else if (res.ok && data.token) {
+                    loginSuccess(data);
+                } else {
+                    showLoginError(errorMsg, data.message || 'Invalid username or password.');
+                }
+            } catch (err) {
+                showLoginError(errorMsg, 'Could not connect to the server. Please try again.');
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        });
+
+        // Auto-format 2FA code input: insert space after 3 digits
+        document.getElementById('twoFACode').addEventListener('input', function() {
+            let v = this.value.replace(/\D/g,'').substring(0,6);
+            this.value = v.length > 3 ? v.slice(0,3) + ' ' + v.slice(3) : v;
+        });
+        document.getElementById('twoFACode').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') verify2FA();
+        });
+
+        async function verify2FA() {
+            const rawCode = document.getElementById('twoFACode').value.replace(/\s/g,'');
+            const errEl   = document.getElementById('twoFAError');
+            const btn     = document.getElementById('verify2FABtn');
+            const spinner = document.getElementById('verify2FASpinner');
+
+            errEl.classList.add('d-none');
+            if (rawCode.length !== 6) {
+                showError(errEl, 'Please enter the full 6-digit code.');
+                return;
+            }
+
+            btn.disabled = true;
+            spinner.classList.remove('d-none');
+
+            try {
+                const res  = await fetch(window.rxUrl('/api/auth/login/2fa'), {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tempToken: window._2faTempToken, code: rawCode })
+                });
+                const data = await res.json();
+
+                if (res.ok && data.token) {
+                    loginSuccess(data);
+                } else {
+                    showError(errEl, data.message || 'Invalid code. Please try again.');
+                    document.getElementById('twoFACode').value = '';
+                    document.getElementById('twoFACode').focus();
+                }
+            } catch (err) {
+                showError(errEl, 'Network error. Please try again.');
+            } finally {
+                btn.disabled = false;
+                spinner.classList.add('d-none');
+            }
+        }
+
+        function back2Login() {
+            window._2faTempToken = null;
+            document.getElementById('twoFACode').value = '';
+            document.getElementById('twoFAError').classList.add('d-none');
+            document.getElementById('twoFAStep').classList.add('d-none');
+            document.getElementById('loginForm').classList.remove('d-none');
+        }
+
+        function setRxTokenCookie(token, maxAge) {
+            const sameSite = window.location.protocol === 'https:' ? 'None' : 'Lax';
+            const secure = window.location.protocol === 'https:' ? '; Secure' : '';
+            // Use proxy-aware base path as cookie path so the cookie is sent
+            // with all requests through the FortiGate VPN proxy prefix.
+            var cookiePath = window.RX_BASE
+                ? window.RX_BASE.replace(/^https?:\/\/[^/]+/, '') || '/'
+                : '/';
+            document.cookie = 'rxToken=' + encodeURIComponent(token) +
+                '; path=' + cookiePath + '; max-age=' + maxAge +
+                '; SameSite=' + sameSite + secure;
+        }
+
+        function loginSuccess(data) {
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('user', JSON.stringify(data.user));
+            const maxAge = 86400;
+            setRxTokenCookie(data.token, maxAge);
+            window.rxNav('/dashboard');
+        }
+
+        function showLoginError(el, msg) {
+            showError(el, msg);
+        }
+
+        function shakeLoginCard() {
+            var card = document.querySelector('.login-card');
+            if (!card) return;
+            if (window._loginShakeTimer) clearTimeout(window._loginShakeTimer);
+            card.classList.remove('shake-card');
+            void card.offsetWidth; // force reflow to restart animation
+            card.classList.add('shake-card');
+            window._loginShakeTimer = setTimeout(function() {
+                card.classList.remove('shake-card');
+                window._loginShakeTimer = null;
+            }, 650);
+        }
+
+        function showError(el, msg) {
+            el.innerHTML = '<i class="fas fa-exclamation-circle me-1"></i>' + msg;
+            el.className = 'mb-3 login-notice login-notice-error';
+            // IMPROVE-01: shake the card on error
+            shakeLoginCard();
+        }
+    </script>
+</body>
+</html>
+

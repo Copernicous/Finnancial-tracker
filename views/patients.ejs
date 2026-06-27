@@ -1,0 +1,496 @@
+﻿<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients - Home Accounting</title>
+    <link href="/assets/bootstrap.min.css" rel="stylesheet">
+    <link href="/assets/inter.css" rel="stylesheet">
+    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrapper">
+    <!-- Sidebar -->
+    <%- include('partials/sidebar') %>
+
+<div id="content">
+        <nav class="navbar navbar-expand-lg px-4 mb-4">
+            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+            <span class="ms-3 fw-bold fs-5">Patients Management</span>
+            <div class="ms-auto d-flex align-items-center gap-3">
+                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
+                <span id="userGreeting" class="text-muted small"></span>
+                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+            </div>
+        </nav>
+
+        <div class="container-fluid px-4">
+            <!-- Search Panel -->
+            <div class="glass-card p-3 mb-4">
+                <!-- Panel header with toggle -->
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em"><i class="fas fa-filter me-1"></i>Search &amp; Filter</span>
+                    <div class="d-flex align-items-center gap-2">
+                        <span id="activeFilterBadge" class="badge rounded-pill bg-primary" style="display:none!important;font-size:.7rem">0 filters</span>
+                        <button class="btn btn-link btn-sm text-muted p-0" id="advancedToggleBtn" onclick="toggleAdvancedFilters()" style="font-size:.78rem;text-decoration:none">
+                            <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="advancedChevron"></i>
+                        </button>
+                    </div>
+                </div>
+                <!-- Basic row -->
+                <div class="row g-2 align-items-end" id="basicFilterRow">
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">First Name</label>
+                        <input type="text" class="form-control form-control-sm" id="srchFirstName" placeholder="First name" oninput="liveFilter()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Last Name</label>
+                        <input type="text" class="form-control form-control-sm" id="srchLastName" placeholder="Last name" oninput="liveFilter()">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small fw-bold">DOB</label>
+                        <input type="date" class="form-control form-control-sm" id="srchDob" onchange="liveFilter()">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small fw-bold">Phone</label>
+                        <input type="text" class="form-control form-control-sm" id="srchPhone" placeholder="Phone" oninput="liveFilter()">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold">Status</label>
+                        <select class="form-select form-select-sm" id="srchStatus" onchange="liveFilter()">
+                            <option value="">All</option>
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small fw-bold"><i class="fas fa-hospital me-1"></i>Clinic</label>
+                        <select class="form-select form-select-sm" id="srchClinic" onchange="liveFilter()">
+                            <option value="">All Clinics</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex gap-2 align-items-stretch">
+                        <button class="btn btn-primary btn-sm btn-search" id="searchBtn" title="Search"><i class="fas fa-search"></i></button>
+                        <button class="btn btn-outline-secondary btn-sm" id="clearBtn" title="Clear all filters"><i class="fas fa-times me-1"></i>Clear</button>
+                    </div>
+                </div>
+
+                <!-- Advanced row (collapsible) -->
+                <div id="advancedFilterRow" style="display:none;border-top:1px solid var(--border-color,#dee2e6);margin-top:10px;padding-top:10px">
+                    <div class="row g-2 align-items-end">
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-id-badge me-1"></i>Patient ID</label>
+                            <input type="text" class="form-control form-control-sm" id="srchPatientCode" placeholder="e.g. PAT-00001" oninput="liveFilter()">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold"><i class="fas fa-ambulance me-1"></i>Patient Transport</label>
+                            <select class="form-select form-select-sm" id="srchPatientTransport" onchange="liveFilter()">
+                                <option value="">All Transport Companies</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold"><i class="fas fa-truck me-1"></i>Pharmacy Transport</label>
+                            <select class="form-select form-select-sm" id="srchPharmacyTransport" onchange="liveFilter()">
+                                <option value="">All Pharmacy Transport</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Service Date From</label>
+                            <input type="date" class="form-control form-control-sm" id="srchServiceFrom" onchange="liveFilter()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label small fw-bold"><i class="fas fa-calendar me-1"></i>Service Date To</label>
+                            <input type="date" class="form-control form-control-sm" id="srchServiceTo" onchange="liveFilter()">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label small fw-bold"><i class="fas fa-check-circle me-1 text-success"></i>90-Day Eligibility</label>
+                            <select class="form-select form-select-sm" id="srchEligibility" onchange="liveFilter()">
+                                <option value="">All Patients</option>
+                                <option value="eligible">&#x2705; Eligible Now</option>
+                                <option value="expiring">&#x23F1; Expiring &le;7 Days</option>
+                                <option value="window">&#x1F512; In Active Window</option>
+                                <option value="none">&#x2014; No Service Date</option>
+                                <option value="needsAction">&#x26A0; Needs Action (Expired + Open Workflow)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 d-flex align-items-center">
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="srchShowDeleted">
+                                <label class="form-check-label small" for="srchShowDeleted">Show Deleted</label>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Active filter chips -->
+                    <div id="activeFilterChips" class="d-flex flex-wrap gap-1 mt-2" style="min-height:0"></div>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="glass-card p-4">
+                <div id="patientsNeedsActionBanner" class="mb-2"></div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Patient List</h5>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-success btn-sm" id="exportPatientsCsvBtn"><i class="fas fa-file-csv me-1"></i>Export CSV <i class="fas fa-caret-down ms-1" style="opacity:.6"></i></button>
+                        <button class="btn btn-outline-success btn-sm" id="addPatientRxBtn"><i class="fas fa-prescription-bottle-alt me-1"></i>Add Patient + RX</button>
+                        <button class="btn btn-success btn-sm" id="addPatientBtn"><i class="fas fa-plus me-1"></i>Add Patient</button>
+                    </div>
+                </div>
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <div class="d-flex align-items-center gap-2">
+                        <label class="small text-muted mb-0">Show</label>
+                        <select class="form-select form-select-sm" style="width:auto" id="patPageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="20" selected>20</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                        <small class="text-muted" id="patientPageInfo"></small>
+                    </div>
+                    <nav><ul class="pagination pagination-sm mb-0" id="patientPagination"></ul></nav>
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead>
+                            <tr>
+                                <th style="cursor:pointer" onclick="sortPatients('patientCode')">Patient ID <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_patientCode"></i></th>
+                                <th style="cursor:pointer" onclick="sortPatients('firstName')">Full Name <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_firstName"></i></th>
+                                <th style="cursor:pointer" onclick="sortPatients('Clinic.name')">Location / Clinic <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_Clinic.name"></i></th>
+                                <th style="cursor:pointer" onclick="sortPatients('dob')">DOB <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_dob"></i></th>
+                                <th style="cursor:pointer" onclick="sortPatients('phone')">Phone <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_phone"></i></th>
+                                <th style="cursor:pointer" onclick="sortPatients('serviceDate')">Service Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_serviceDate"></i></th>
+                                <th style="cursor:pointer" onclick="sortPatients('nextSvcDate')">Next Svc Date <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_nextSvcDate"></i></th>
+                                <th style="cursor:pointer" onclick="sortPatients('isActive')">Status <i class="fas fa-sort text-muted" style="opacity:0.3" id="spIcon_isActive"></i></th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientsBody">
+                            <tr><td colspan="9" class="text-center text-muted py-4">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Modal -->
+<div class="modal fade" id="patientModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="patientModalTitle">Add Patient</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="patientForm">
+                    <div class="row g-3">
+                        <div class="col-md-12">
+                            <label class="form-label">Patient ID <span class="text-muted">(Optional - Will auto-generate if blank)</span></label>
+                            <input type="text" class="form-control" id="pPatientCode" placeholder="e.g. PAT-00001">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">First Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="pFirstName" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="pLastName" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Date of Birth <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="pDob" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Phone</label>
+                            <input type="text" class="form-control" id="pPhone">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Service Date</label>
+                            <div class="input-group">
+                                <span class="input-group-text" id="svcDateLockIcon" title="Locked â€” active 90-day window"
+                                      style="display:none;background:rgba(234,179,8,.15);border-color:rgba(234,179,8,.4);color:#b45309">
+                                    <i class="fas fa-lock"></i>
+                                </span>
+                                <input type="date" class="form-control" id="pServiceDate" oninput="_updateNextSvcDisplay()">
+                            </div>
+                            <div id="pNextSvcDisplay" class="mt-1" style="min-height:1.4rem"></div>
+                            <div id="svcDateLockBanner" class="mt-2" style="display:none">
+                                <div style="background:rgba(234,179,8,.1);border:1.5px solid rgba(234,179,8,.45);border-radius:8px;padding:.55rem .9rem;font-size:.8rem">
+                                    <div class="d-flex align-items-start gap-2">
+                                        <i class="fas fa-lock mt-1" style="color:#b45309;flex-shrink:0"></i>
+                                        <div>
+                                            <strong style="color:#92400e">Service Date Locked â€” 90-Day Window Active</strong>
+                                            <div class="text-muted mt-1" id="svcDateLockDetail"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <small class="text-muted mt-1 d-block"><i class="fas fa-info-circle me-1"></i>This date starts the 90-day window and auto-fills new RX records</small>
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label">Address</label>
+                            <input type="text" class="form-control" id="pAddress">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="fas fa-ambulance me-1 text-info"></i>Patient Transport &mdash; Contact Person</label>
+                            <select class="form-select" id="pPatientTransport">
+                                <option value="">-- Select --</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label"><i class="fas fa-truck me-1 text-info"></i>Pharmacy Transport &mdash; Contact Person</label>
+                            <select class="form-select" id="pPharmacyTransport">
+                                <option value="">-- Select --</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label"><i class="fas fa-hospital me-1 text-primary"></i>Clinic / Location</label>
+                            <select class="form-select" id="pClinicId">
+                                <option value="">-- None --</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label"><i class="fas fa-clinic-medical me-1 text-success"></i>Default Pharmacy</label>
+                            <select class="form-select" id="pPharmacyId">
+                                <option value="">-- None --</option>
+                            </select>
+                            <small class="text-muted"><i class="fas fa-info-circle me-1"></i>This pharmacy will auto-fill on new RX records</small>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Notes</label>
+                            <textarea class="form-control" id="pNotes" rows="2"></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex flex-wrap gap-4">
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="pIsActive" checked>
+                                    <label class="form-check-label" for="pIsActive">Active Patient</label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" class="form-check-input" id="pIsNonCompanyPatient">
+                                    <label class="form-check-label" for="pIsNonCompanyPatient">
+                                        <i class="fas fa-user-tag me-1 text-warning"></i>Non-Company Patient
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                <div class="mt-4 pt-3 border-top" id="patientServiceDateHistorySection" style="display:none">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <div>
+                            <h6 class="mb-0"><i class="fas fa-calendar-alt me-2 text-primary"></i>Service Date History</h6>
+                            <small class="text-muted">Patient-level record of service date changes.</small>
+                        </div>
+                        <small class="text-muted" id="patientServiceDateHistoryCount"></small>
+                    </div>
+                    <div id="patientServiceDateHistoryList" class="mt-2"></div>
+                </div>
+                <div class="mt-4 pt-3 border-top" id="patientDocumentsSection">
+                    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                        <div>
+                            <h6 class="mb-0"><i class="fas fa-paperclip me-2 text-primary"></i>Pictures &amp; Documents</h6>
+                            <small class="text-muted">Upload patient IDs, photos, PDFs, or related documents.</small>
+                        </div>
+                    </div>
+                    <div id="patientDocUploadWrap" class="input-group input-group-sm mb-2">
+                        <input type="file" class="form-control" id="patientDocFiles" multiple
+                               accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt">
+                        <button type="button" class="btn btn-outline-primary" id="patientDocUploadBtn">
+                            <i class="fas fa-upload me-1"></i>Upload
+                        </button>
+                    </div>
+                    <div id="patientDocStatus" class="small mt-2"></div>
+                    <div id="patientDocumentsList" class="mt-2"></div>
+                </div>
+            </div>
+            <!-- Soft-lock viewer warning inside patient modal -->
+            <div id="modalViewerBanner" class="d-none px-3 pb-2">
+                <div style="background:rgba(234,179,8,.08);border:1px solid rgba(234,179,8,.3);border-radius:10px;padding:.6rem 1rem;display:flex;align-items:center;gap:.75rem">
+                    <span style="font-size:1.1rem">&#128065;</span>
+                    <div class="small"><span class="fw-semibold" id="modalViewerNames"></span><span class="text-muted ms-1">is also viewing this patient &mdash; edits may conflict</span></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="savePatientAddRxBtn">
+                    <span id="savePatientAddRxSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>
+                    <i class="fas fa-prescription-bottle-alt me-1"></i>Save &amp; Add RX
+                </button>
+                <button type="button" class="btn btn-primary" id="savePatientBtn">
+                    <span id="savePatientSpinner" class="spinner-border spinner-border-sm me-1 d-none"></span>Save
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Notes Modal (separate, launched from edit modal) -->
+<div class="modal fade" id="patientNotesModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-sticky-note me-2 text-warning"></i>Patient Notes &mdash; <span id="notesPatientName"></span></h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Add new note (shown/hidden based on patient_notes.canAdd permission) -->
+                <div class="mb-3" id="noteAddArea">
+                    <label class="form-label fw-semibold">Add Note</label>
+                    <div class="d-flex gap-2">
+                        <textarea class="form-control" id="newNoteText" rows="2" placeholder="Type a note... (phone call, instructions, follow-up, etc.)"></textarea>
+                        <button class="btn btn-primary align-self-end" id="addNoteBtn" style="white-space:nowrap">
+                            <i class="fas fa-plus me-1"></i>Add
+                        </button>
+                    </div>
+                    <small class="text-muted">Tip: Ctrl+Enter to save quickly</small>
+                </div>
+                <hr>
+                <!-- Notes list -->
+                <div id="notesListContainer">
+                    <p class="text-center text-muted py-3"><i class="fas fa-spinner fa-spin me-1"></i> Loading notes...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted me-auto" id="notesCountLabel"></small>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirm -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this patient?</p>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold">Please type <strong id="deleteConfirmNameText"></strong> to confirm:</label>
+                    <input type="text" class="form-control" id="deleteConfirmInput" autocomplete="off">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger btn-sm" id="confirmDeleteBtn" disabled>Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Patient Print Preview Modal -->
+<div class="modal fade" id="patientPrintModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-print me-2"></i>Patient Record &mdash; Print Preview</h5>
+                <!-- Layout toggle -->
+                <div class="btn-group btn-group-sm ms-auto me-3" role="group" id="printLayoutToggle">
+                    <input type="radio" class="btn-check" name="printLayout" id="layoutCard" value="card" checked autocomplete="off">
+                    <label class="btn btn-outline-primary" for="layoutCard"><i class="fas fa-id-card me-1"></i>Card</label>
+                    <input type="radio" class="btn-check" name="printLayout" id="layoutClassic" value="classic" autocomplete="off">
+                    <label class="btn btn-outline-primary" for="layoutClassic"><i class="fas fa-file-alt me-1"></i>Classic</label>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="patientPrintBody" style="background:#f0f2f5">
+                <p class="text-center text-muted py-4"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button class="btn btn-primary" id="doPrintBtn" onclick="doPrint()">
+                    <i class="fas fa-print me-2"></i>Print / Save PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Column Selector Modal -->
+<div class="modal fade" id="exportColumnsModal" tabindex="-1">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content" style="border-radius:16px;overflow:hidden">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1a3a5c,#2d6a9f);color:#fff;border:none">
+                <div>
+                    <h5 class="modal-title mb-0"><i class="fas fa-file-export me-2"></i>Export Patients &mdash; Select Columns</h5>
+                    <small style="opacity:.75" id="exportModalCount">Exporting 0 records matching current filters</small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <span class="fw-bold small">Choose which columns to include:</span>
+                    <div class="d-flex gap-2">
+                        <button class="btn btn-outline-primary btn-sm" onclick="setAllExportCols(true)"><i class="fas fa-check-double me-1"></i>All</button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="setAllExportCols(false)"><i class="fas fa-times me-1"></i>None</button>
+                    </div>
+                </div>
+                <div class="row g-2" id="exportColList"></div>
+                <div class="mt-3 p-2 rounded" style="background:rgba(74,144,226,.06);border:1px solid rgba(74,144,226,.15)">
+                    <small class="text-muted"><i class="fas fa-info-circle me-1 text-primary"></i>Only records matching your current search &amp; filters will be exported.</small>
+                </div>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button class="btn btn-success px-4" id="doExportBtn"><i class="fas fa-download me-2"></i>Export CSV</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- RX History Modal â€” Previous Service Dates per Patient -->
+<div class="modal fade" id="rxHistoryModal" tabindex="-1">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#1a2234,#2c3e6b);color:#fff;border:none">
+                <div>
+                    <h5 class="modal-title mb-0"><i class="fas fa-history me-2"></i>RX History â€” Previous Service Dates</h5>
+                    <small style="opacity:.75" id="rxHistoryPatientName"></small>
+                </div>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0" id="rxHistoryBody" style="min-height:200px">
+                <p class="text-center text-muted py-5"><i class="fas fa-spinner fa-spin me-2"></i>Loading history...</p>
+            </div>
+            <div class="modal-footer">
+                <small class="text-muted me-auto" id="rxHistoryCount"></small>
+                <button type="button" class="btn btn-outline-primary btn-sm" id="rxHistoryPrintAllBtn">
+                    <i class="fas fa-print me-1"></i>Print All
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" id="rxHistoryExportAllBtn">
+                    <i class="fas fa-file-csv me-1"></i>Export CSV
+                </button>
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script>
+window.__RX_AUTH_USER = <%- JSON.stringify(locals.currentUser || null).replace(/</g, '\\u003c') %>;
+window.__RX_AUTH_PERMS = <%- JSON.stringify(locals.userPerms || null).replace(/</g, '\\u003c') %>;
+</script>
+<script src="/js/base.js"></script>
+<script src="/js/app.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+<script src="/js/help.js"></script>
+<script src="/js/documents.js"></script>
+
+<!-- patients.js moved to external file for FortiGate SSL portal compatibility -->
+<script src="/js/patients.js?v=<%= encodeURIComponent(String(locals.appBuild || 'dev')) %>"></script>
+</body>
+</html>
+
