@@ -41,6 +41,12 @@ router.get('/template/:dataset', importController.getTemplate);
 // Staged import history
 router.get('/batches', rbac.requirePermission('import', 'read'), importController.getBatches);
 router.get('/batches/:id/rows', rbac.requirePermission('import', 'read'), importController.getBatchRows);
+router.put('/batches/:id/rows', rbac.requirePermission('import', 'edit'), importController.updateBatchRows);
+router.post('/batches/:id/post',
+    rbac.requirePermission('import', 'edit'),
+    rbac.requirePermission('transactions', 'add'),
+    importController.postBatchRows
+);
 
 // Bank statement parser uploads. These stage rows only and never post ledger data.
 router.get('/bank-statement/profiles', rbac.requirePermission('import', 'read'), importController.getBankStatementProfiles);

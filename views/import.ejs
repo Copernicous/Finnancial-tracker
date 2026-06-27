@@ -23,8 +23,17 @@
     .field-required { color: #dc3545; font-weight: 700; }
     .statement-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: .75rem; align-items: end; }
     .statement-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
+    .review-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: .75rem; align-items: end; }
+    .review-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
+    .review-wrap table { margin: 0; min-width: 1280px; }
+    .review-wrap .form-control, .review-wrap .form-select { min-width: 120px; }
+    .review-wrap .description-input { min-width: 280px; }
+    .review-wrap .amount-input { min-width: 105px; }
+    .row-status { text-transform: capitalize; }
+    .row-status.duplicate, .row-status.error { color: #dc3545; font-weight: 700; }
+    .row-status.posted { color: #198754; font-weight: 700; }
     @media (max-width: 992px) { .import-layout { grid-template-columns: 1fr; } }
-    @media (max-width: 768px) { .statement-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .statement-grid, .review-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -151,8 +160,69 @@
             </div>
             <div class="table-responsive">
               <table class="table table-hover align-middle">
-                <thead><tr><th>Batch</th><th>Dataset</th><th>File</th><th>Rows</th><th>Status</th><th>Created</th><th>User</th></tr></thead>
-                <tbody id="historyRows"><tr><td colspan="7" class="text-muted">Loading...</td></tr></tbody>
+                <thead><tr><th>Batch</th><th>Dataset</th><th>File</th><th>Rows</th><th>Status</th><th>Created</th><th>User</th><th></th></tr></thead>
+                <tbody id="historyRows"><tr><td colspan="8" class="text-muted">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+
+          <section class="glass-card p-4 d-none" id="batchReviewPanel">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <div>
+                <h5 class="mb-1">Review & Post Batch <span id="reviewBatchLabel"></span></h5>
+                <div class="text-muted small" id="reviewBatchMeta">Edit staged rows, reject duplicates, then post selected rows to the ledger.</div>
+              </div>
+              <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-outline-secondary btn-sm" id="selectPostableBtn"><i class="fas fa-check-square me-1"></i>Select Postable</button>
+                <button class="btn btn-outline-primary btn-sm" id="saveReviewBtn"><i class="fas fa-save me-1"></i>Save Review</button>
+                <button class="btn btn-success btn-sm" id="postRowsBtn"><i class="fas fa-file-import me-1"></i>Post Selected</button>
+              </div>
+            </div>
+
+            <div class="review-grid mb-3">
+              <div>
+                <label class="form-label">Default Account</label>
+                <select class="form-select" id="reviewDefaultAccount"><option value="">No default</option></select>
+              </div>
+              <div>
+                <label class="form-label">Default Category</label>
+                <select class="form-select" id="reviewDefaultCategory"><option value="">No default</option></select>
+              </div>
+              <div>
+                <label class="form-label">Ledger Status</label>
+                <select class="form-select" id="reviewDefaultStatus">
+                  <option value="draft">draft</option>
+                  <option value="reviewed">reviewed</option>
+                  <option value="reconciled">reconciled</option>
+                </select>
+              </div>
+              <div class="d-grid">
+                <button class="btn btn-outline-primary" id="applyDefaultsBtn"><i class="fas fa-magic me-1"></i>Apply Defaults</button>
+              </div>
+              <div class="d-grid">
+                <button class="btn btn-outline-secondary" id="reloadReviewBtn"><i class="fas fa-sync-alt me-1"></i>Reload Rows</button>
+              </div>
+            </div>
+
+            <div class="alert d-none" id="reviewResult"></div>
+            <div class="review-wrap">
+              <table class="table table-sm table-hover align-middle">
+                <thead>
+                  <tr>
+                    <th><input class="form-check-input" type="checkbox" id="selectAllReview"></th>
+                    <th>Row</th>
+                    <th>Status</th>
+                    <th>Date</th>
+                    <th>Account</th>
+                    <th>Category</th>
+                    <th>Type</th>
+                    <th class="text-end">Amount</th>
+                    <th>Description</th>
+                    <th>Merchant</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody id="reviewRows"><tr><td colspan="11" class="text-muted">Open a staged batch to review rows.</td></tr></tbody>
               </table>
             </div>
           </section>
@@ -244,10 +314,15 @@ let selectedFile = null;
 let parsedRows = [];
 let statementProfiles = [];
 let accountRows = [];
+let categoryRows = [];
+let selectedBatchId = null;
+let batchRows = [];
 
-function authHeaders() {
+function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
-  return token ? { Authorization: 'Bearer ' + token } : {};
+  const headers = token ? { Authorization: 'Bearer ' + token } : {};
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
 }
 function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -329,19 +404,27 @@ function compareFile() {
   wrap.classList.remove('d-none');
 }
 async function loadStatementSetup() {
-  const [profilesRes, accountsRes] = await Promise.all([
+  const [profilesRes, accountsRes, categoriesRes] = await Promise.all([
     fetch('/api/import/bank-statement/profiles', { headers: authHeaders() }),
-    fetch('/api/accounts', { headers: authHeaders() })
+    fetch('/api/accounts', { headers: authHeaders() }),
+    fetch('/api/categories', { headers: authHeaders() })
   ]);
   statementProfiles = profilesRes.ok ? await profilesRes.json() : [];
   accountRows = accountsRes.ok ? await accountsRes.json() : [];
+  categoryRows = categoriesRes.ok ? await categoriesRes.json() : [];
   document.getElementById('statementProfile').innerHTML = statementProfiles.map(profile =>
     '<option value="' + esc(profile.key) + '">' + esc(profile.label) + '</option>'
   ).join('');
-  document.getElementById('statementAccount').innerHTML = '<option value="">No account selected</option>' +
-    accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed').map(account =>
-      '<option value="' + account.id + '">' + esc(account.name) + ' (' + esc(account.currency || '') + ')</option>'
-    ).join('');
+  const activeAccounts = accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed');
+  const accountOptions = activeAccounts.map(account =>
+    '<option value="' + account.id + '">' + esc(account.name) + ' (' + esc(account.currency || '') + ')</option>'
+  ).join('');
+  const categoryOptions = categoryRows.filter(category => category.isActive !== false).map(category =>
+    '<option value="' + category.id + '">' + esc(category.groupName ? category.groupName + ' / ' + category.name : category.name) + '</option>'
+  ).join('');
+  document.getElementById('statementAccount').innerHTML = '<option value="">No account selected</option>' + accountOptions;
+  document.getElementById('reviewDefaultAccount').innerHTML = '<option value="">No default</option>' + accountOptions;
+  document.getElementById('reviewDefaultCategory').innerHTML = '<option value="">No default</option>' + categoryOptions;
 }
 async function handleFile(file) {
   selectedFile = file;
@@ -360,8 +443,8 @@ function renderStatementPreview(data) {
   result.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
   result.classList.add(data.ok ? 'alert-success' : 'alert-danger');
   result.innerHTML = data.ok
-    ? '<strong>Batch #' + esc(data.batchId) + ' staged.</strong> ' + esc(data.message) + ' Rows: ' + esc(data.rowCount)
-    : esc(data.error || data.message || 'Unable to parse statement.');
+    ? '<strong>Batch #' + esc(data.batchId) + ' staged.</strong> ' + esc(data.message) + ' Rows: ' + esc(data.rowCount) + (data.duplicateCount ? ' Duplicates: ' + esc(data.duplicateCount) : '')
+    : esc(data.error || data.message || 'Unable to parse statement.') + (data.existingBatchId ? ' <button class="btn btn-sm btn-outline-primary ms-2" onclick="openBatch(' + Number(data.existingBatchId) + ')">Open Batch #' + esc(data.existingBatchId) + '</button>' : '');
 
   if (!data.ok) return;
   const m = data.metadata || {};
@@ -383,7 +466,7 @@ function renderStatementPreview(data) {
       '<td>' + esc(row.section || '') + '</td>' +
       '<td>' + esc(row.description || '') + '</td>' +
       '<td class="text-end">' + money(row.amount) + '</td>' +
-      '<td class="text-end">' + money(row.suggestedLedgerAmount) + '</td>' +
+      '<td class="text-end">' + money(row.suggestedLedgerAmount) + (row.rowStatus === 'duplicate' ? '<div class="small text-danger">Duplicate</div>' : '') + '</td>' +
     '</tr>'
   ).join('') : '<tr><td colspan="6" class="text-muted">No rows detected.</td></tr>';
   wrap.classList.remove('d-none');
@@ -407,13 +490,160 @@ async function stageStatementFile() {
     const res = await fetch('/api/import/bank-statement', { method: 'POST', headers: authHeaders(), body: form });
     const data = await res.json().catch(() => ({}));
     renderStatementPreview(Object.assign({ ok: res.ok }, data));
-    if (res.ok) loadBatches();
+    if (res.ok) {
+      await loadBatches();
+      openBatch(data.batchId);
+    } else if (data.existingBatchId) {
+      await loadBatches();
+      openBatch(data.existingBatchId);
+    }
   } catch (err) {
     renderStatementPreview({ ok: false, error: err.message || 'Unable to parse statement.' });
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<i class="fas fa-file-invoice-dollar me-1"></i>Parse & Stage';
   }
+}
+function optionList(rows, selected, emptyLabel, labelFn) {
+  const selectedText = selected == null ? '' : String(selected);
+  return '<option value="">' + esc(emptyLabel) + '</option>' + rows.map(row => {
+    const value = String(row.id);
+    return '<option value="' + esc(value) + '"' + (value === selectedText ? ' selected' : '') + '>' + esc(labelFn(row)) + '</option>';
+  }).join('');
+}
+function rowDraft(row) {
+  return row && row.normalizedData ? row.normalizedData : {};
+}
+function postableStatus(status) {
+  return ['staged', 'ready', 'error'].includes(String(status || 'staged'));
+}
+function reviewMessage(message, type) {
+  const result = document.getElementById('reviewResult');
+  result.className = 'alert alert-' + (type || 'info');
+  result.textContent = message;
+}
+function renderBatchReview() {
+  const panel = document.getElementById('batchReviewPanel');
+  panel.classList.remove('d-none');
+  document.getElementById('reviewBatchLabel').textContent = selectedBatchId ? '#' + selectedBatchId : '';
+  document.getElementById('reviewBatchMeta').textContent = batchRows.length + ' staged row(s). Duplicate and posted rows are locked.';
+
+  const accountChoices = accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed');
+  const categoryChoices = categoryRows.filter(category => category.isActive !== false);
+  document.getElementById('reviewRows').innerHTML = batchRows.length ? batchRows.map(row => {
+    const draft = rowDraft(row);
+    const status = row.status || 'staged';
+    const disabled = !postableStatus(status);
+    const note = row.errorMessage || (row.rawData && row.rawData.duplicateReason) || '';
+    return '<tr data-row-id="' + esc(row.id) + '">' +
+      '<td><input class="form-check-input review-check" type="checkbox" ' + (disabled ? 'disabled' : '') + '></td>' +
+      '<td>' + esc(row.rowNumber) + '</td>' +
+      '<td><select class="form-select form-select-sm review-row-status" ' + (status === 'posted' || status === 'duplicate' ? 'disabled' : '') + '>' +
+        ['staged', 'ready', 'rejected', 'duplicate', 'error', 'posted'].map(item => '<option value="' + item + '"' + (item === status ? ' selected' : '') + '>' + item + '</option>').join('') +
+      '</select><div class="row-status ' + esc(status) + '">' + esc(status) + '</div></td>' +
+      '<td><input class="form-control form-control-sm review-date" type="date" value="' + esc(draft.transactionDate || '') + '" ' + (disabled ? 'disabled' : '') + '></td>' +
+      '<td><select class="form-select form-select-sm review-account" ' + (disabled ? 'disabled' : '') + '>' + optionList(accountChoices, draft.accountId, 'Select account', account => account.name + (account.currency ? ' (' + account.currency + ')' : '')) + '</select></td>' +
+      '<td><select class="form-select form-select-sm review-category" ' + (disabled ? 'disabled' : '') + '>' + optionList(categoryChoices, draft.categoryId, 'No category', category => (category.groupName ? category.groupName + ' / ' : '') + category.name) + '</select></td>' +
+      '<td><select class="form-select form-select-sm review-type" ' + (disabled ? 'disabled' : '') + '>' +
+        ['expense', 'income', 'transfer', 'adjustment'].map(item => '<option value="' + item + '"' + (item === draft.transactionType ? ' selected' : '') + '>' + item + '</option>').join('') +
+      '</select></td>' +
+      '<td><input class="form-control form-control-sm amount-input text-end review-amount" type="number" step="0.01" value="' + esc(draft.amount == null ? '' : draft.amount) + '" ' + (disabled ? 'disabled' : '') + '></td>' +
+      '<td><input class="form-control form-control-sm description-input review-description" value="' + esc(draft.description || '') + '" ' + (disabled ? 'disabled' : '') + '></td>' +
+      '<td><input class="form-control form-control-sm review-merchant" value="' + esc(draft.merchant || '') + '" ' + (disabled ? 'disabled' : '') + '></td>' +
+      '<td class="small text-muted">' + esc(note) + '</td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="11" class="text-muted">No rows in this batch.</td></tr>';
+  document.getElementById('batchReviewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function openBatch(id) {
+  if (!id) return;
+  selectedBatchId = Number(id);
+  const res = await fetch('/api/import/batches/' + selectedBatchId + '/rows', { headers: authHeaders() });
+  batchRows = res.ok ? await res.json() : [];
+  renderBatchReview();
+}
+function collectReviewRows(selectedOnly) {
+  return Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]')).map(tr => {
+    const id = Number(tr.dataset.rowId);
+    const original = batchRows.find(row => Number(row.id) === id) || {};
+    const draft = rowDraft(original);
+    const checkbox = tr.querySelector('.review-check');
+    if (selectedOnly && (!checkbox || !checkbox.checked || checkbox.disabled)) return null;
+    const accountId = tr.querySelector('.review-account').value;
+    const categoryId = tr.querySelector('.review-category').value;
+    return {
+      id,
+      rowStatus: tr.querySelector('.review-row-status').value,
+      normalizedData: {
+        ...draft,
+        transactionDate: tr.querySelector('.review-date').value,
+        accountId: accountId ? Number(accountId) : null,
+        categoryId: categoryId ? Number(categoryId) : null,
+        transactionType: tr.querySelector('.review-type').value,
+        amount: tr.querySelector('.review-amount').value === '' ? null : Number(tr.querySelector('.review-amount').value),
+        description: tr.querySelector('.review-description').value,
+        merchant: tr.querySelector('.review-merchant').value,
+        normalizedMerchant: tr.querySelector('.review-merchant').value.trim().toLowerCase(),
+        status: document.getElementById('reviewDefaultStatus').value || 'draft'
+      }
+    };
+  }).filter(Boolean);
+}
+async function saveReview() {
+  if (!selectedBatchId) return;
+  const rows = collectReviewRows(false);
+  const res = await fetch('/api/import/batches/' + selectedBatchId + '/rows', {
+    method: 'PUT',
+    headers: authHeaders(true),
+    body: JSON.stringify({ rows })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return reviewMessage(data.error || data.message || 'Unable to save reviewed rows.', 'danger');
+  reviewMessage(data.updated + ' row(s) saved for review.', 'success');
+  await openBatch(selectedBatchId);
+  await loadBatches();
+}
+async function postSelectedRows() {
+  if (!selectedBatchId) return;
+  const rows = collectReviewRows(true);
+  if (!rows.length) return reviewMessage('Select at least one postable row.', 'warning');
+  const res = await fetch('/api/import/batches/' + selectedBatchId + '/post', {
+    method: 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      rows,
+      accountId: document.getElementById('reviewDefaultAccount').value || null,
+      categoryId: document.getElementById('reviewDefaultCategory').value || null,
+      transactionStatus: document.getElementById('reviewDefaultStatus').value || 'draft'
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    reviewMessage(data.error || data.message || 'Unable to post selected rows.', 'danger');
+    if (data.existingBatchId) openBatch(data.existingBatchId);
+    return;
+  }
+  reviewMessage(data.message + (data.duplicates ? ' Duplicates skipped: ' + data.duplicates + '.' : '') + (data.errors && data.errors.length ? ' Rows needing fixes: ' + data.errors.length + '.' : ''), data.errors && data.errors.length ? 'warning' : 'success');
+  await openBatch(selectedBatchId);
+  await loadBatches();
+}
+function applyReviewDefaults() {
+  const defaultAccount = document.getElementById('reviewDefaultAccount').value;
+  const defaultCategory = document.getElementById('reviewDefaultCategory').value;
+  document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
+    const checkbox = tr.querySelector('.review-check');
+    if (!checkbox || checkbox.disabled) return;
+    if (defaultAccount) tr.querySelector('.review-account').value = defaultAccount;
+    if (defaultCategory) tr.querySelector('.review-category').value = defaultCategory;
+    const status = tr.querySelector('.review-row-status');
+    if (status.value === 'staged' || status.value === 'error') status.value = 'ready';
+  });
+}
+function selectPostableRows() {
+  document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
+    const checkbox = tr.querySelector('.review-check');
+    if (checkbox && !checkbox.disabled) checkbox.checked = true;
+  });
 }
 async function stageFile() {
   if (!selectedFile) return;
@@ -437,12 +667,13 @@ async function loadBatches() {
       '<td>#' + esc(row.id) + '</td>' +
       '<td>' + esc(row.importType) + '</td>' +
       '<td>' + esc(row.fileName || '') + '</td>' +
-      '<td>' + esc(row.rowCount) + '</td>' +
+      '<td>' + esc(row.rowCount) + '<div class="small text-muted">' + esc(row.acceptedCount || 0) + ' posted / ' + esc(row.rejectedCount || 0) + ' blocked</div></td>' +
       '<td><span class="badge bg-secondary">' + esc(row.status) + '</span></td>' +
       '<td>' + esc(row.createdAt ? String(row.createdAt).slice(0, 19).replace('T', ' ') : '') + '</td>' +
       '<td>' + esc(row.createdBy || '') + '</td>' +
+      '<td class="text-end"><button class="btn btn-outline-primary btn-sm" onclick="openBatch(' + Number(row.id) + ')"><i class="fas fa-clipboard-check me-1"></i>Open</button></td>' +
     '</tr>'
-  ).join('') : '<tr><td colspan="7" class="text-muted">No staged batches yet.</td></tr>';
+  ).join('') : '<tr><td colspan="8" class="text-muted">No staged batches yet.</td></tr>';
 }
 document.getElementById('dropZone').addEventListener('click', () => document.getElementById('file').click());
 document.getElementById('dropZone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('dragging'); });
@@ -456,6 +687,14 @@ document.getElementById('file').addEventListener('change', e => handleFile(e.tar
 document.getElementById('stageBtn').addEventListener('click', stageFile);
 document.getElementById('statementStageBtn').addEventListener('click', stageStatementFile);
 document.getElementById('refreshHistoryBtn').addEventListener('click', loadBatches);
+document.getElementById('applyDefaultsBtn').addEventListener('click', applyReviewDefaults);
+document.getElementById('selectPostableBtn').addEventListener('click', selectPostableRows);
+document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
+document.getElementById('postRowsBtn').addEventListener('click', postSelectedRows);
+document.getElementById('reloadReviewBtn').addEventListener('click', () => openBatch(selectedBatchId));
+document.getElementById('selectAllReview').addEventListener('change', event => {
+  document.querySelectorAll('.review-check').forEach(input => { if (!input.disabled) input.checked = event.target.checked; });
+});
 document.addEventListener('DOMContentLoaded', function() { renderSelected(); loadStatementSetup(); loadBatches(); });
 </script>
 </body>
