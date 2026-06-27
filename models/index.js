@@ -20,30 +20,23 @@ if (config.use_env_variable) {
 // pkg needs literal string paths to include files in the snapshot.
 // Keep this list in sync whenever you add / remove a model file.
 const modelFiles = [
-  require('./RXHistory.js'),
+  require('./account.js'),
+  require('./accountalias.js'),
   require('./apikey.js'),
   require('./auditlog.js'),
-  require('./clinic.js'),
+  require('./category.js'),
   require('./dailysnapshot.js'),
   require('./documentattachment.js'),
   require('./errorlog.js'),
-  require('./medication.js'),
-  require('./medicationcatalog.js'),
-  require('./patient.js'),
-  require('./patientlock.js'),
-  require('./patientnote.js'),
-  require('./patientservicedatecycle.js'),
-  require('./patientservicedatehistory.js'),
-  require('./patienttransportcompany.js'),
-  require('./pharmacy.js'),
-  require('./pharmacytransportcompany.js'),
+  require('./financialinstitution.js'),
+  require('./importbatch.js'),
+  require('./proofdocument.js'),
+  require('./reconciliation.js'),
   require('./role.js'),
-  require('./rxrecord.js'),
-  require('./rxworkflowtracking.js'),
   require('./systemsetting.js'),
+  require('./transaction.js'),
   require('./user.js'),
   require('./useractivitylog.js'),
-  require('./workflowaction.js'),
 ];
 
 modelFiles.forEach(modelDef => {

@@ -5,8 +5,6 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class DocumentAttachment extends Model {
     static associate(models) {
-      DocumentAttachment.belongsTo(models.Patient, { foreignKey: 'patientId' });
-      DocumentAttachment.belongsTo(models.RXRecord, { foreignKey: 'rxRecordId' });
       DocumentAttachment.belongsTo(models.User, { foreignKey: 'uploadedByUserId', as: 'UploadedBy' });
     }
   }
@@ -16,11 +14,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: false
     },
-    patientId: {
-      type: DataTypes.INTEGER,
-      allowNull: true
-    },
-    rxRecordId: {
+    ownerId: {
       type: DataTypes.INTEGER,
       allowNull: true
     },
@@ -73,7 +67,8 @@ module.exports = (sequelize, DataTypes) => {
     }
   }, {
     sequelize,
-    modelName: 'DocumentAttachment'
+    modelName: 'DocumentAttachment',
+    tableName: 'ProofDocuments'
   });
 
   return DocumentAttachment;

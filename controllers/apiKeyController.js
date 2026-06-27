@@ -3,9 +3,9 @@ const db = require('../models');
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-/** Generate a cryptographically secure API key: rxk_ + 32 random hex chars */
+/** Generate a cryptographically secure API key. */
 function generateRawKey() {
-    return 'rxk_' + crypto.randomBytes(20).toString('hex');
+    return 'hak_' + crypto.randomBytes(20).toString('hex');
 }
 
 /** SHA-256 hash of the key — what we store in the DB */
@@ -61,7 +61,7 @@ exports.generate = async (req, res) => {
 
         const rawKey   = generateRawKey();
         const hash     = hashKey(rawKey);
-        const prefix   = rawKey.substring(0, 12);   // "rxk_XXXXXXXX"
+        const prefix   = rawKey.substring(0, 12);
         const expiresAt = computeExpiry(expiresIn);
 
         const apiKey = await db.ApiKey.create({

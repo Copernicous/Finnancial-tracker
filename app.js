@@ -1,4 +1,4 @@
-// CLI flags -- must be first, before any other require
+﻿// CLI flags -- must be first, before any other require
 // Usage:  server.exe --v   OR   server.exe --version
 // Prints version info and exits without starting the server.
 // Usage:  server.exe --reset-password <username> <newpassword>
@@ -6,7 +6,7 @@
 (function checkCliFlags() {
     var args = process.argv.slice(2);
 
-    // ── --version / --v / -v ──────────────────────────────────────────────────
+    // â”€â”€ --version / --v / -v â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     if (args.indexOf('--v') !== -1 || args.indexOf('--version') !== -1 || args.indexOf('-v') !== -1) {
         var pkg2   = require('./package.json');
         var IS_PKG = typeof process.pkg !== 'undefined';
@@ -25,7 +25,7 @@
         process.exit(0);
     }
 
-    // ── --reset-password <username> <newpassword> ─────────────────────────────
+    // â”€â”€ --reset-password <username> <newpassword> â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     var rpIdx = args.indexOf('--reset-password');
     if (rpIdx !== -1) {
         var rpUser = args[rpIdx + 1];
@@ -46,7 +46,7 @@
             }
             var hash = await bcryptRp.hash(rpPass, 12);
             await user.update({ passwordHash: hash, failedLoginCount: 0, lockedUntil: null });
-            console.log('\n  ✓ Password for "' + rpUser + '" has been reset successfully.\n');
+            console.log('\n  âœ“ Password for "' + rpUser + '" has been reset successfully.\n');
             process.exit(0);
         }).catch(function(err) {
             console.error('\n  ERROR: ' + err.message + '\n');
@@ -194,7 +194,7 @@ const loginLimiter = rateLimit({
 // Trust FortiGate SSL VPN and reverse proxy chain -- allows Express to correctly read
 // X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers.
 
-// SEC-01: CORS — locked to explicit origin allowlist.
+// SEC-01: CORS â€” locked to explicit origin allowlist.
 // APP_ORIGIN supports comma-separated values for multi-origin setups.
 // FortiGate origin: https://rx.camperos.net:10443
 // Dev origin:       http://localhost:3000
@@ -209,22 +209,22 @@ const loginLimiter = rateLimit({
             // Allow same-origin / server-to-server requests (no Origin header)
             if (!origin) return callback(null, true);
             if (allowed.indexOf(origin) !== -1) return callback(null, true);
-            callback(new Error('CORS: origin not allowed — ' + origin));
+            callback(new Error('CORS: origin not allowed â€” ' + origin));
         };
     } else if (process.env.NODE_ENV === 'production') {
-        // SEC-04: Fail CLOSED in production — never open credentialed CORS without explicit origin.
+        // SEC-04: Fail CLOSED in production â€” never open credentialed CORS without explicit origin.
         console.error('');
-        console.error('═══════════════════════════════════════════════════════════');
+        console.error('â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
         console.error('  FATAL: APP_ORIGIN is not set in production mode.');
         console.error('  Refusing to start with open CORS (origin: true).');
         console.error('  Set APP_ORIGIN in .env, e.g.:');
         console.error('    APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000');
-        console.error('═══════════════════════════════════════════════════════════');
+        console.error('â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
         console.error('');
         process.exit(1);
     } else {
-        // Development / test — warn but allow open (local dev convenience)
-        console.warn('[WARN] APP_ORIGIN not set — CORS is open (development mode only).');
+        // Development / test â€” warn but allow open (local dev convenience)
+        console.warn('[WARN] APP_ORIGIN not set â€” CORS is open (development mode only).');
         corsOrigin = true;
     }
     app.use(cors({ origin: corsOrigin, credentials: true }));
@@ -249,7 +249,7 @@ const APP_BUILD = Date.now();
 // IMPORTANT: use app.engine() with an explicit static require() so @yao-pkg/pkg
 // can see 'ejs' as a string literal at compile time and bundle it into server.exe.
 // app.set('view engine','ejs') alone causes a dynamic require(ext) which pkg
-// cannot analyze — resulting in "Cannot find module 'ejs'" at runtime.
+// cannot analyze â€” resulting in "Cannot find module 'ejs'" at runtime.
 const ejs = require('ejs');
 app.engine('ejs', ejs.renderFile);
 app.set('view engine', 'ejs');
@@ -362,14 +362,14 @@ const settingsLimiter = rateLimit({
 app.use('/api/auth/login',          loginLimiter);
 app.use('/api/auth/2fa/setup',      twoFaSetupLimiter);
 app.use('/api/auth/2fa/enable',     twoFaSetupLimiter);
-app.use('/api/api-keys',            apiKeyLimiter);  // SEC-05: was '/api/keys' (wrong path — routes are at /api/api-keys)
+app.use('/api/api-keys',            apiKeyLimiter);  // SEC-05: was '/api/keys' (wrong path â€” routes are at /api/api-keys)
 app.use('/api/settings',            settingsLimiter);
 
 app.use('/api/auth',    authRoutes);
 app.use('/api/auth',    twoFactorRoutes);
 app.use('/api/import',  importRoutes);
 app.use('/api',         apiRoutes);
-app.use('/',            webAuth, userActivityLogger, webRoutes);   // webAuth decodes rxToken cookie -> res.locals.userPerms
+app.use('/',            webAuth, userActivityLogger, webRoutes);   // webAuth decodes haToken cookie -> res.locals.userPerms
 
 
 
@@ -428,261 +428,13 @@ async function ensureDatabase() {
 }
 
 const startServer = async () => {
-    await ensureDatabase();   // <- must succeed before any other DB work
-
-    try {
-        // Automatically ensure permissions column exists in PostgreSQL
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "permissions" TEXT;');
-        console.log('Database verified: Users.permissions column ready.');
-    } catch (e) {
-        console.warn('Startup migration warning (non-fatal):', e.message);
-    }
-
-    // Add Return-to-Warehouse columns to RXRecords (safe to run repeatedly)
-    try {
-        await db.sequelize.query('ALTER TABLE "RXRecords" ADD COLUMN IF NOT EXISTS "returnedToWarehouse" BOOLEAN DEFAULT FALSE;');
-        await db.sequelize.query('ALTER TABLE "RXRecords" ADD COLUMN IF NOT EXISTS "warehouseReturnDate" TIMESTAMP WITH TIME ZONE;');
-        await db.sequelize.query('ALTER TABLE "RXRecords" ADD COLUMN IF NOT EXISTS "warehouseReturnNote" VARCHAR(255);');
-        console.log('Database verified: RXRecords warehouse columns ready.');
-    } catch (e) {
-        console.warn('Startup migration warning (RXRecords warehouse, non-fatal):', e.message);
-    }
-
-    // Ensure previousValue column exists in AuditLogs (for undo/return-to-warehouse tracking)
-    try {
-        await db.sequelize.query('ALTER TABLE "AuditLogs" ADD COLUMN IF NOT EXISTS "previousValue" JSON;');
-        console.log('Database verified: AuditLogs.previousValue column ready.');
-    } catch (e) {
-        console.warn('Startup migration warning (AuditLogs.previousValue, non-fatal):', e.message);
-    }
-
-    // Ensure notes column exists in Users table
-    try {
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "notes" TEXT;');
-        console.log('Database verified: Users.notes column ready.');
-    } catch (e) {
-        console.warn('Startup migration warning (Users.notes, non-fatal):', e.message);
-    }
-
-    // Ensure sortOrder column exists in MedicationCatalogs table
-    try {
-        await db.sequelize.query('ALTER TABLE "MedicationCatalogs" ADD COLUMN IF NOT EXISTS "sortOrder" INTEGER DEFAULT 999;');
-        console.log('Database verified: MedicationCatalogs.sortOrder column ready.');
-    } catch (e) {
-        console.warn('Startup migration warning (MedicationCatalogs.sortOrder, non-fatal):', e.message);
-    }
-
-    // H1 FIX: Ensure patientCode has a DB-level UNIQUE constraint (race-safe duplicate prevention)
-    try {
-        await db.sequelize.query('ALTER TABLE "Patients" ADD CONSTRAINT "Patients_patientCode_unique" UNIQUE ("patientCode");');
-        console.log('Database verified: Patients.patientCode UNIQUE constraint ready.');
-    } catch (e) {
-        // '42P07' = duplicate_table / constraint already exists -- safe to ignore
-        if (!e.message.includes('already exists')) {
-            console.warn('Startup migration warning (Patients.patientCode unique, non-fatal):', e.message);
-        }
-    }
-
-    // --- 2FA & Account Security Migration ------------------------------------
-    try {
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorSecret" TEXT;');
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "twoFactorEnabled" BOOLEAN DEFAULT FALSE;');
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "failedLoginCount" INTEGER DEFAULT 0;');
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "lockedUntil" TIMESTAMP WITH TIME ZONE;');
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "backupCodes" TEXT;');
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "tokenVersion" INTEGER DEFAULT 0;');
-        // MASTER admin flag — backoffice access. Only settable via direct SQL, never via UI/API.
-        await db.sequelize.query('ALTER TABLE "Users" ADD COLUMN IF NOT EXISTS "isMaster" BOOLEAN DEFAULT false;');
-        console.log('Database verified: Users 2FA, lockout, backup codes, tokenVersion, and isMaster columns ready.');
-    } catch (e) {
-        console.warn('Startup migration warning (Users 2FA columns, non-fatal):', e.message);
-    }
-
-    // Add new columns to Roles table and seed built-in role permissions
-    try {
-        await db.sequelize.query('ALTER TABLE "Roles" ADD COLUMN IF NOT EXISTS "permissions" TEXT;');
-        await db.sequelize.query('ALTER TABLE "Roles" ADD COLUMN IF NOT EXISTS "isSystem"    BOOLEAN DEFAULT false;');
-        await db.sequelize.query('ALTER TABLE "Roles" ADD COLUMN IF NOT EXISTS "description" VARCHAR(255);');
-        console.log('Database verified: Roles custom columns ready.');
-
-        // Mark the 4 built-in roles as system (non-deletable)
-        await db.sequelize.query('UPDATE "Roles" SET "isSystem" = true WHERE name IN (\'Administrator\',\'Supervisor\',\'Operator\',\'Read Only\');');
-
-        // Seed / re-seed permissions for each built-in role.
-        // Re-seeds if: (a) no permissions yet, OR (b) canAdd is missing (new field added today)
-        const { BUILT_IN_DEFAULTS } = require('./middleware/rbac');
-        const builtInRoles = await db.Role.findAll({ where: { isSystem: true } });
-        for (const role of builtInRoles) {
-            const needsSeed = !role.permissions;
-            const needsUpdate = role.permissions && role.permissions.patients !== undefined
-                && !Object.prototype.hasOwnProperty.call(role.permissions.patients || {}, 'canAdd');
-
-            const defaultsForRole = BUILT_IN_DEFAULTS[role.name] ? BUILT_IN_DEFAULTS[role.name]() : null;
-
-            // Backfill any newly added permission keys that don't exist yet in DB
-            const missingKeys = defaultsForRole
-                ? Object.keys(defaultsForRole).filter(
-                    k => role.permissions && !Object.prototype.hasOwnProperty.call(role.permissions, k)
-                  )
-                : [];
-            const missingActionKeys = [];
-            if (defaultsForRole && role.permissions) {
-                Object.keys(defaultsForRole).forEach(moduleKey => {
-                    const existingModule = role.permissions[moduleKey];
-                    const defaultModule = defaultsForRole[moduleKey];
-                    if (!existingModule || !defaultModule || typeof existingModule !== 'object' || typeof defaultModule !== 'object') return;
-                    Object.keys(defaultModule).forEach(actionKey => {
-                        if (!Object.prototype.hasOwnProperty.call(existingModule, actionKey)) {
-                            missingActionKeys.push(moduleKey + '.' + actionKey);
-                        }
-                    });
-                });
-            }
-
-            if ((needsSeed || needsUpdate || missingKeys.length > 0 || missingActionKeys.length > 0) && defaultsForRole) {
-                let perms;
-                if (needsSeed || needsUpdate) {
-                    // Full re-seed
-                    perms = defaultsForRole;
-                } else {
-                    // Surgical patch — only add the missing keys, keep existing ones intact
-                    perms = Object.assign({}, role.permissions);
-                    missingKeys.forEach(k => { perms[k] = defaultsForRole[k]; });
-                    missingActionKeys.forEach(k => {
-                        const parts = k.split('.');
-                        const moduleKey = parts[0];
-                        const actionKey = parts[1];
-                        perms[moduleKey] = Object.assign({}, perms[moduleKey]);
-                        perms[moduleKey][actionKey] = defaultsForRole[moduleKey][actionKey];
-                    });
-                }
-                await role.update({ permissions: perms });
-                if (missingKeys.length > 0 || missingActionKeys.length > 0) {
-                    console.log(`[Roles] Patched new permission keys [${missingKeys.concat(missingActionKeys).join(', ')}] for role: ${role.name}`);
-                } else {
-                    console.log(`[Roles] ${needsSeed ? 'Seeded' : 'Updated'} permissions for built-in role: ${role.name}`);
-                }
-            }
-        }
-        console.log('Database verified: Built-in role permissions seeded.');
-
-    } catch (e) {
-        console.warn('Startup migration warning (Roles custom columns, non-fatal):', e.message);
-    }
+    await ensureDatabase();
 
     await db.sequelize.sync();
+    await ensureUserActivityLogColumns();
 
-    // Ensure patient service-date cycles exist and RX records are linked to them.
-    // This is the real Patient -> Service Date Cycle -> RX Records relationship.
     try {
-        await db.sequelize.query(`
-            CREATE TABLE IF NOT EXISTS "PatientServiceDateCycles" (
-                "id" SERIAL PRIMARY KEY,
-                "patientId" INTEGER NOT NULL,
-                "serviceDate" DATE NOT NULL,
-                "status" VARCHAR(20) NOT NULL DEFAULT 'historical',
-                "source" VARCHAR(60) NOT NULL DEFAULT 'Patient Service Date',
-                "startedAt" TIMESTAMP WITH TIME ZONE,
-                "endedAt" TIMESTAMP WITH TIME ZONE,
-                "createdByUserId" INTEGER,
-                "metadata" JSON,
-                "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-                "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-            );
-        `);
-        await db.sequelize.query('CREATE UNIQUE INDEX IF NOT EXISTS "uq_patient_service_date_cycles_patient_date" ON "PatientServiceDateCycles" ("patientId", "serviceDate");');
-        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_cycles_patient" ON "PatientServiceDateCycles" ("patientId");');
-        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_cycles_status" ON "PatientServiceDateCycles" ("patientId", "status");');
-        await db.sequelize.query('ALTER TABLE "RXRecords" ADD COLUMN IF NOT EXISTS "patientServiceDateCycleId" INTEGER;');
-        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_rxrecords_patient_service_date_cycle" ON "RXRecords" ("patientServiceDateCycleId");');
-        await db.sequelize.query(`
-            INSERT INTO "PatientServiceDateCycles"
-                ("patientId", "serviceDate", "status", "source", "startedAt", "endedAt", "metadata", "createdAt", "updatedAt")
-            SELECT
-                x."patientId",
-                x."serviceDate",
-                CASE WHEN p."serviceDate" = x."serviceDate" THEN 'active' ELSE 'historical' END,
-                'Startup Backfill',
-                x."serviceDate"::timestamp with time zone,
-                CASE WHEN p."serviceDate" = x."serviceDate" THEN NULL ELSE (x."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
-                '{"backfilled":true}'::json,
-                NOW(),
-                NOW()
-            FROM (
-                SELECT "id" AS "patientId", "serviceDate" FROM "Patients" WHERE "serviceDate" IS NOT NULL
-                UNION
-                SELECT "patientId", "serviceDate" FROM "RXRecords" WHERE "patientId" IS NOT NULL AND "serviceDate" IS NOT NULL
-            ) x
-            JOIN "Patients" p ON p."id" = x."patientId"
-            ON CONFLICT ("patientId", "serviceDate") DO NOTHING;
-        `);
-        await db.sequelize.query(`
-            UPDATE "PatientServiceDateCycles" c
-            SET "status" = CASE WHEN p."serviceDate" = c."serviceDate" THEN 'active' ELSE 'historical' END,
-                "endedAt" = CASE WHEN p."serviceDate" = c."serviceDate" THEN NULL ELSE (c."serviceDate"::timestamp with time zone + INTERVAL '90 days') END,
-                "updatedAt" = NOW()
-            FROM "Patients" p
-            WHERE p."id" = c."patientId";
-        `);
-        await db.sequelize.query(`
-            UPDATE "RXRecords" r
-            SET "patientServiceDateCycleId" = c."id"
-            FROM "PatientServiceDateCycles" c
-            WHERE r."patientId" = c."patientId"
-              AND r."serviceDate" = c."serviceDate"
-              AND (r."patientServiceDateCycleId" IS NULL OR r."patientServiceDateCycleId" <> c."id");
-        `);
-        console.log('Database verified: PatientServiceDateCycles ready and RXRecords linked.');
-    } catch (e) {
-        console.warn('Startup migration warning (PatientServiceDateCycles, non-fatal):', e.message);
-    }
-
-    // Ensure patient service-date history exists on environments that do not run
-    // sequelize-cli migrations manually.
-    try {
-        await db.sequelize.query(`
-            CREATE TABLE IF NOT EXISTS "PatientServiceDateHistories" (
-                "id" SERIAL PRIMARY KEY,
-                "patientId" INTEGER NOT NULL,
-                "previousServiceDate" DATE,
-                "newServiceDate" DATE,
-                "changedByUserId" INTEGER,
-                "changeSource" VARCHAR(60) NOT NULL DEFAULT 'Patient Update',
-                "reason" TEXT,
-                "metadata" JSON,
-                "createdAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
-                "updatedAt" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
-            );
-        `);
-        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_patient" ON "PatientServiceDateHistories" ("patientId");');
-        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_patient_created" ON "PatientServiceDateHistories" ("patientId", "createdAt");');
-        await db.sequelize.query('CREATE INDEX IF NOT EXISTS "idx_patient_service_date_histories_new_date" ON "PatientServiceDateHistories" ("newServiceDate");');
-        await db.sequelize.query(`
-            INSERT INTO "PatientServiceDateHistories"
-                ("patientId", "previousServiceDate", "newServiceDate", "changedByUserId", "changeSource", "reason", "createdAt", "updatedAt")
-            SELECT
-                p."id", NULL, p."serviceDate", NULL, 'System Backfill',
-                'Existing patient service date captured when history tracking was enabled.',
-                NOW(), NOW()
-            FROM "Patients" p
-            WHERE p."serviceDate" IS NOT NULL
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM "PatientServiceDateHistories" h
-                  WHERE h."patientId" = p."id"
-              );
-        `);
-        console.log('Database verified: PatientServiceDateHistories table ready.');
-    } catch (e) {
-        console.warn('Startup migration warning (PatientServiceDateHistories, non-fatal):', e.message);
-    }
-
-    // -- Auto-seed Roles + default admin on a brand-new database --------------
-    try {
-        const bcrypt = require('bcryptjs');
         const { BUILT_IN_DEFAULTS } = require('./middleware/rbac');
-
-        // 1. Ensure the 4 built-in roles exist
         const builtInNames = ['Administrator', 'Supervisor', 'Operator', 'Read Only'];
         let adminRole = null;
         for (const name of builtInNames) {
@@ -690,58 +442,72 @@ const startServer = async () => {
                 where: { name },
                 defaults: {
                     name,
-                    isSystem:    true,
+                    isSystem: true,
                     permissions: BUILT_IN_DEFAULTS[name] ? BUILT_IN_DEFAULTS[name]() : {},
                     description: name + ' role'
                 }
             });
+            const defaultPerms = BUILT_IN_DEFAULTS[name] ? BUILT_IN_DEFAULTS[name]() : {};
+            if (!role.permissions || !role.permissions.accounts || !role.permissions.transactions) {
+                await role.update({ isSystem: true, permissions: defaultPerms });
+            }
             if (name === 'Administrator') adminRole = role;
         }
 
-        // 2. Ensure a default admin user exists on first-run
-        // SEC-06: Gated behind ALLOW_DEFAULT_SEED=true to prevent accidental credential
-        // creation if the Users table is ever emptied in production (restore, purge, etc.).
-        // Set ALLOW_DEFAULT_SEED=true in .env for fresh installs only. Remove after first login.
         const userCount = await db.User.count();
         if (userCount === 0 && adminRole) {
             if (process.env.ALLOW_DEFAULT_SEED === 'true') {
+                const bcrypt = require('bcryptjs');
                 const hash = await bcrypt.hash('admin123', 10);
                 await db.User.create({
-                    firstName:    'System',
-                    lastName:     'Administrator',
-                    username:     'admin',
-                    email:        'admin@rxsystem.local',
+                    firstName: 'System',
+                    lastName: 'Administrator',
+                    username: 'admin',
+                    email: 'admin@home-accounting.local',
                     passwordHash: hash,
-                    roleId:       adminRole.id,
-                    isActive:     true,
-                    isMaster:     false   // grant isMaster via SQL after first login
+                    roleId: adminRole.id,
+                    isActive: true,
+                    isMaster: false
                 });
-                console.log('');
-                console.log('==============================================');
-                console.log('         FIRST-RUN DEFAULT CREDENTIALS        ');
-                console.log('  Username : admin                            ');
-                console.log('  Password : admin123                         ');
-                console.log('  !! CHANGE THIS PASSWORD AFTER LOGIN !!      ');
-                console.log('  !! THEN REMOVE ALLOW_DEFAULT_SEED=true !!   ');
-                console.log('==============================================');
-                console.log('');
+                console.log('Created first-run admin user: admin / admin123. Change this password immediately.');
             } else {
-                console.warn('[WARN] SEC-06: Users table is empty but ALLOW_DEFAULT_SEED is not set.');
-                console.warn('[WARN]         No default admin was created. To seed a first-run admin,');
-                console.warn('[WARN]         set ALLOW_DEFAULT_SEED=true in .env and restart.');
+                console.warn('[WARN] Users table is empty. Set ALLOW_DEFAULT_SEED=true for first-run admin seeding.');
             }
         }
     } catch (e) {
         console.warn('Startup seed warning (non-fatal):', e.message);
     }
 
-    // Load system settings (including timezone) BEFORE the server starts accepting requests
     await settingsService.load();
 
     app.listen(PORT, () => {
-        console.log(`Server is running on port ${PORT}.`);
+        console.log(`Home Accounting server is running on port ${PORT}.`);
     });
 };
 
 startServer();
 module.exports = app;
+
+async function ensureUserActivityLogColumns() {
+    const qi = db.sequelize.getQueryInterface();
+    const Sequelize = require('sequelize');
+    let table = {};
+    try {
+        table = await qi.describeTable('UserActivityLogs');
+    } catch (_e) {
+        return;
+    }
+    const add = async (name, spec) => {
+        if (!table[name]) await qi.addColumn('UserActivityLogs', name, spec);
+    };
+    await add('usernameSnapshot', { type: Sequelize.STRING });
+    await add('roleSnapshot', { type: Sequelize.STRING });
+    await add('pageUrl', { type: Sequelize.TEXT });
+    await add('pagePath', { type: Sequelize.STRING });
+    await add('pageTitle', { type: Sequelize.STRING });
+    await add('visitedAt', { type: Sequelize.DATE, allowNull: false, defaultValue: Sequelize.NOW });
+    await add('referrer', { type: Sequelize.TEXT });
+    await add('statusCode', { type: Sequelize.INTEGER });
+}
+
+

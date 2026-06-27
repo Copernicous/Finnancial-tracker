@@ -515,8 +515,8 @@ body.rx-staging-env .navbar::after {
              label above them) are shorter, so buttons appear misaligned.
    Fix:      Force the button-only flex containers to min-height:39px and
              make their child buttons fill that height.
-   Covers:   align-items-stretch (patients), align-items-end, gap-1, gap-2
-             (reports.ejs, rx-records.ejs, etc.)
+   Covers:   align-items-stretch, align-items-end, gap-1, gap-2
+             (reports.ejs, forms, setup pages, etc.)
    Scope:    Tightly scoped to .row.g-2 / .row.align-items-end children only.
              Does NOT affect navbar, modal footer, or card buttons.
    â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -1203,7 +1203,7 @@ body.sidebar-mobile-open::before {
 }
 
 /* â”€â”€ Utility class overrides â”€â”€ */
-/* .bg-white used in readonly display inputs in rx-records */
+/* .bg-white dark-mode utility override */
 [data-theme="dark"] .bg-white {
     background-color: var(--surface-2) !important;
     color: var(--text) !important;
@@ -1275,24 +1275,6 @@ input[type="datetime-local"] {
     border-color: var(--border) !important;
 }
 
-/* â”€â”€ Patient search dropdown (rx-records) â”€â”€ */
-[data-theme="dark"] .patient-dropdown {
-    background: var(--surface) !important;
-    border-color: var(--border) !important;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
-}
-[data-theme="dark"] .patient-dropdown-item {
-    color: var(--text) !important;
-    border-bottom-color: var(--border) !important;
-}
-[data-theme="dark"] .patient-dropdown-item:hover,
-[data-theme="dark"] .patient-dropdown-item.highlighted {
-    background: rgba(99,102,241,0.18) !important;
-}
-[data-theme="dark"] .patient-dropdown-empty {
-    color: var(--text-muted) !important;
-}
-
 /* â”€â”€ Global search dropdown (app.js) â”€â”€ */
 [data-theme="dark"] #globalSearchDropdown {
     background: var(--surface) !important;
@@ -1348,7 +1330,7 @@ input[type="datetime-local"] {
 }
 
 /* â”€â”€ Badge overrides â”€â”€ */
-/* bg-white badge used on bulk count in rx-records */
+/* bg-white badge contrast in dark mode */
 [data-theme="dark"] .badge.bg-white {
     background-color: var(--surface-2) !important;
     color: var(--text) !important;
@@ -1431,14 +1413,6 @@ input[type="datetime-local"] {
 [data-theme="dark"] small,
 [data-theme="dark"] .small {
     color: var(--text-muted) !important;
-}
-
-/* â”€â”€ Override any inline style that hardcodes #fff bg â”€â”€
-   Targets the bulk results modal in rx-records           */
-[data-theme="dark"] #rxBulkResModal > div {
-    background: var(--surface) !important;
-    color: var(--text) !important;
-    border: 1px solid var(--border) !important;
 }
 
 /* â”€â”€ Spinner / loading â”€â”€ */

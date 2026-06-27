@@ -3,18 +3,16 @@
 // ── Module definitions ────────────────────────────────────────────────────────
 var MODULE_DEFS = [
     { key: 'dashboard',          label: 'Dashboard',             group: 'Core',      hasUndo: false, visibleLocked: true },
-    { key: 'patients',           label: 'Patients',              group: 'Core',      hasUndo: false, hasOverrideExpired: true },
-    { key: 'rx_records',         label: 'RX Records',            group: 'Core',      hasWorkflow: true, hasOverrideExpired: true },
+    { key: 'accounts',           label: 'Accounts',              group: 'Core',      hasUndo: false },
+    { key: 'transactions',       label: 'Transactions',          group: 'Core',      hasUndo: false },
+    { key: 'categories',         label: 'Categories',            group: 'Core',      hasUndo: false },
+    { key: 'financial_institutions', label: 'Financial Institutions', group: 'Core', hasUndo: false },
+    { key: 'reconciliations',    label: 'Reconciliations',       group: 'Core',      hasUndo: false },
+    { key: 'proofs',             label: 'Proofs',                group: 'Core',      hasUndo: false },
+    { key: 'simulation',         label: 'Sample Simulation',     group: 'Core',      hasUndo: false },
     { key: 'reports',            label: 'Reports',               group: 'Core',      hasUndo: false },
-    { key: 'patient_notes',      label: 'Patient Notes',         group: 'Core',      hasUndo: false, notesOnly: true },
     { key: 'audit_log',          label: 'Audit Log',             group: 'Admin',     hasUndo: false, visibleOnly: true },
     { key: 'import',             label: 'Data Import',           group: 'Admin',     hasUndo: false },
-    { key: 'pharmacies',         label: 'Pharmacies',            group: 'Settings',  hasUndo: false },
-    { key: 'patient_transport',  label: 'Patient Transport',     group: 'Settings',  hasUndo: false },
-    { key: 'pharmacy_transport', label: 'Pharmacy Transport',    group: 'Settings',  hasUndo: false },
-    { key: 'workflow_actions',   label: 'Workflow Actions',      group: 'Settings',  hasUndo: false },
-    { key: 'clinics',            label: 'Clinics',               group: 'Settings',  hasUndo: false },
-    { key: 'medication_catalog', label: 'RX Actions Catalog',    group: 'Settings',  hasUndo: false },
     { key: 'users',              label: 'User Management',       group: 'Admin-Only', hasUndo: false },
     { key: 'backups',            label: 'Backups',               group: 'Admin-Only', hasUndo: false, visibleOnly: true },
     { key: 'system_settings',    label: 'System Settings',       group: 'Admin-Only', hasUndo: false, visibleOnly: true },
@@ -161,7 +159,7 @@ function renderMatrix() {
         '<span>' + badge(true,'trash','danger') + ' Delete</span>' +
         '<span>' + badge(true,'file-csv','info') + ' Export</span>' +
         '<span>' + badge(true,'undo','warning') + ' Undo</span>' +
-        '<span>' + badge(true,'unlock-alt','dark') + ' Override 90-Day</span>' +
+        '<span>' + badge(true,'unlock-alt','dark') + ' Override</span>' +
         '<span><span class="badge bg-danger" style="font-size:.62rem"><i class="fas fa-eye-slash"></i></span> Hidden</span>' +
         '<span><span class="badge bg-secondary opacity-25" style="font-size:.62rem"><i class="fas fa-plus-circle"></i></span> Off</span>' +
         '</div>';
@@ -299,7 +297,6 @@ function readPermEditor() {
         };
     });
     if (perms.dashboard)    { perms.dashboard.visible = true; perms.dashboard.canAdd = false; perms.dashboard.canEdit = false; }
-    if (perms.patient_notes) perms.patient_notes.canEdit = false;
     return perms;
 }
 

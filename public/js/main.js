@@ -1,4 +1,4 @@
-// Ensure same-origin fetch requests send cookies, so FortiGate proxy users can authenticate with rxToken cookie fallback.
+﻿// Ensure same-origin fetch requests send cookies, so FortiGate proxy users can authenticate with haToken cookie fallback.
 (function() {
     if (window.fetch) {
         var originalFetch = window.fetch.bind(window);
@@ -33,14 +33,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Theme Toggle
     var themeToggle = document.getElementById('themeToggle');
     if (themeToggle) {
-        var currentTheme = localStorage.getItem('rxTheme') || 'light';
+        var currentTheme = localStorage.getItem('haTheme') || 'light';
         document.documentElement.setAttribute('data-theme', currentTheme);
         themeToggle.innerHTML = currentTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
 
         themeToggle.addEventListener('click', function() {
             var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('rxTheme', theme);
+            localStorage.setItem('haTheme', theme);
             themeToggle.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
         });
     }
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function() {
             var password = document.getElementById('password').value;
 
             try {
-                var res = await fetch(window.rxUrl('/api/auth/login'), {
+                var res = await fetch(window.appUrl('/api/auth/login'), {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 var data = await res.json();
                 if (res.ok) {
                     localStorage.setItem('token', data.token);
+                    localStorage.setItem('haToken', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
                     window.rxNav('/dashboard');
                 } else {
@@ -76,7 +77,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Auth Check on Protected Pages
     if (!loginForm) {
-        var token = localStorage.getItem('token');
+        var token = localStorage.getItem('haToken') || localStorage.getItem('token');
         if (!token) {
             window.rxNav('/login');
         } else {
@@ -93,6 +94,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (logoutBtn) {
         logoutBtn.addEventListener('click', function() {
             localStorage.removeItem('token');
+            localStorage.removeItem('haToken');
             localStorage.removeItem('user');
             window.rxNav('/login');
         });
@@ -103,7 +105,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Pass options.silent = true to suppress the 403 toast for background/init calls
 async function fetchWithAuth(url, options) {
     options = options || {};
-    var token = localStorage.getItem('token');
+    var token = localStorage.getItem('haToken') || localStorage.getItem('token');
     var silent = !!options.silent;
     var fetchOptions = Object.assign({}, options);
     delete fetchOptions.silent; // don't send to fetch()
@@ -115,6 +117,7 @@ async function fetchWithAuth(url, options) {
     // 401 = token expired / invalid -> logout
     if (res.status === 401) {
         localStorage.removeItem('token');
+        localStorage.removeItem('haToken');
         localStorage.removeItem('user');
         window.rxNav('/login');
         throw new Error('Unauthorized');
@@ -179,3 +182,4 @@ async function loadCrudData(moduleName, apiEndpoint) {
         showToast('Error loading data', 'danger');
     }
 }
+

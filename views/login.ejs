@@ -172,10 +172,10 @@
     <div class="login-card">
         <div class="text-center mb-4">
             <div class="brand-icon mb-2">
-                <i class="fas fa-pills"></i>
+                <i class="fas fa-calculator"></i>
             </div>
             <h2>Home Accounting</h2>
-            <p class="subtitle">Delivery Management System</p>
+            <p class="subtitle">Secure accounting operations</p>
         </div>
 
         <div id="errorMsg" class="mb-3 login-notice login-notice-error d-none"></div>
@@ -286,7 +286,7 @@
             spinner.classList.remove('d-none');
 
             try {
-                const res = await fetch(window.rxUrl('/api/auth/login'), {
+                const res = await fetch(window.appUrl('/api/auth/login'), {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -339,7 +339,7 @@
             spinner.classList.remove('d-none');
 
             try {
-                const res  = await fetch(window.rxUrl('/api/auth/login/2fa'), {
+                const res  = await fetch(window.appUrl('/api/auth/login/2fa'), {
                     method: 'POST',
                     credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
@@ -370,7 +370,7 @@
             document.getElementById('loginForm').classList.remove('d-none');
         }
 
-        function setRxTokenCookie(token, maxAge) {
+        function sethaTokenCookie(token, maxAge) {
             const sameSite = window.location.protocol === 'https:' ? 'None' : 'Lax';
             const secure = window.location.protocol === 'https:' ? '; Secure' : '';
             // Use proxy-aware base path as cookie path so the cookie is sent
@@ -378,7 +378,7 @@
             var cookiePath = window.RX_BASE
                 ? window.RX_BASE.replace(/^https?:\/\/[^/]+/, '') || '/'
                 : '/';
-            document.cookie = 'rxToken=' + encodeURIComponent(token) +
+            document.cookie = 'haToken=' + encodeURIComponent(token) +
                 '; path=' + cookiePath + '; max-age=' + maxAge +
                 '; SameSite=' + sameSite + secure;
         }
@@ -387,7 +387,7 @@
             localStorage.setItem('token', data.token);
             localStorage.setItem('user', JSON.stringify(data.user));
             const maxAge = 86400;
-            setRxTokenCookie(data.token, maxAge);
+            sethaTokenCookie(data.token, maxAge);
             window.rxNav('/dashboard');
         }
 
@@ -417,4 +417,5 @@
     </script>
 </body>
 </html>
+
 

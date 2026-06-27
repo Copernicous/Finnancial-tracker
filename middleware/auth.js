@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+﻿const jwt = require('jsonwebtoken');
 
 // Helper: parse a specific cookie from the Cookie header string
 function getCookie(cookieHeader, name) {
@@ -15,9 +15,9 @@ module.exports = (req, res, next) => {
         token = authHeader.split(' ')[1];
     }
 
-    // 2. Fallback: rxToken cookie — passes through FortiGate SSL VPN when Bearer header is stripped
+    // 2. Fallback: haToken cookie â€” passes through FortiGate SSL VPN when Bearer header is stripped
     if (!token) {
-        token = getCookie(req.headers.cookie, 'rxToken');
+        token = getCookie(req.headers.cookie, 'haToken');
     }
 
     if (!token) {
@@ -29,7 +29,7 @@ module.exports = (req, res, next) => {
             return res.status(401).json({ message: 'Invalid or expired token' });
         }
 
-        // tokenVersion check — invalidates JWTs issued before a password change.
+        // tokenVersion check â€” invalidates JWTs issued before a password change.
         // SEC-02: Always run the DB check so that:
         //   (a) new tokens (with tv claim) must match the DB version exactly, AND
         //   (b) old tokens (no tv claim, issued before this feature) are rejected
@@ -47,11 +47,11 @@ module.exports = (req, res, next) => {
             const tokenVersion = typeof decoded.tv === 'number' ? decoded.tv : null;
 
             if (dbVersion > 0 && tokenVersion === null) {
-                // Old token without tv claim, but account has had password changes — reject.
+                // Old token without tv claim, but account has had password changes â€” reject.
                 return res.status(401).json({ message: 'Session expired. Please log in again.' });
             }
             if (tokenVersion !== null && dbVersion !== tokenVersion) {
-                // Token version doesn't match DB — password was changed, old token invalid.
+                // Token version doesn't match DB â€” password was changed, old token invalid.
                 return res.status(401).json({ message: 'Session expired. Please log in again.' });
             }
         } catch (_e) {
@@ -60,7 +60,7 @@ module.exports = (req, res, next) => {
             const isDbError = _e.code === 'ECONNREFUSED' || _e.code === 'ETIMEDOUT' ||
                 (_e.name && _e.name.includes('Sequelize'));
             if (!isDbError) throw _e;
-            // DB temporarily unavailable — allow through to avoid full lockout during maintenance
+            // DB temporarily unavailable â€” allow through to avoid full lockout during maintenance
             console.warn('[Auth] tokenVersion DB check skipped (DB unavailable):', _e.message);
         }
 
@@ -69,3 +69,4 @@ module.exports = (req, res, next) => {
         next();
     });
 };
+

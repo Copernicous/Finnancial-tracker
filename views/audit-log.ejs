@@ -1,421 +1,70 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Audit Log - Home Accounting</title>
-    <link href="/assets/bootstrap.min.css" rel="stylesheet">
-    <link href="/assets/inter.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
-    <style>
-        .filter-card { background: var(--card-bg,#fff); border-radius:12px; padding:1.2rem; box-shadow:0 2px 12px rgba(0,0,0,.07); margin-bottom:1rem; }
-        .log-badge { font-size:.72rem; font-weight:600; letter-spacing:.03em; }
-        .row-login  { background:rgba(25,135,84,.05); }
-        .row-logout { background:rgba(108,117,125,.05); }
-        .row-delete,.row-disable { background:rgba(220,53,69,.06); }
-        .row-create { background:rgba(13,110,253,.05); }
-        .row-update { background:rgba(255,193,7,.07); }
-        .row-restore{ background:rgba(25,135,84,.07); }
-        .data-cell  { max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-family:monospace; font-size:.76rem; color:#666; cursor:pointer; }
-        .admin-zone { border:2px solid rgba(220,53,69,.25); border-radius:10px; padding:.9rem 1rem; background:rgba(220,53,69,.03); margin-bottom:1rem; }
-        #auditTable td,#auditTable th { vertical-align:middle; font-size:.82rem; }
-        #activityTable td,#activityTable th { vertical-align:middle; font-size:.82rem; }
-        .chk { width:15px; height:15px; cursor:pointer; }
-        .stat-pill { background:rgba(13,110,253,.1); color:#0d6efd; border-radius:20px; padding:2px 10px; font-size:.78rem; font-weight:600; }
-        .status-pill { border-radius:20px; padding:2px 9px; font-family:monospace; font-size:.78rem; font-weight:700; display:inline-flex; align-items:center; gap:4px; text-decoration:none; }
-        .status-pill:hover { filter:brightness(.96); text-decoration:none; }
-        .status-label { font-family:Inter,Arial,sans-serif; font-size:.68rem; font-weight:700; letter-spacing:.01em; }
-        .http-status-guide { border:1px solid var(--border-color,#dee2e6); border-radius:10px; padding:.55rem .7rem; background:rgba(13,110,253,.035); }
-        .http-status-guide summary { cursor:pointer; user-select:none; }
-        .http-status-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:.35rem .75rem; margin-top:.55rem; }
-        .http-status-grid a { color:inherit; text-decoration:none; }
-        .http-status-grid a:hover { color:#0d6efd; text-decoration:underline; }
-        .ua-cell,.ref-cell { max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit Log - Home Accounting</title>
+  <link href="/assets/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/inter.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="wrapper">
-    <!-- Sidebar -->
-    <%- include('partials/sidebar') %>
-
-<div id="content">
-        <nav class="navbar navbar-expand-lg px-4 mb-4">
-            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
-            <span class="ms-3 fw-bold"><i class="fas fa-history me-2 text-primary"></i>Audit Log</span>
-            <div class="ms-auto d-flex align-items-center gap-3">
-                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
-                <span id="userGreeting" class="text-muted small"></span>
-                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
-            </div>
-        </nav>
-
-        <div class="container-fluid px-4">
-            <ul class="nav nav-pills mb-3 gap-2" id="auditTabs">
-                <li class="nav-item">
-                    <button class="nav-link active" id="auditTabBtn" type="button">
-                        <i class="fas fa-list me-1"></i>Change Audit
-                    </button>
-                </li>
-                <li class="nav-item">
-                    <button class="nav-link" id="activityTabBtn" type="button">
-                        <i class="fas fa-mouse-pointer me-1"></i>Page Activity
-                    </button>
-                </li>
-            </ul>
-
-            <div id="auditTabPane">
-
-            <!-- Filters -->
-            <div class="filter-card">
-                <div class="d-flex align-items-center justify-content-between mb-2">
-                    <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em"><i class="fas fa-filter me-1"></i>Search &amp; Filter</span>
-                    <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-link btn-sm text-muted p-0" onclick="toggleAuditAdv()" style="font-size:.78rem;text-decoration:none">
-                            <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="auditAdvChevron"></i>
-                        </button>
-                    </div>
-                </div>
-                <!-- Basic row -->
-                <div class="row g-2 align-items-end">
-                    <div class="col-sm-6 col-md-2">
-                        <label class="form-label small fw-semibold mb-1"><i class="fas fa-user me-1 text-primary"></i>User</label>
-                        <select class="form-select form-select-sm" id="fUser"><option value="">All Users</option></select>
-                    </div>
-                    <div class="col-sm-6 col-md-2">
-                        <label class="form-label small fw-semibold mb-1"><i class="fas fa-cubes me-1 text-primary"></i>Module</label>
-                        <select class="form-select form-select-sm" id="fModule"><option value="">All Modules</option></select>
-                    </div>
-                    <div class="col-sm-6 col-md-2">
-                        <label class="form-label small fw-semibold mb-1"><i class="fas fa-bolt me-1 text-primary"></i>Action</label>
-                        <select class="form-select form-select-sm" id="fAction">
-                            <option value="">All Actions</option>
-                            <option>Login</option><option>Logout</option>
-                            <option>Create</option><option>Update</option>
-                            <option>Delete</option><option>Disable</option><option>Restore</option>
-                        </select>
-                    </div>
-                    <div class="col-sm-6 col-md-2">
-                        <div class="d-flex gap-1">
-                            <button class="btn btn-primary btn-sm btn-search" id="searchBtn" title="Search"><i class="fas fa-search"></i></button>
-                            <button class="btn btn-outline-secondary btn-sm" id="clearBtn" title="Clear"><i class="fas fa-times"></i></button>
-                            <button class="btn btn-success btn-sm" id="exportBtn" title="Export CSV"><i class="fas fa-file-csv"></i></button>
-                        </div>
-                    </div>
-                </div>
-                <!-- Advanced row -->
-                <div id="auditAdvPanel" style="display:none;border-top:1px solid var(--border-color,#dee2e6);margin-top:10px;padding-top:10px">
-                    <div class="row g-2 align-items-end">
-                        <div class="col-sm-6 col-md-2">
-                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-calendar me-1"></i>Date From</label>
-                            <input type="date" class="form-control form-control-sm" id="fFrom">
-                        </div>
-                        <div class="col-sm-6 col-md-2">
-                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-calendar me-1"></i>Date To</label>
-                            <input type="date" class="form-control form-control-sm" id="fTo">
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Admin Controls (only visible to Administrators) -->
-            <div class="admin-zone d-none" id="adminZone">
-                <div class="d-flex flex-wrap gap-2 align-items-center">
-                    <span class="fw-bold text-danger small"><i class="fas fa-shield-alt me-1"></i>Admin Controls</span>
-                    <button class="btn btn-sm btn-outline-danger" id="delSelBtn" disabled>
-                        <i class="fas fa-trash me-1"></i>Delete Selected (<span id="selCount">0</span>)
-                    </button>
-                    <div class="vr"></div>
-                    <span class="small">Rotate &mdash; remove entries older than</span>
-                    <select class="form-select form-select-sm" style="width:auto" id="rotateDays">
-                        <option value="30">30 days</option>
-                        <option value="60">60 days</option>
-                        <option value="90" selected>90 days</option>
-                        <option value="180">180 days</option>
-                        <option value="365">1 year</option>
-                    </select>
-                    <button class="btn btn-sm btn-warning" id="rotateBtn"><i class="fas fa-rotate me-1"></i>Rotate Logs</button>
-                </div>
-            </div>
-
-            <!-- Table Card -->
-            <div class="glass-card p-4">
-                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                    <div class="d-flex align-items-center gap-2">
-                        <h5 class="mb-0"><i class="fas fa-list me-2"></i>Audit Entries</h5>
-                        <span class="stat-pill" id="totalBadge">0 total</span>
-                    </div>
-                    <div class="d-flex align-items-center gap-2">
-                        <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('errorLogSection').scrollIntoView({behavior:'smooth'})" id="errLogJumpBtn" style="display:none">
-                            <i class="fas fa-bug me-1"></i>Error Log <span id="errorBadge" class="badge bg-danger ms-1">0</span>
-                        </button>
-                        <label class="small text-muted mb-0">Show</label>
-                        <select class="form-select form-select-sm" style="width:auto" id="pgSize">
-                            <option value="10" selected>10</option>
-                            <option value="20">20</option>
-                            <option value="50">50</option>
-                            <option value="100">100</option>
-                        </select>
-                        <label class="small text-muted mb-0">per page</label>
-                    </div>
-                </div>
-
-                <!-- Pagination bar TOP -->
-                <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                    <small class="text-muted" id="pgInfo">&mdash;</small>
-                    <nav><ul class="pagination pagination-sm mb-0" id="pgNav"></ul></nav>
-                </div>
-
-                <div class="table-responsive">
-                    <table class="table table-hover" id="auditTable">
-                        <thead class="table-light">
-                            <tr>
-                                <th style="width:32px"><input type="checkbox" id="selAll" class="chk"></th>
-                                <th>#</th>
-                                <th>Date &amp; Time</th>
-                                <th>User</th>
-                                <th>Module</th>
-                                <th>Action</th>
-                                <th>Record / Patient</th>
-                                <th>Data / Changes</th>
-                                <th>IP</th>
-                                <th class="d-none" id="actHeader">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody id="auditBody">
-                            <tr><td colspan="10" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-
-            </div>
-
-            </div>
-
-            <div id="activityTabPane" style="display:none">
-                <div class="filter-card">
-                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
-                        <span class="fw-bold small text-muted text-uppercase" style="letter-spacing:.05em"><i class="fas fa-filter me-1"></i>Page Activity Filters</span>
-                        <button class="btn btn-link btn-sm text-muted p-0" onclick="toggleActivityAdv()" style="font-size:.78rem;text-decoration:none">
-                            <i class="fas fa-sliders-h me-1"></i>Advanced <i class="fas fa-chevron-down ms-1" id="activityAdvChevron"></i>
-                        </button>
-                    </div>
-                    <div class="row g-2 align-items-end">
-                        <div class="col-sm-6 col-md-2">
-                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-user me-1 text-primary"></i>User</label>
-                            <select class="form-select form-select-sm" id="paUser"><option value="">All Users</option></select>
-                        </div>
-                        <div class="col-sm-6 col-md-2">
-                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-user-tag me-1 text-primary"></i>Role</label>
-                            <select class="form-select form-select-sm" id="paRole"><option value="">All Roles</option></select>
-                        </div>
-                        <div class="col-sm-6 col-md-3">
-                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-window-maximize me-1 text-primary"></i>Page</label>
-                            <select class="form-select form-select-sm" id="paPage"><option value="">All Pages</option></select>
-                        </div>
-                        <div class="col-sm-6 col-md-2">
-                            <label class="form-label small fw-semibold mb-1"><i class="fas fa-signal me-1 text-primary"></i>Status</label>
-                            <select class="form-select form-select-sm" id="paStatus">
-                                <option value="">All Status</option>
-                                <option value="200">200 OK</option>
-                                <option value="204">204 No Content</option>
-                                <option value="302">302 Redirect</option>
-                                <option value="400">400 Bad Request</option>
-                                <option value="401">401 Login Required</option>
-                                <option value="403">403 Blocked</option>
-                                <option value="404">404 Not Found</option>
-                                <option value="409">409 Conflict</option>
-                                <option value="429">429 Rate Limit</option>
-                                <option value="500">500 Server Error</option>
-                            </select>
-                        </div>
-                        <div class="col-sm-6 col-md-3">
-                            <div class="d-flex gap-1">
-                                <button class="btn btn-primary btn-sm" id="paSearchBtn" title="Search"><i class="fas fa-search"></i></button>
-                                <button class="btn btn-outline-secondary btn-sm" id="paClearBtn" title="Clear"><i class="fas fa-times"></i></button>
-                                <button class="btn btn-success btn-sm" id="paExportBtn" title="Export CSV"><i class="fas fa-file-csv me-1"></i>Export</button>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="activityAdvPanel" style="display:none;border-top:1px solid var(--border-color,#dee2e6);margin-top:10px;padding-top:10px">
-                        <div class="row g-2 align-items-end">
-                            <div class="col-sm-6 col-md-2">
-                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-calendar me-1"></i>Date From</label>
-                                <input type="date" class="form-control form-control-sm" id="paFrom">
-                            </div>
-                            <div class="col-sm-6 col-md-2">
-                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-calendar me-1"></i>Date To</label>
-                                <input type="date" class="form-control form-control-sm" id="paTo">
-                            </div>
-                            <div class="col-sm-6 col-md-2">
-                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-network-wired me-1"></i>IP</label>
-                                <input type="text" class="form-control form-control-sm" id="paIp" placeholder="IP address">
-                            </div>
-                            <div class="col-sm-6 col-md-3">
-                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-globe me-1"></i>Browser</label>
-                                <input type="text" class="form-control form-control-sm" id="paBrowser" placeholder="Chrome, Edge, Firefox...">
-                            </div>
-                            <div class="col-sm-6 col-md-3">
-                                <label class="form-label small fw-semibold mb-1"><i class="fas fa-search me-1"></i>Search</label>
-                                <input type="text" class="form-control form-control-sm" id="paSearch" placeholder="user, page, IP, browser">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="small text-muted mt-2">
-                        <i class="fas fa-info-circle me-1"></i>Stores page path only. Query strings and patient timeline IDs are removed before saving.
-                        Click any status number in the table for the full HTTP reference.
-                    </div>
-                    <details class="http-status-guide small mt-2">
-                        <summary class="fw-semibold"><i class="fas fa-circle-question me-1 text-primary"></i>HTTP status quick guide</summary>
-                        <div class="http-status-grid">
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/200" target="_blank" rel="noopener noreferrer"><strong>200 OK</strong> â€” page loaded normally</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/204" target="_blank" rel="noopener noreferrer"><strong>204 No Content</strong> â€” success, no body returned</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/302" target="_blank" rel="noopener noreferrer"><strong>302 Redirect</strong> â€” browser was sent elsewhere</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/400" target="_blank" rel="noopener noreferrer"><strong>400 Bad Request</strong> â€” invalid request</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/401" target="_blank" rel="noopener noreferrer"><strong>401 Unauthorized</strong> â€” login/session required</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/403" target="_blank" rel="noopener noreferrer"><strong>403 Forbidden</strong> â€” role lacks access</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/404" target="_blank" rel="noopener noreferrer"><strong>404 Not Found</strong> â€” page/route missing</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/409" target="_blank" rel="noopener noreferrer"><strong>409 Conflict</strong> â€” duplicate/conflicting state</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/429" target="_blank" rel="noopener noreferrer"><strong>429 Too Many Requests</strong> â€” rate limit</a>
-                            <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Status/500" target="_blank" rel="noopener noreferrer"><strong>500 Server Error</strong> â€” backend failed</a>
-                        </div>
-                    </details>
-                </div>
-
-                <div class="glass-card p-4">
-                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <h5 class="mb-0"><i class="fas fa-chart-line me-2"></i>Page Activity</h5>
-                            <span class="stat-pill" id="paTotalBadge">0 total</span>
-                        </div>
-                        <div class="d-flex align-items-center gap-2">
-                            <label class="small text-muted mb-0">Show</label>
-                            <select class="form-select form-select-sm" style="width:auto" id="paSize">
-                                <option value="10" selected>10</option>
-                                <option value="20">20</option>
-                                <option value="50">50</option>
-                                <option value="100">100</option>
-                            </select>
-                            <label class="small text-muted mb-0">per page</label>
-                        </div>
-                    </div>
-                    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
-                        <small class="text-muted" id="paInfo">&mdash;</small>
-                        <nav><ul class="pagination pagination-sm mb-0" id="paNav"></ul></nav>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="activityTable">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>Date &amp; Time</th>
-                                    <th>User</th>
-                                    <th>Role</th>
-                                    <th>Page</th>
-                                    <th>Path</th>
-                                    <th>Status</th>
-                                    <th>IP</th>
-                                    <th>Browser / Agent</th>
-                                    <th>Referrer</th>
-                                </tr>
-                            </thead>
-                            <tbody id="paBody">
-                                <tr><td colspan="9" class="text-center py-5 text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Loading...</td></tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
+  <%- include('partials/sidebar') %>
+  <div id="content">
+    <nav class="navbar navbar-expand-lg px-4 mb-4">
+      <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+      <span class="ms-3 fw-bold fs-5">Audit Log</span>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span id="userGreeting" class="text-muted small"></span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
+    <div class="container-fluid px-4">
+      <div class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <h5 class="mb-0">Accounting Audit Trail</h5>
+          <button class="btn btn-outline-primary btn-sm" onclick="loadAudit()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
         </div>
-    </div>
-</div>
-
-<!-- Detail Modal -->
-<div class="modal fade" id="detailModal" tabindex="-1">
-    <div class="modal-dialog modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="detailModalTitle">
-                    <i class="fas fa-file-alt me-2"></i>Change Details
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <!-- Summary bar -->
-                <div id="detailSummary" class="d-flex flex-wrap gap-2 align-items-center mb-4 p-3 rounded-3" style="background:var(--bg);border:1px solid var(--border)">
-                </div>
-                <!-- Diff table -->
-                <div id="detailDiff"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
+        <div class="row g-2 mb-3">
+          <div class="col-md-3"><input class="form-control form-control-sm" id="moduleFilter" placeholder="Module"></div>
+          <div class="col-md-3"><input class="form-control form-control-sm" id="actionFilter" placeholder="Action"></div>
+          <div class="col-md-3"><input class="form-control form-control-sm" id="userFilter" placeholder="User"></div>
+          <div class="col-md-3"><button class="btn btn-sm btn-primary w-100" onclick="loadAudit()">Search</button></div>
         </div>
-    </div>
-</div>
-
-<!-- Error Log Section (Admin only) -->
-<div class="container-fluid px-4 pb-4" id="errorLogSection" style="display:none">
-    <div class="glass-card p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-            <h5 class="mb-0"><i class="fas fa-bug me-2 text-danger"></i>Error Log</h5>
-            <div class="d-flex gap-2 flex-wrap align-items-center">
-                <select class="form-select form-select-sm" id="errSrcFilter" style="width:auto" onchange="loadErrors()">
-                    <option value="">All Sources</option>
-                    <option value="frontend">Frontend</option>
-                    <option value="backend">Backend</option>
-                </select>
-                <select class="form-select form-select-sm" id="errSevFilter" style="width:auto" onchange="loadErrors()">
-                    <option value="">All Severities</option>
-                    <option value="error">Error</option>
-                    <option value="warning">Warning</option>
-                </select>
-                <select class="form-select form-select-sm" id="errStatusFilter" style="width:auto" onchange="loadErrors()">
-                    <option value="">All Statuses</option>
-                    <option value="open">Open Only</option>
-                    <option value="resolved">Resolved Only</option>
-                </select>
-                <button class="btn btn-sm btn-outline-secondary" onclick="loadErrors()" title="Refresh"><i class="fas fa-sync-alt"></i></button>
-                <button class="btn btn-sm btn-success" onclick="exportErrors()" title="Export CSV"><i class="fas fa-file-csv me-1"></i>Export</button>
-                <button class="btn btn-sm btn-outline-danger" onclick="clearResolvedErrors()"><i class="fas fa-trash me-1"></i>Clear Resolved</button>
-            </div>
-        </div>
-
-        <!-- Bulk action bar (shown when rows are selected) -->
-        <div id="errBulkBar" style="display:none;" class="alert alert-info py-2 mb-3 align-items-center gap-3 flex-wrap">
-            <span class="fw-semibold"><i class="fas fa-check-square me-1"></i><span id="errSelCount">0</span> selected</span>
-            <button class="btn btn-sm btn-success" onclick="bulkResolveErrors()"><i class="fas fa-check me-1"></i>Resolve Selected</button>
-            <button class="btn btn-sm btn-danger" onclick="bulkDeleteErrors()"><i class="fas fa-trash me-1"></i>Delete Selected</button>
-            <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="errClearSelection()"><i class="fas fa-times me-1"></i>Clear Selection</button>
-        </div>
-
         <div class="table-responsive">
-            <table class="table table-sm align-middle" id="errTable">
-                <thead class="table-light">
-                    <tr>
-                        <th style="width:36px"><input type="checkbox" id="errSelAll" class="form-check-input" onchange="errToggleAll(this.checked)"></th>
-                        <th>Time</th><th>Source</th><th>Severity</th><th>Message</th>
-                        <th>URL</th><th>User</th><th>Status</th><th>Action</th>
-                    </tr>
-                </thead>
-                <tbody id="errorLogBody">
-                    <tr><td colspan="9" class="text-center py-3 text-muted"><i class="fas fa-spinner fa-spin"></i></td></tr>
-                </tbody>
-            </table>
+          <table class="table table-hover align-middle">
+            <thead><tr><th>Date</th><th>Time</th><th>User</th><th>Module</th><th>Action</th><th>Record</th><th>IP</th></tr></thead>
+            <tbody id="auditBody"><tr><td colspan="7" class="text-muted">Loading...</td></tr></tbody>
+          </table>
         </div>
+      </div>
     </div>
+  </div>
 </div>
-
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
-
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/help.js"></script>
-  <script src="/js/audit-log.js"></script>
+<script src="/js/main.js"></script>
+<script>
+function authHeaders(){ const t=localStorage.getItem('haToken')||localStorage.getItem('token')||''; return t?{Authorization:'Bearer '+t}:{}; }
+function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+async function loadAudit(){
+  const params = new URLSearchParams();
+  ['module','action','user'].forEach(key => {
+    const el = document.getElementById(key + 'Filter');
+    if (el && el.value.trim()) params.set(key, el.value.trim());
+  });
+  const res = await fetch('/api/audit-logs?' + params.toString(), { headers: authHeaders() });
+  const body = document.getElementById('auditBody');
+  if (!res.ok) { body.innerHTML = '<tr><td colspan="7" class="text-danger">Unable to load audit log.</td></tr>'; return; }
+  const data = await res.json();
+  const rows = Array.isArray(data) ? data : (data.rows || data.data || []);
+  if (!rows.length) { body.innerHTML = '<tr><td colspan="7" class="text-muted">No audit entries yet.</td></tr>'; return; }
+  body.innerHTML = rows.map(row => '<tr><td>' + esc(row.date || (row.createdAt || '').slice(0,10)) + '</td><td>' + esc(row.time || '') + '</td><td>' + esc(row.User ? row.User.username : row.username || row.userId || '') + '</td><td>' + esc(row.module) + '</td><td>' + esc(row.action) + '</td><td>' + esc(row.recordId || '') + '</td><td>' + esc(row.ipAddress || '') + '</td></tr>').join('');
+}
+document.addEventListener('DOMContentLoaded', loadAudit);
+</script>
 </body>
 </html>
-

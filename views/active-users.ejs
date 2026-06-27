@@ -1,424 +1,85 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Who's Online - Home Accounting</title>
-    <link href="/assets/bootstrap.min.css" rel="stylesheet">
-    <link href="/assets/inter.css" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
-    <link rel="stylesheet" href="/css/style.css">
-    <style>
-        /* â”€â”€ Page Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .online-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-            gap: 1.25rem;
-        }
-
-        /* â”€â”€ User Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .user-card {
-            background: var(--surface, #fff);
-            border: 1px solid var(--border, #e2e8f0);
-            border-radius: 16px;
-            padding: 1.25rem 1.4rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.85rem;
-            transition: box-shadow 0.2s, transform 0.2s;
-            position: relative;
-            overflow: hidden;
-        }
-        .user-card:hover {
-            box-shadow: 0 8px 32px rgba(0,0,0,0.10);
-            transform: translateY(-2px);
-        }
-        .user-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 3px;
-            border-radius: 16px 16px 0 0;
-        }
-        .user-card.status-active::before  { background: #22c55e; }
-        .user-card.status-idle::before    { background: #f59e0b; }
-        .user-card.status-away::before    { background: #ef4444; }
-
-        /* â”€â”€ Avatar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .user-avatar {
-            width: 48px; height: 48px;
-            border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.1rem; font-weight: 700; color: #fff;
-            flex-shrink: 0;
-            position: relative;
-        }
-        .user-avatar .status-dot {
-            position: absolute;
-            bottom: 1px; right: 1px;
-            width: 12px; height: 12px;
-            border-radius: 50%;
-            border: 2px solid var(--surface, #fff);
-        }
-        .status-active .status-dot  { background: #22c55e; }
-        .status-idle   .status-dot  { background: #f59e0b; }
-        .status-away   .status-dot  { background: #ef4444; }
-
-        /* â”€â”€ Avatar colours per role â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .avatar-admin      { background: linear-gradient(135deg, #6366f1, #8b5cf6); }
-        .avatar-supervisor { background: linear-gradient(135deg, #0ea5e9, #06b6d4); }
-        .avatar-operator   { background: linear-gradient(135deg, #10b981, #059669); }
-        .avatar-readonly   { background: linear-gradient(135deg, #94a3b8, #64748b); }
-        .avatar-other      { background: linear-gradient(135deg, #f97316, #ef4444); }
-
-        /* â”€â”€ Role badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .role-badge {
-            font-size: .68rem; font-weight: 600;
-            padding: 2px 9px; border-radius: 20px;
-            display: inline-block;
-        }
-        .role-Administrator { background: rgba(99,102,241,.12); color: #6366f1; }
-        .role-Supervisor    { background: rgba(14,165,233,.12); color: #0ea5e9; }
-        .role-Operator      { background: rgba(16,185,129,.12); color: #10b981; }
-        .role-read          { background: rgba(148,163,184,.15); color: #64748b; }
-        .role-other         { background: rgba(249,115,22,.12); color: #f97316; }
-
-        /* â”€â”€ Idle meter â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .idle-bar-wrap {
-            height: 4px;
-            background: var(--border, #e2e8f0);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .idle-bar {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 1s linear;
-        }
-        .idle-active { background: #22c55e; }
-        .idle-idle   { background: #f59e0b; }
-        .idle-away   { background: #ef4444; }
-
-        /* â”€â”€ Page meta â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .page-icon-badge {
-            display: inline-flex; align-items: center; gap: .4rem;
-            background: var(--bg, #f8fafc);
-            border: 1px solid var(--border, #e2e8f0);
-            border-radius: 8px;
-            padding: 3px 10px;
-            font-size: .78rem;
-        }
-
-        /* â”€â”€ Summary bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .summary-pill {
-            display: inline-flex; align-items: center; gap: .4rem;
-            border-radius: 24px;
-            padding: .35rem 1rem;
-            font-weight: 600; font-size: .82rem;
-        }
-        .pill-total   { background: rgba(99,102,241,.1);  color: #6366f1; }
-        .pill-active  { background: rgba(34,197,94,.1);   color: #16a34a; }
-        .pill-idle    { background: rgba(245,158,11,.1);  color: #d97706; }
-        .pill-away    { background: rgba(239,68,68,.1);   color: #dc2626; }
-
-        /* â”€â”€ Countdown ring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .refresh-ring {
-            width: 28px; height: 28px;
-            position: relative; display: inline-flex;
-            align-items: center; justify-content: center;
-        }
-        .refresh-ring svg { position: absolute; top: 0; left: 0; transform: rotate(-90deg); }
-        .refresh-ring .ring-track { fill: none; stroke: var(--border,#e2e8f0); stroke-width: 3; }
-        .refresh-ring .ring-fill  { fill: none; stroke: #6366f1; stroke-width: 3;
-                                    stroke-dasharray: 75.4; stroke-dashoffset: 75.4;
-                                    stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
-        .refresh-ring .ring-label { font-size: .6rem; font-weight: 700; color: var(--text-muted,#64748b); z-index:1; }
-
-        /* â”€â”€ Empty state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-        .empty-state { text-align: center; padding: 4rem 2rem; opacity: .6; }
-        .empty-state i { font-size: 3rem; margin-bottom: 1rem; display: block; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Who's Online - Home Accounting</title>
+  <link href="/assets/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/inter.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
 <div class="wrapper">
-    <%- include('partials/sidebar') %>
+  <%- include('partials/sidebar') %>
+  <div id="content">
+    <nav class="navbar navbar-expand-lg px-4 mb-4">
+      <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+      <span class="ms-3 fw-bold fs-5">Who's Online</span>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span id="userGreeting" class="text-muted small"></span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
 
-    <div id="content">
-        <nav class="navbar navbar-expand-lg px-4 mb-4">
-            <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
-            <span class="ms-3 fw-bold fs-5"><i class="fas fa-users me-2 text-primary"></i>Who's Online</span>
-            <div class="ms-auto d-flex align-items-center gap-3">
-                <button id="themeToggle" class="btn btn-outline-secondary btn-sm"><i class="fas fa-moon"></i></button>
-                <span id="userGreeting" class="text-muted small"></span>
-                <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
-            </div>
-        </nav>
-
-        <div class="container-fluid px-4">
-
-            <!-- Summary bar -->
-            <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
-                <span class="summary-pill pill-total"><i class="fas fa-users"></i><span id="cntTotal">0</span> Online</span>
-                <span class="summary-pill pill-active"><i class="fas fa-circle"></i><span id="cntActive">0</span> Active</span>
-                <span class="summary-pill pill-idle"><i class="fas fa-clock"></i><span id="cntIdle">0</span> Idle</span>
-                <span class="summary-pill pill-away"><i class="fas fa-moon"></i><span id="cntAway">0</span> Away</span>
-                <div class="ms-auto d-flex align-items-center gap-2 text-muted small">
-                    <div class="refresh-ring" id="refreshRing">
-                        <svg viewBox="0 0 28 28" width="28" height="28">
-                            <circle class="ring-track" cx="14" cy="14" r="12"/>
-                            <circle class="ring-fill"  cx="14" cy="14" r="12" id="ringArc"/>
-                        </svg>
-                        <span class="ring-label" id="ringLabel">30</span>
-                    </div>
-                    <span>Auto-refresh</span>
-                    <button class="btn btn-outline-primary btn-sm" id="refreshNowBtn" title="Refresh now">
-                        <i class="fas fa-sync-alt"></i>
-                    </button>
-                </div>
-            </div>
-
-            <!-- Cards grid -->
-            <div class="online-grid" id="onlineGrid">
-                <div class="empty-state col-12">
-                    <i class="fas fa-spinner fa-spin text-primary"></i>
-                    <p class="fw-semibold">Loading active sessionsâ€¦</p>
-                </div>
-            </div>
-
+    <div class="container-fluid px-4">
+      <div class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="mb-1">Active Sessions</h5>
+            <div class="text-muted small">Users seen in the accounting workspace during the last 15 minutes.</div>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" onclick="loadSessions()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
         </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead><tr><th>User</th><th>Role</th><th>Current Page</th><th>Last Seen</th><th>Idle</th><th>IP</th></tr></thead>
+            <tbody id="sessionsBody"><tr><td colspan="6" class="text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
     </div>
+  </div>
 </div>
-
-<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
-
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/help.js"></script>
+<script src="/js/main.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    initApp(); // wire up logout, auth guard, theme, session timeout, etc.
-
-    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    function getToken() {
-        return localStorage.getItem('rxToken') || localStorage.getItem('token') || '';
-    }
-
-    function idleStatus(ms) {
-        if (ms < 2 * 60 * 1000)  return 'active';
-        if (ms < 5 * 60 * 1000)  return 'idle';
-        return 'away';
-    }
-
-    function fmtIdle(ms) {
-        var s = Math.floor(ms / 1000);
-        if (s < 60)  return s + 's ago';
-        var m = Math.floor(s / 60);
-        if (m < 60)  return m + 'm ago';
-        return Math.floor(m / 60) + 'h ' + (m % 60) + 'm ago';
-    }
-
-    function fmtTime(iso) {
-        try {
-            var d = new Date(iso);
-            return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch { return 'â€”'; }
-    }
-
-    function avatarClass(role) {
-        if (!role) return 'avatar-other';
-        var r = role.toLowerCase();
-        if (r === 'administrator') return 'avatar-admin';
-        if (r === 'supervisor')   return 'avatar-supervisor';
-        if (r === 'operator')     return 'avatar-operator';
-        if (r.includes('read'))   return 'avatar-readonly';
-        return 'avatar-other';
-    }
-
-    function roleBadgeClass(role) {
-        if (!role) return 'role-other';
-        var r = role.toLowerCase();
-        if (r === 'administrator') return 'role-Administrator';
-        if (r === 'supervisor')    return 'role-Supervisor';
-        if (r === 'operator')      return 'role-Operator';
-        if (r.includes('read'))    return 'role-read';
-        return 'role-other';
-    }
-
-    function pageIcon(url) {
-        var icons = {
-            '/dashboard':    'fa-tachometer-alt',
-            '/patients':     'fa-user-injured',
-            '/rx-records':   'fa-prescription',
-            '/reports':      'fa-chart-pie',
-            '/audit-log':    'fa-history',
-            '/users':        'fa-users-cog',
-            '/roles':        'fa-shield-alt',
-            '/pharmacies':   'fa-clinic-medical',
-            '/backups':      'fa-database',
-            '/system-settings':'fa-sliders-h',
-            '/import':       'fa-file-import',
-            '/active-users': 'fa-users',
-            '/backoffice':   'fa-cog'
-        };
-        for (var k in icons) {
-            if (url && url.startsWith(k)) return icons[k];
-        }
-        return 'fa-desktop';
-    }
-
-    function initials(first, last, username) {
-        if (first && last) return (first[0] + last[0]).toUpperCase();
-        if (username)       return username.substring(0, 2).toUpperCase();
-        return '??';
-    }
-
-    // â”€â”€ Idle progress bar (max 10 min) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    function idleBarPct(ms) {
-        var pct = Math.min(ms / (10 * 60 * 1000) * 100, 100);
-        return (100 - pct).toFixed(1); // invert: full = just active
-    }
-
-    // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    function renderCards(sessions) {
-        var grid = document.getElementById('onlineGrid');
-
-        // Update summary pills
-        var total  = sessions.length;
-        var active = sessions.filter(function(s) { return idleStatus(s.idleMs) === 'active'; }).length;
-        var idle   = sessions.filter(function(s) { return idleStatus(s.idleMs) === 'idle';   }).length;
-        var away   = sessions.filter(function(s) { return idleStatus(s.idleMs) === 'away';   }).length;
-
-        document.getElementById('cntTotal').textContent  = total;
-        document.getElementById('cntActive').textContent = active;
-        document.getElementById('cntIdle').textContent   = idle;
-        document.getElementById('cntAway').textContent   = away;
-
-        if (total === 0) {
-            grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1">' +
-                '<i class="fas fa-wifi-slash text-muted"></i>' +
-                '<p class="fw-semibold text-muted">No active sessions right now</p>' +
-                '<small class="text-muted">Users will appear here as they log in and use the system.</small>' +
-                '</div>';
-            return;
-        }
-
-        var html = '';
-        sessions.forEach(function(s) {
-            var status    = idleStatus(s.idleMs);
-            var avClass   = avatarClass(s.role);
-            var roleClass = roleBadgeClass(s.role);
-            var icon      = pageIcon(s.currentUrl);
-            var ini       = initials(s.firstName, s.lastName, s.username);
-            var barPct    = idleBarPct(s.idleMs);
-            var barClass  = 'idle-' + status;
-
-            var statusLabel = status === 'active' ? '<span class="text-success fw-semibold">Active</span>'
-                            : status === 'idle'   ? '<span class="text-warning fw-semibold">Idle</span>'
-                            :                       '<span class="text-danger fw-semibold">Away</span>';
-
-            html += '<div class="user-card status-' + status + '">' +
-
-                // Header row: avatar + name + role
-                '<div class="d-flex align-items-center gap-3">' +
-                    '<div class="user-avatar ' + avClass + ' status-' + status + '">' +
-                        escHtml(ini) +
-                        '<span class="status-dot"></span>' +
-                    '</div>' +
-                    '<div class="flex-grow-1 overflow-hidden">' +
-                        '<div class="fw-bold text-truncate">' + escHtml((s.firstName + ' ' + s.lastName).trim() || s.username) + '</div>' +
-                        '<div class="d-flex align-items-center gap-2 mt-1">' +
-                            '<code class="small text-muted" style="font-size:.72rem">@' + escHtml(s.username) + '</code>' +
-                            '<span class="role-badge ' + roleClass + '">' + escHtml(s.role) + '</span>' +
-                        '</div>' +
-                    '</div>' +
-                    '<div class="text-end small">' + statusLabel + '</div>' +
-                '</div>' +
-
-                // Idle progress bar
-                '<div>' +
-                    '<div class="d-flex justify-content-between small text-muted mb-1">' +
-                        '<span>Idle</span><span>' + fmtIdle(s.idleMs) + '</span>' +
-                    '</div>' +
-                    '<div class="idle-bar-wrap">' +
-                        '<div class="idle-bar ' + barClass + '" style="width:' + barPct + '%"></div>' +
-                    '</div>' +
-                '</div>' +
-
-                // Current page
-                '<div class="page-icon-badge">' +
-                    '<i class="fas ' + icon + ' text-primary" style="font-size:.8rem"></i>' +
-                    '<span>' + escHtml(s.currentPage || s.currentUrl || 'â€”') + '</span>' +
-                '</div>' +
-
-                // Footer: login time + IP
-                '<div class="d-flex justify-content-between align-items-center text-muted" style="font-size:.72rem">' +
-                    '<span><i class="fas fa-sign-in-alt me-1"></i>Logged in at ' + fmtTime(s.loginTime) + '</span>' +
-                    '<span title="IP Address"><i class="fas fa-network-wired me-1" style="opacity:.5"></i>' + escHtml(s.ip || 'â€”') + '</span>' +
-                '</div>' +
-
-            '</div>';
-        });
-
-        grid.innerHTML = html;
-    }
-
-    // â”€â”€ Fetch & refresh â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    function loadSessions() {
-        var token = getToken();
-        if (!token) return;
-        var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/active-sessions') : '/api/active-sessions';
-        fetch(url, { headers: { 'Authorization': 'Bearer ' + token } })
-            .then(function(r) {
-                if (!r.ok) throw new Error('HTTP ' + r.status);
-                return r.json();
-            })
-            .then(function(data) { renderCards(data); })
-            .catch(function(e) {
-                document.getElementById('onlineGrid').innerHTML =
-                    '<div class="empty-state" style="grid-column:1/-1">' +
-                    '<i class="fas fa-exclamation-triangle text-danger"></i>' +
-                    '<p class="fw-semibold text-danger">Could not load active sessions</p>' +
-                    '<small class="text-muted">' + escHtml(e.message) + '</small>' +
-                    '</div>';
-            });
-    }
-
-    // â”€â”€ Countdown ring â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    var INTERVAL_S = 30;
-    var countdown  = INTERVAL_S;
-    var arc        = document.getElementById('ringArc');
-    var label      = document.getElementById('ringLabel');
-    var CIRC       = 2 * Math.PI * 12; // r=12
-
-    function updateRing() {
-        var pct = countdown / INTERVAL_S;
-        arc.style.strokeDashoffset = (CIRC * (1 - pct)).toFixed(2);
-        label.textContent = countdown;
-    }
-
-    loadSessions();
-    updateRing();
-
-    setInterval(function() {
-        countdown--;
-        if (countdown <= 0) {
-            countdown = INTERVAL_S;
-            loadSessions();
-        }
-        updateRing();
-    }, 1000);
-
-    document.getElementById('refreshNowBtn').addEventListener('click', function() {
-        countdown = INTERVAL_S;
-        loadSessions();
-        updateRing();
-    });
+function authHeaders() {
+  const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
+  return token ? { Authorization: 'Bearer ' + token } : {};
+}
+function esc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function idle(ms) {
+  const minutes = Math.floor((ms || 0) / 60000);
+  if (minutes < 1) return 'Now';
+  return minutes + ' min';
+}
+async function loadSessions() {
+  const body = document.getElementById('sessionsBody');
+  body.innerHTML = '<tr><td colspan="6" class="text-muted">Loading...</td></tr>';
+  const res = await fetch('/api/active-sessions', { headers: authHeaders() });
+  if (!res.ok) {
+    body.innerHTML = '<tr><td colspan="6" class="text-danger">Unable to load active users.</td></tr>';
+    return;
+  }
+  const rows = await res.json();
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted">No active sessions yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(row => {
+    const name = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || row.username;
+    return '<tr><td><strong>' + esc(name) + '</strong><br><small class="text-muted">@' + esc(row.username) + '</small></td><td>' + esc(row.role) + '</td><td>' + esc(row.currentPage || row.currentUrl) + '</td><td>' + esc(new Date(row.lastSeen).toLocaleString()) + '</td><td>' + esc(idle(row.idleMs)) + '</td><td>' + esc(row.ip) + '</td></tr>';
+  }).join('');
+}
+document.addEventListener('DOMContentLoaded', function() {
+  loadSessions();
+  setInterval(loadSessions, 30000);
 });
 </script>
 </body>
 </html>
-

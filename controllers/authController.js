@@ -1,10 +1,10 @@
-'use strict';
+﻿'use strict';
 const jwt      = require('jsonwebtoken');
 const db       = require('../models');
 const settings = require('../services/settingsService');
 const { BUILT_IN_DEFAULTS } = require('../middleware/rbac');
 
-// ── Account lockout constants ─────────────────────────────────────────────────
+// â”€â”€ Account lockout constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 const MAX_FAILED_ATTEMPTS = 10;
 const LOCKOUT_MINUTES     = 15;
 
@@ -21,14 +21,14 @@ exports.login = async (req, res) => {
             include: [{ model: db.Role }]
         });
 
-        // Generic error — don't reveal whether username exists
+        // Generic error â€” don't reveal whether username exists
         const invalidMsg = 'Invalid credentials or inactive account.';
 
         if (!user || !user.isActive) {
             return res.status(401).json({ message: invalidMsg });
         }
 
-        // ── Account lockout check ────────────────────────────────────────────
+        // â”€â”€ Account lockout check â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (user.lockedUntil && new Date(user.lockedUntil) > new Date()) {
             const remainMin = Math.ceil((new Date(user.lockedUntil) - Date.now()) / 60000);
             return res.status(423).json({
@@ -52,19 +52,19 @@ exports.login = async (req, res) => {
                 date:      new Date(),
                 time:      new Date().toTimeString().split(' ')[0],
                 module:    'Authentication',
-                action:    `Login Failed (attempt ${newCount}${newCount >= MAX_FAILED_ATTEMPTS ? ' — account locked' : ''})`,
+                action:    `Login Failed (attempt ${newCount}${newCount >= MAX_FAILED_ATTEMPTS ? ' â€” account locked' : ''})`,
                 ipAddress: req.ip
             }).catch(() => {});
 
             return res.status(401).json({ message: invalidMsg });
         }
 
-        // ── Password correct — reset lockout counters ────────────────────────
+        // â”€â”€ Password correct â€” reset lockout counters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         if (user.failedLoginCount > 0 || user.lockedUntil) {
             await user.update({ failedLoginCount: 0, lockedUntil: null });
         }
 
-        // ── 2FA check — only if user has it enabled AND global setting allows it ───
+        // â”€â”€ 2FA check â€” only if user has it enabled AND global setting allows it â”€â”€â”€
         const globalTwoFa = settings.get('require_2fa') !== 'false';
         if (user.twoFactorEnabled && globalTwoFa) {
             const tempToken = jwt.sign(
@@ -75,7 +75,7 @@ exports.login = async (req, res) => {
             return res.json({ requires2FA: true, tempToken });
         }
 
-        // ── Normal login — issue full JWT ────────────────────────────────────
+        // â”€â”€ Normal login â€” issue full JWT â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         return issueFullToken(user, req, res);
 
     } catch (error) {
@@ -88,7 +88,7 @@ exports.login = async (req, res) => {
 exports.issueFullToken = issueFullToken;
 
 async function issueFullToken(user, req, res) {
-    // Permissions come from the Role record — fall back to built-in if not yet seeded
+    // Permissions come from the Role record â€” fall back to built-in if not yet seeded
     const rolePerms = user.Role.permissions ||
         (BUILT_IN_DEFAULTS[user.Role.name] ? BUILT_IN_DEFAULTS[user.Role.name]() : {});
 
@@ -101,7 +101,7 @@ async function issueFullToken(user, req, res) {
             role:        user.Role.name,
             permissions: rolePerms,
             tv:          user.tokenVersion || 0,
-            // MASTER admin flag — controls /backoffice access.
+            // MASTER admin flag â€” controls /backoffice access.
             // Value comes from DB; UI/API never allows changing it.
             isMaster:    user.isMaster === true
         },
@@ -119,9 +119,9 @@ async function issueFullToken(user, req, res) {
         ipAddress: req.ip
     }).catch(() => {});
 
-    // Set rxToken cookie so it passes through FortiGate SSL portal (which may strip Authorization headers) and can still be used across a proxy boundary.
+    // Set haToken cookie so it passes through FortiGate SSL portal (which may strip Authorization headers) and can still be used across a proxy boundary.
     const cookieOptions = {
-        httpOnly: true,    // 🔒 JS cannot read rxToken — prevents XSS token theft
+        httpOnly: true,    // ðŸ”’ JS cannot read haToken â€” prevents XSS token theft
         path: '/',
         maxAge: 8 * 60 * 60 * 1000  // 8 hours, matches JWT expiry
     };
@@ -135,7 +135,7 @@ async function issueFullToken(user, req, res) {
         cookieOptions.secure = process.env.FORCE_HTTPS === 'true';
     }
 
-    res.cookie('rxToken', token, cookieOptions);
+    res.cookie('haToken', token, cookieOptions);
 
     res.json({
         message: 'Login successful',
@@ -166,7 +166,7 @@ exports.getProfile = async (req, res) => {
     }
 };
 
-// ── POST /api/auth/change-password ────────────────────────────────────────────
+// â”€â”€ POST /api/auth/change-password â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Logged-in user changes their own password. Increments tokenVersion to
 // immediately invalidate all other active sessions (logged-in on other devices).
 exports.changePassword = async (req, res) => {
@@ -205,3 +205,4 @@ exports.changePassword = async (req, res) => {
         res.status(500).json({ message: 'Internal server error.' });
     }
 };
+

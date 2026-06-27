@@ -4,17 +4,15 @@ const db = require('../models');
 
 const PAGE_TITLES = [
     [/^\/dashboard\/?$/, 'Dashboard'],
-    [/^\/pharmacies\/?$/, 'Pharmacies'],
-    [/^\/patient-transport\/?$/, 'Patient Transport Companies'],
-    [/^\/pharmacy-transport\/?$/, 'Pharmacy Transport Companies'],
-    [/^\/clinics\/?$/, 'Clinics'],
+    [/^\/accounts\/?$/, 'Accounts'],
+    [/^\/transactions\/?$/, 'Transactions'],
+    [/^\/entry\/?$/, 'New Accounting Entry'],
+    [/^\/financial-institutions\/?$/, 'Financial Institutions'],
+    [/^\/categories\/?$/, 'Categories'],
+    [/^\/reconciliations\/?$/, 'Reconciliations'],
+    [/^\/proofs\/?$/, 'Proofs'],
     [/^\/users\/?$/, 'User Management'],
     [/^\/roles\/?$/, 'Roles Management'],
-    [/^\/workflow-actions\/?$/, 'Workflow Actions'],
-    [/^\/medication-catalog\/?$/, 'RX Actions'],
-    [/^\/patients\/?$/, 'Patients Management'],
-    [/^\/patients\/[^/]+\/timeline\/?$/, 'Patient Timeline'],
-    [/^\/rx-records\/?$/, 'RX Records'],
     [/^\/reports\/?$/, 'Reports'],
     [/^\/import\/?$/, 'Data Import'],
     [/^\/audit-log\/?$/, 'Audit Log'],
@@ -35,9 +33,7 @@ function getClientIp(req) {
 
 function normalizePagePath(pathname) {
     if (!pathname) return '/';
-    return pathname
-        .replace(/\/patients\/[^/]+\/timeline\/?$/i, '/patients/:id/timeline')
-        .replace(/\/+$/, '') || '/';
+    return pathname.replace(/\/+$/, '') || '/';
 }
 
 function sanitizeReferrer(rawReferrer) {

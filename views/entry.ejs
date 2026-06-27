@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>New Entry - Home Accounting</title>
+  <link href="/assets/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/inter.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrapper">
+  <%- include('partials/sidebar') %>
+  <div id="content">
+    <nav class="navbar navbar-expand-lg px-4 mb-4">
+      <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+      <span class="ms-3 fw-bold fs-5">New Accounting Entry</span>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span id="userGreeting" class="text-muted small"></span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+      <div class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-4">
+          <div>
+            <h5 class="mb-1">Manual 2026 Transaction</h5>
+            <div class="text-muted small">Use this for individual entries while curated import stays staged only.</div>
+          </div>
+          <a class="btn btn-outline-primary btn-sm" href="/transactions"><i class="fas fa-list me-1"></i>Transactions</a>
+        </div>
+
+        <form id="entryForm">
+          <div class="row g-3">
+            <div class="col-md-3">
+              <label class="form-label">Date</label>
+              <input class="form-control" type="date" id="transactionDate" required>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Account</label>
+              <select class="form-select" id="accountId" required></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Category</label>
+              <select class="form-select" id="categoryId"></select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Type</label>
+              <select class="form-select" id="transactionType">
+                <option value="expense">expense</option>
+                <option value="income">income</option>
+                <option value="transfer">transfer</option>
+                <option value="adjustment">adjustment</option>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Amount</label>
+              <input class="form-control" type="number" id="amount" step="0.01" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Status</label>
+              <select class="form-select" id="status">
+                <option value="draft">draft</option>
+                <option value="reviewed">reviewed</option>
+                <option value="reconciled">reconciled</option>
+              </select>
+            </div>
+            <div class="col-md-8">
+              <label class="form-label">Description</label>
+              <input class="form-control" id="description" required>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">Reference</label>
+              <input class="form-control" id="referenceNumber">
+            </div>
+            <div class="col-12">
+              <label class="form-label">Memo</label>
+              <textarea class="form-control" id="memo" rows="3"></textarea>
+            </div>
+          </div>
+          <div class="d-flex gap-2 mt-4">
+            <button class="btn btn-primary" type="submit"><i class="fas fa-save me-1"></i>Save Entry</button>
+            <button class="btn btn-outline-secondary" type="reset">Clear</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
+<script src="/js/main.js"></script>
+<script>
+function authHeaders(json) {
+  const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
+  const headers = token ? { Authorization: 'Bearer ' + token } : {};
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+function toast(message, type) {
+  if (typeof showToast === 'function') showToast(message, type || 'success');
+}
+function fill(select, rows, empty) {
+  select.innerHTML = empty + rows.map(row => '<option value="' + row.id + '">' + String(row.name || '').replace(/[&<>"']/g, '') + '</option>').join('');
+}
+async function loadOptions() {
+  const [accounts, categories] = await Promise.all([
+    fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
+    fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : [])
+  ]);
+  fill(document.getElementById('accountId'), accounts.filter(a => a.status !== 'inactive' && a.status !== 'closed'), '<option value="">Select account...</option>');
+  fill(document.getElementById('categoryId'), categories.filter(c => c.isActive !== false), '<option value="">No category</option>');
+}
+document.getElementById('entryForm').addEventListener('submit', async function(event) {
+  event.preventDefault();
+  const payload = {
+    transactionDate: document.getElementById('transactionDate').value,
+    accountId: Number(document.getElementById('accountId').value),
+    categoryId: document.getElementById('categoryId').value ? Number(document.getElementById('categoryId').value) : null,
+    description: document.getElementById('description').value,
+    transactionType: document.getElementById('transactionType').value,
+    amount: Number(document.getElementById('amount').value),
+    currency: 'USD',
+    status: document.getElementById('status').value,
+    sourceType: 'manual',
+    referenceNumber: document.getElementById('referenceNumber').value,
+    memo: document.getElementById('memo').value
+  };
+  const res = await fetch('/api/transactions', { method: 'POST', headers: authHeaders(true), body: JSON.stringify(payload) });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return toast(error.error || error.message || 'Unable to save entry.', 'danger');
+  }
+  toast('Entry saved.');
+  event.target.reset();
+  document.getElementById('transactionDate').value = new Date().toISOString().slice(0, 10);
+});
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('transactionDate').value = new Date().toISOString().slice(0, 10);
+  loadOptions();
+});
+</script>
+</body>
+</html>

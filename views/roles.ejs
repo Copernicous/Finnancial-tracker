@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-    <script>!function(){var t=localStorage.getItem("rxTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
+    <script>!function(){var t=localStorage.getItem("haTheme");if(t)document.documentElement.setAttribute("data-theme",t)}();</script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Roles Management - Home Accounting</title>
     <link href="/assets/bootstrap.min.css" rel="stylesheet">
@@ -85,7 +85,7 @@
                 <div class="row g-3 mb-4">
                     <div class="col-md-4">
                         <label class="form-label fw-semibold">Role Name <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="roleNameInput" placeholder="e.g. Pharmacist, Billing Clerk">
+                        <input type="text" class="form-control" id="roleNameInput" placeholder="e.g. Accountant, Reviewer">
                         <div class="form-text text-danger d-none" id="roleNameError"></div>
                     </div>
                     <div class="col-md-8">
@@ -117,10 +117,10 @@
                                 <th class="text-center" style="width:70px" title="Can EDIT existing records (PUT)">Edit</th>
                                 <th class="text-center" style="width:70px" title="Can delete records">Delete</th>
                                 <th class="text-center" style="width:70px" title="Can export data to CSV">Export</th>
-                                <th class="text-center" style="width:80px" title="Can complete RX workflow steps (RX Records only)">Complete</th>
-                                <th class="text-center" style="width:70px" title="Can undo the last workflow step (RX Records only)">Undo</th>
-                                <th class="text-center" style="width:90px" title="Can return RX to warehouse (RX Records only)">Warehouse</th>
-                                <th class="text-center" style="width:90px" title="Can override 90-day expired locks">Override</th>
+                                <th class="text-center" style="width:80px" title="Reserved for specialized accounting actions">Special</th>
+                                <th class="text-center" style="width:70px" title="Can undo supported actions">Undo</th>
+                                <th class="text-center" style="width:90px" title="Reserved for controlled accounting operations">Control</th>
+                                <th class="text-center" style="width:90px" title="Can override protected checks">Override</th>
                             </tr>
                         </thead>
                         <tbody id="permEditorBody"></tbody>
@@ -159,8 +159,7 @@
 
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <script src="/js/base.js"></script>
-<script src="/js/app.js"></script>
-<script src="/js/help.js"></script>
+<script src="/js/main.js"></script>
 
 <script src="/js/roles.js"></script>
 

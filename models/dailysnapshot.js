@@ -6,34 +6,25 @@ module.exports = (sequelize, DataTypes) => {
   }
   DailySnapshot.init({
     snapshotDate:            { type: DataTypes.DATEONLY,  allowNull: false, unique: true },
-    // Patients
-    totalPatients:           { type: DataTypes.INTEGER,  defaultValue: 0 },
-    activePatients:          { type: DataTypes.INTEGER,  defaultValue: 0 },
-    inactivePatients:        { type: DataTypes.INTEGER,  defaultValue: 0 },
-    newPatientsToday:        { type: DataTypes.INTEGER,  defaultValue: 0 },
-    nonCompanyPatients:      { type: DataTypes.INTEGER,  defaultValue: 0 },
-    // RX Records
-    totalRX:                 { type: DataTypes.INTEGER,  defaultValue: 0 },
-    newRXToday:              { type: DataTypes.INTEGER,  defaultValue: 0 },
-    pendingRX:               { type: DataTypes.INTEGER,  defaultValue: 0 },
-    completedRX:             { type: DataTypes.INTEGER,  defaultValue: 0 },
-    deletedRX:               { type: DataTypes.INTEGER,  defaultValue: 0 },
-    returnedToWarehouseRX:   { type: DataTypes.INTEGER,  defaultValue: 0 },
-    // Workflow
-    totalWorkflowSteps:      { type: DataTypes.INTEGER,  defaultValue: 0 },
-    completedWorkflowSteps:  { type: DataTypes.INTEGER,  defaultValue: 0 },
-    workflowStepsToday:      { type: DataTypes.INTEGER,  defaultValue: 0 },
-    workflowCompletionRate:  { type: DataTypes.FLOAT,    defaultValue: 0 },
+    totalAccounts:           { type: DataTypes.INTEGER,  defaultValue: 0 },
+    activeAccounts:          { type: DataTypes.INTEGER,  defaultValue: 0 },
+    totalTransactions:       { type: DataTypes.INTEGER,  defaultValue: 0 },
+    transactionsToday:       { type: DataTypes.INTEGER,  defaultValue: 0 },
+    draftTransactions:       { type: DataTypes.INTEGER,  defaultValue: 0 },
+    reviewedTransactions:    { type: DataTypes.INTEGER,  defaultValue: 0 },
+    reconciledTransactions:  { type: DataTypes.INTEGER,  defaultValue: 0 },
+    proofDocuments:          { type: DataTypes.INTEGER,  defaultValue: 0 },
+    openReconciliations:     { type: DataTypes.INTEGER,  defaultValue: 0 },
+    netWorth:                { type: DataTypes.DECIMAL(14, 2), defaultValue: 0 },
+    netIncomeMonth:          { type: DataTypes.DECIMAL(14, 2), defaultValue: 0 },
     // Users & Activity
     totalUsers:              { type: DataTypes.INTEGER,  defaultValue: 0 },
     activeUsers:             { type: DataTypes.INTEGER,  defaultValue: 0 },
     auditEventsToday:        { type: DataTypes.INTEGER,  defaultValue: 0 },
     errorLogsToday:          { type: DataTypes.INTEGER,  defaultValue: 0 },
     unresolvedErrors:        { type: DataTypes.INTEGER,  defaultValue: 0 },
-    // Lookup
-    totalPharmacies:         { type: DataTypes.INTEGER,  defaultValue: 0 },
-    totalClinics:            { type: DataTypes.INTEGER,  defaultValue: 0 },
-    totalTransportCompanies: { type: DataTypes.INTEGER,  defaultValue: 0 },
+    totalFinancialInstitutions: { type: DataTypes.INTEGER,  defaultValue: 0 },
+    totalCategories:           { type: DataTypes.INTEGER,  defaultValue: 0 },
   }, {
     sequelize,
     modelName: 'DailySnapshot',

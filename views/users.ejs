@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>User Management - Home Accounting</title>
+  <link href="/assets/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/inter.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+<div class="wrapper">
+  <%- include('partials/sidebar') %>
+  <div id="content">
+    <nav class="navbar navbar-expand-lg px-4 mb-4">
+      <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+      <span class="ms-3 fw-bold fs-5">User Management</span>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span id="userGreeting" class="text-muted small"></span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
+
+    <div class="container-fluid px-4">
+      <div class="glass-card p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0" id="formTitle">Add User</h5>
+          <button class="btn btn-outline-secondary btn-sm" onclick="resetForm()"><i class="fas fa-user-plus me-1"></i>New</button>
+        </div>
+        <form id="userForm">
+          <input type="hidden" id="userId">
+          <div class="row g-3">
+            <div class="col-md-3"><label class="form-label">First Name</label><input class="form-control" id="firstName" required></div>
+            <div class="col-md-3"><label class="form-label">Last Name</label><input class="form-control" id="lastName" required></div>
+            <div class="col-md-3"><label class="form-label">Username</label><input class="form-control" id="username" required></div>
+            <div class="col-md-3"><label class="form-label">Email</label><input class="form-control" id="email" type="email"></div>
+            <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" id="roleId" required></select></div>
+            <div class="col-md-4"><label class="form-label">Password</label><input class="form-control" id="password" type="password" autocomplete="new-password"><div class="text-muted small mt-1">Required for new users. Leave blank to keep current password.</div></div>
+            <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="isActive" checked><label class="form-check-label" for="isActive">Active login</label></div></div>
+            <div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" id="notes" rows="2"></textarea></div>
+          </div>
+          <div class="d-flex gap-2 mt-3">
+            <button class="btn btn-primary" type="submit"><i class="fas fa-save me-1"></i>Save User</button>
+            <button class="btn btn-outline-secondary" type="button" onclick="resetForm()">Cancel</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h5 class="mb-0">Users</h5>
+          <button class="btn btn-outline-primary btn-sm" onclick="loadUsers()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover align-middle">
+            <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+            <tbody id="usersBody"><tr><td class="text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
+<script src="/js/main.js"></script>
+<script>
+let users = [];
+let roles = [];
+function authHeaders(json) {
+  const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
+  const headers = token ? { Authorization: 'Bearer ' + token } : {};
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+function esc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function toast(message, type) {
+  if (typeof showToast === 'function') showToast(message, type || 'success');
+}
+function roleName(id) {
+  const role = roles.find(r => Number(r.id) === Number(id));
+  return role ? role.name : '';
+}
+async function loadRoles() {
+  roles = await fetch('/api/roles', { headers: authHeaders() }).then(r => r.ok ? r.json() : []);
+  document.getElementById('roleId').innerHTML = '<option value="">Select role...</option>' + roles.map(role => '<option value="' + role.id + '">' + esc(role.name) + '</option>').join('');
+}
+async function loadUsers() {
+  const body = document.getElementById('usersBody');
+  body.innerHTML = '<tr><td colspan="6" class="text-muted">Loading...</td></tr>';
+  users = await fetch('/api/users?includeInactive=true', { headers: authHeaders() }).then(r => r.ok ? r.json() : []);
+  if (!users.length) {
+    body.innerHTML = '<tr><td colspan="6" class="text-muted">No users yet.</td></tr>';
+    return;
+  }
+  body.innerHTML = users.map(user => {
+    const status = user.isActive ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Disabled</span>';
+    const action = user.isActive
+      ? '<button class="btn btn-sm btn-outline-danger" onclick="disableUser(' + user.id + ')"><i class="fas fa-ban"></i></button>'
+      : '<button class="btn btn-sm btn-outline-success" onclick="restoreUser(' + user.id + ')"><i class="fas fa-undo"></i></button>';
+    return '<tr><td>' + esc((user.firstName || '') + ' ' + (user.lastName || '')) + '</td><td>' + esc(user.username) + '</td><td>' + esc(user.email) + '</td><td>' + esc(user.Role ? user.Role.name : roleName(user.roleId)) + '</td><td>' + status + '</td><td class="text-end"><button class="btn btn-sm btn-outline-primary me-1" onclick="editUser(' + user.id + ')"><i class="fas fa-edit"></i></button>' + action + '</td></tr>';
+  }).join('');
+}
+function resetForm() {
+  document.getElementById('userId').value = '';
+  document.getElementById('formTitle').textContent = 'Add User';
+  document.getElementById('userForm').reset();
+  document.getElementById('isActive').checked = true;
+}
+function editUser(id) {
+  const user = users.find(item => Number(item.id) === Number(id));
+  if (!user) return;
+  document.getElementById('userId').value = user.id;
+  document.getElementById('formTitle').textContent = 'Edit User #' + user.id;
+  ['firstName', 'lastName', 'username', 'email', 'notes'].forEach(key => document.getElementById(key).value = user[key] || '');
+  document.getElementById('roleId').value = user.roleId || '';
+  document.getElementById('password').value = '';
+  document.getElementById('isActive').checked = !!user.isActive;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+async function disableUser(id) {
+  if (!confirm('Disable this user login?')) return;
+  const res = await fetch('/api/users/' + id, { method: 'DELETE', headers: authHeaders() });
+  if (!res.ok) return toast('Unable to disable user.', 'danger');
+  toast('User disabled.');
+  loadUsers();
+}
+async function restoreUser(id) {
+  const user = users.find(item => Number(item.id) === Number(id));
+  if (!user) return;
+  const res = await fetch('/api/users/' + id, { method: 'PUT', headers: authHeaders(true), body: JSON.stringify({ isActive: true }) });
+  if (!res.ok) return toast('Unable to restore user.', 'danger');
+  toast('User restored.');
+  loadUsers();
+}
+document.getElementById('userForm').addEventListener('submit', async function(event) {
+  event.preventDefault();
+  const id = document.getElementById('userId').value;
+  const payload = {
+    firstName: document.getElementById('firstName').value,
+    lastName: document.getElementById('lastName').value,
+    username: document.getElementById('username').value,
+    email: document.getElementById('email').value,
+    roleId: Number(document.getElementById('roleId').value),
+    isActive: document.getElementById('isActive').checked,
+    notes: document.getElementById('notes').value
+  };
+  const password = document.getElementById('password').value;
+  if (password) payload.password = password;
+  if (!id && !password) return toast('Password is required for new users.', 'warning');
+  const res = await fetch(id ? '/api/users/' + id : '/api/users', {
+    method: id ? 'PUT' : 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}));
+    return toast(error.error || error.message || 'Unable to save user.', 'danger');
+  }
+  toast('User saved.');
+  resetForm();
+  loadUsers();
+});
+document.addEventListener('DOMContentLoaded', async function() {
+  await loadRoles();
+  await loadUsers();
+});
+</script>
+</body>
+</html>

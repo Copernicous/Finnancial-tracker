@@ -6,7 +6,7 @@
 //
 // Usage (available globally after this script loads):
 //   window.RX_BASE      â€” e.g. "https://rx.camperos.net:10443/proxy/513c244a/http/192.168.15.87:3000"
-//   window.rxUrl(path)  â€” returns the full proxy-aware URL for any app path
+//   window.appUrl(path)  â€” returns the full proxy-aware URL for any app path
 //   window.rxNav(path)  â€” navigates to a proxy-aware URL (replaces window.location.href)
 
 (function () {
@@ -34,7 +34,7 @@
      * Returns the absolute, proxy-aware URL for an app-root-relative path.
      * path must start with '/', e.g. '/api/auth/login', '/dashboard'
      */
-    window.rxUrl = function (path) {
+    window.appUrl = function (path) {
         return base + path;
     };
 
@@ -80,12 +80,12 @@ function sanitizeCsvCell(val) {
 // â”€â”€â”€ Active Session Heartbeat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Sends the current page title + URL to the server every 30s so the
 // "Who's Online" dashboard (active-users page) can track logged-in users.
-// Uses the rxUrl() helper from base.js for FortiGate proxy compatibility.
+// Uses the appUrl() helper from base.js for FortiGate proxy compatibility.
 (function () {
     function _rxHeartbeat() {
-        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
+        var token = localStorage.getItem('haToken') || localStorage.getItem('token');
         if (!token) return; // not logged in â€” skip silently
-        var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/heartbeat') : '/api/heartbeat';
+        var url = typeof window.appUrl === 'function' ? window.appUrl('/api/heartbeat') : '/api/heartbeat';
         fetch(url, {
             method: 'POST',
             credentials: 'include',
@@ -117,9 +117,9 @@ function sanitizeCsvCell(val) {
 // severity: 'error' | 'warning' | 'info'
 window.logClientError = function (message, detail, severity) {
     try {
-        var token = localStorage.getItem('rxToken') || localStorage.getItem('token');
+        var token = localStorage.getItem('haToken') || localStorage.getItem('token');
         if (!token) return; // not authenticated â€” skip
-        var url = typeof window.rxUrl === 'function' ? window.rxUrl('/api/errors') : '/api/errors';
+        var url = typeof window.appUrl === 'function' ? window.appUrl('/api/errors') : '/api/errors';
         var stack = detail || '';
         // Append page context to make the log actionable
         stack += '\n\nPage: ' + document.title + ' (' + window.location.pathname + ')';
@@ -160,4 +160,5 @@ window.logClientError = function (message, detail, severity) {
         window.logClientError(msg, detail, 'error');
     });
 })();
+
 

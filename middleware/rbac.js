@@ -19,18 +19,16 @@ const BUILT_IN_DEFAULTS = {
         const full = { visible: true, canAdd: true, canEdit: true, canDelete: true, canExport: true, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
-            patients:           { ...full, canOverrideExpired: true },
-            rx_records:         { ...full, canUndo: true, canWarehouse: true, canOverrideExpired: true },
+            accounts:           { ...full },
+            transactions:       { ...full, canUndo: true },
+            categories:         { ...full },
+            financial_institutions: { ...full },
+            reconciliations:    { ...full },
+            proofs:             { ...full },
+            simulation:         { ...full },
             reports:            { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
             audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
             import:             { ...full },
-            pharmacies:         { ...full },
-            patient_transport:  { ...full },
-            pharmacy_transport: { ...full },
-            workflow_actions:   { ...full },
-            clinics:            { ...full },
-            medication_catalog: { ...full },
-            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canUndo: false },
             users:              { ...full },
             backups:            { ...full },
             system_settings:    { ...full },
@@ -44,18 +42,16 @@ const BUILT_IN_DEFAULTS = {
         const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
-            patients:           { ...full },
-            rx_records:         { ...full, canUndo: true, canWarehouse: true },
+            accounts:           { ...full },
+            transactions:       { ...full, canUndo: true },
+            categories:         { ...add },
+            financial_institutions: { ...add },
+            reconciliations:    { ...full },
+            proofs:             { ...full },
+            simulation:         { ...add },
             reports:            { ...view },
             audit_log:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
             import:             { ...add },
-            pharmacies:         { ...full },
-            patient_transport:  { ...full },
-            pharmacy_transport: { ...full },
-            workflow_actions:   { ...add },
-            clinics:            { ...full },
-            medication_catalog: { ...full },
-            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: true,  canExport: false, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
             system_settings:    { ...hide },
@@ -68,18 +64,16 @@ const BUILT_IN_DEFAULTS = {
         const hide    = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
-            patients:           { ...addOnly },
-            rx_records:         { ...addOnly, canUndo: false, canWarehouse: false },
+            accounts:           { ...view },
+            transactions:       { ...addOnly },
+            categories:         { ...view },
+            financial_institutions: { ...view },
+            reconciliations:    { ...addOnly },
+            proofs:             { ...addOnly },
+            simulation:         { ...hide },
             reports:            { ...view },
             audit_log:          { ...hide },
             import:             { ...hide },
-            pharmacies:         { ...view },
-            patient_transport:  { ...view },
-            pharmacy_transport: { ...view },
-            workflow_actions:   { ...hide },
-            clinics:            { ...view },
-            medication_catalog: { ...view },
-            patient_notes:      { visible: true,  canAdd: true,  canEdit: false, canDelete: false, canExport: false, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
             system_settings:    { ...hide },
@@ -91,18 +85,16 @@ const BUILT_IN_DEFAULTS = {
         const hide = { visible: false, canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false, canOverrideExpired: false };
         return {
             dashboard:          { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: true,  canUndo: false },
-            patients:           { ...view },
-            rx_records:         { ...view, canUndo: false, canWarehouse: false },
+            accounts:           { ...view },
+            transactions:       { ...view },
+            categories:         { ...view },
+            financial_institutions: { ...view },
+            reconciliations:    { ...view },
+            proofs:             { ...view },
+            simulation:         { ...hide },
             reports:            { ...view },
             audit_log:          { ...hide },
             import:             { ...hide },
-            pharmacies:         { ...hide },
-            patient_transport:  { ...hide },
-            pharmacy_transport: { ...hide },
-            workflow_actions:   { ...view },
-            clinics:            { ...hide },
-            medication_catalog: { ...view },
-            patient_notes:      { visible: true,  canAdd: false, canEdit: false, canDelete: false, canExport: false, canUndo: false },
             users:              { ...hide },
             backups:            { ...hide },
             system_settings:    { ...hide },
@@ -229,9 +221,9 @@ exports.requirePermission = (moduleKey, requiredAction) => {
             if (requiredAction === 'writeOrOverrideExpired' && !perm.canAdd && !perm.canEdit && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot write to ${moduleKey} or override expired locks.` });
             if (requiredAction === 'delete'    && !perm.canDelete)    return res.status(403).json({ message: `Access denied: you cannot delete from ${moduleKey}.` });
             if (requiredAction === 'export'    && !perm.canExport)    return res.status(403).json({ message: `Access denied: you cannot export ${moduleKey}.` });
-            if (requiredAction === 'undo'      && !perm.canUndo)      return res.status(403).json({ message: `Access denied: you cannot undo workflow steps.` });
-            if (requiredAction === 'warehouse' && !perm.canWarehouse) return res.status(403).json({ message: `Access denied: you cannot return RX records to warehouse.` });
-            if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot override expired 90-day locks.` });
+            if (requiredAction === 'undo'      && !perm.canUndo)      return res.status(403).json({ message: `Access denied: you cannot undo actions in ${moduleKey}.` });
+            if (requiredAction === 'warehouse' && !perm.canWarehouse) return res.status(403).json({ message: `Access denied: you cannot perform controlled actions in ${moduleKey}.` });
+            if (requiredAction === 'overrideExpired' && !perm.canOverrideExpired) return res.status(403).json({ message: `Access denied: you cannot override protected checks.` });
 
             next();
         } catch (e) {
