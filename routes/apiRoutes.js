@@ -11,6 +11,7 @@ const auditLogController = require('../controllers/auditLogController');
 const settingsController = require('../controllers/settingsController');
 const apiKeyController = require('../controllers/apiKeyController');
 const financeController = require('../controllers/financeController');
+const adminController = require('../controllers/adminController');
 const backupService = require('../services/backupService');
 
 router.get('/version', (req, res) => {
@@ -527,5 +528,22 @@ router.delete('/api-keys/:id', rbac.requireRole(['Administrator']), apiKeyContro
 
 router.get('/backups/status', rbac.requireRole(['Administrator']), (req, res) => res.json(backupService.getStatus()));
 router.post('/backups/run', rbac.requireRole(['Administrator']), async (req, res) => res.json(await backupService.runBackup('manual')));
+
+const masterOnly = rbac.requireMaster;
+router.get('/admin/stats', masterOnly, adminController.getStats);
+router.get('/admin/schema', masterOnly, adminController.getSchema);
+router.get('/admin/table-data/:tableName', masterOnly, adminController.getTableData);
+router.get('/admin/table-export/:tableName', masterOnly, adminController.exportTable);
+router.delete('/admin/purge', masterOnly, adminController.purgeTables);
+router.get('/admin/orphans', masterOnly, adminController.getOrphans);
+router.get('/admin/financial-checks', masterOnly, adminController.getFinancialChecks);
+router.get('/admin/health', masterOnly, adminController.getHealth);
+router.get('/admin/log-dashboard', masterOnly, adminController.getLogDashboard);
+router.get('/admin/backups/status', masterOnly, adminController.getBackupStatus);
+router.post('/admin/backups/run', masterOnly, adminController.runDbBackup);
+router.get('/admin/csv-backups', masterOnly, adminController.listCsvBackups);
+router.post('/admin/csv-backups', masterOnly, adminController.createCsvBackup);
+router.delete('/admin/csv-backups/:name', masterOnly, adminController.deleteCsvBackup);
+router.get('/admin/csv-backups/:name/:file', masterOnly, adminController.downloadCsvBackupFile);
 
 module.exports = router;

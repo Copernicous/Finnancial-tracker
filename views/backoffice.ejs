@@ -9,12 +9,41 @@
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .control-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
-    .control-panel { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; background: var(--surface,#fff); padding: 1rem; }
-    .batch-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
-    .batch-wrap table { margin: 0; min-width: 1120px; }
-    .danger-zone { border-color: rgba(220,53,69,.45); background: rgba(220,53,69,.04); }
-    @media (max-width: 1100px) { .control-grid { grid-template-columns: 1fr; } }
+    .bo-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; }
+    .bo-kpi { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; background: var(--surface,#fff); padding: .85rem 1rem; }
+    .bo-kpi .num { font-size: 1.45rem; font-weight: 800; line-height: 1; }
+    .bo-kpi .lbl { font-size: .72rem; color: var(--text-muted,#64748b); text-transform: uppercase; letter-spacing: .06em; margin-top: .25rem; }
+    .bo-tabs { display: flex; gap: .4rem; overflow-x: auto; padding: .35rem; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; background: var(--surface,#fff); }
+    .bo-tab { border: 0; border-radius: 6px; padding: .55rem .75rem; white-space: nowrap; color: var(--text-muted,#64748b); background: transparent; font-weight: 700; font-size: .82rem; }
+    .bo-tab.active { color: var(--primary,#0d6efd); background: rgba(13,110,253,.08); }
+    .bo-panel { display: none; }
+    .bo-panel.active { display: block; }
+    .table-card-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: .75rem; }
+    .table-card { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; background: var(--surface,#fff); padding: .9rem; min-height: 170px; display: flex; flex-direction: column; gap: .55rem; }
+    .table-card.selected { border-color: var(--primary,#0d6efd); box-shadow: 0 0 0 3px rgba(13,110,253,.12); }
+    .table-card .icon { width: 34px; height: 34px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; }
+    .table-card .desc { color: var(--text-muted,#64748b); font-size: .78rem; line-height: 1.35; min-height: 42px; }
+    .table-card .actions { margin-top: auto; display: flex; gap: .4rem; flex-wrap: wrap; }
+    .danger-strip { border: 1px solid rgba(220,53,69,.35); background: rgba(220,53,69,.05); border-radius: 8px; padding: .9rem; }
+    .viewer-wrap { max-height: 62vh; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
+    .viewer-wrap table { margin: 0; min-width: 900px; }
+    .viewer-wrap th { position: sticky; top: 0; background: var(--surface,#fff); z-index: 1; white-space: nowrap; }
+    .schema-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 1rem; }
+    .schema-list { max-height: 640px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
+    .schema-item { padding: .6rem .8rem; border-bottom: 1px solid var(--border,#e2e8f0); cursor: pointer; display: flex; justify-content: space-between; gap: .5rem; }
+    .schema-item.active { background: rgba(13,110,253,.08); color: var(--primary,#0d6efd); font-weight: 700; }
+    .schema-detail { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; overflow: hidden; }
+    .quality-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; }
+    .quality-card { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; background: var(--surface,#fff); padding: .9rem; }
+    .quality-card.good { border-left: 4px solid #198754; }
+    .quality-card.info { border-left: 4px solid #0dcaf0; }
+    .quality-card.warning { border-left: 4px solid #ffc107; }
+    .quality-card.danger { border-left: 4px solid #dc3545; }
+    .batch-wrap, .compact-table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
+    .batch-wrap table, .compact-table-wrap table { margin: 0; min-width: 980px; }
+    .log-list { max-height: 360px; overflow: auto; }
+    .sort-btn { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: 700; white-space: nowrap; }
+    @media (max-width: 992px) { .schema-layout { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -24,7 +53,10 @@
     <nav class="navbar navbar-expand-lg px-4 mb-4">
       <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
       <span class="ms-3 fw-bold fs-5">Backoffice</span>
-      <div class="ms-auto"><button id="logoutBtn" class="btn btn-danger btn-sm">Logout</button></div>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <span class="badge text-bg-danger"><i class="fas fa-lock me-1"></i>Master</span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm">Logout</button>
+      </div>
     </nav>
 
     <div class="container-fluid px-4 d-grid gap-3">
@@ -32,75 +64,284 @@
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
           <div>
             <h5 class="mb-1">Data Control Center</h5>
-            <p class="text-muted mb-0">Master controls for simulation data, staged imports, bad upload cleanup, backups, and audit review.</p>
+            <p class="text-muted mb-0">Master controls for accounting data, imports, backups, logs, schema, and financial data quality.</p>
           </div>
           <div class="d-flex gap-2 flex-wrap">
-            <a class="btn btn-outline-secondary" href="/audit-log"><i class="fas fa-history me-1"></i>Audit Log</a>
-            <a class="btn btn-outline-secondary" href="/backups"><i class="fas fa-database me-1"></i>Backups</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/audit-log"><i class="fas fa-history me-1"></i>Audit Log</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/backups"><i class="fas fa-database me-1"></i>Backups</a>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadAll()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
           </div>
         </div>
       </section>
 
-      <section class="control-grid">
-        <div class="control-panel">
-          <h6 class="fw-bold mb-2"><i class="fas fa-chart-line me-1 text-primary"></i>Simulation Data</h6>
-          <p class="text-muted small">Create or clear 2026 demonstration data without touching curated/imported rows.</p>
-          <div class="d-flex gap-2 flex-wrap">
-            <button class="btn btn-outline-primary btn-sm" onclick="seedSimulation()">Create Sample</button>
-            <button class="btn btn-outline-danger btn-sm" onclick="clearSimulation()">Clear Sample</button>
+      <section class="bo-kpis" id="kpiRow"></section>
+
+      <div class="bo-tabs">
+        <button class="bo-tab active" data-tab="tables"><i class="fas fa-table me-1"></i>Tables & Data</button>
+        <button class="bo-tab" data-tab="schema"><i class="fas fa-project-diagram me-1"></i>Schema</button>
+        <button class="bo-tab" data-tab="checks"><i class="fas fa-magnifying-glass-chart me-1"></i>Financial Checks</button>
+        <button class="bo-tab" data-tab="imports"><i class="fas fa-file-import me-1"></i>Import Cleanup</button>
+        <button class="bo-tab" data-tab="backups"><i class="fas fa-save me-1"></i>Backups</button>
+        <button class="bo-tab" data-tab="health"><i class="fas fa-heartbeat me-1"></i>Health</button>
+        <button class="bo-tab" data-tab="logs"><i class="fas fa-chart-pie me-1"></i>Logs</button>
+      </div>
+
+      <section class="bo-panel active" id="panel-tables">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Tables & Data</h5>
+              <div class="text-muted small">Inspect, search, export, and select accounting tables for guarded purge.</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPurgeableTables(true)">Select Purgeable</button>
+              <button class="btn btn-outline-secondary btn-sm" onclick="selectPurgeableTables(false)">Clear</button>
+            </div>
           </div>
-        </div>
-        <div class="control-panel">
-          <h6 class="fw-bold mb-2"><i class="fas fa-file-import me-1 text-primary"></i>Import Cleanup</h6>
-          <p class="text-muted small">Soft remove staged uploads from the active queue, or purge bad batches from backoffice.</p>
-          <div class="form-check form-switch">
-            <input class="form-check-input" type="checkbox" id="includeRemoved" checked>
-            <label class="form-check-label" for="includeRemoved">Include removed batches</label>
+          <div class="table-card-grid" id="tableCards"></div>
+          <div class="danger-strip d-flex justify-content-between align-items-center gap-3 flex-wrap">
+            <div>
+              <div class="fw-bold text-danger"><i class="fas fa-triangle-exclamation me-1"></i>Selected Table Purge</div>
+              <div class="text-muted small"><span id="purgeSelectionText">No tables selected.</span> Protected system tables cannot be purged here.</div>
+            </div>
+            <button class="btn btn-danger" id="purgeSelectedBtn" onclick="purgeSelectedTables()" disabled><i class="fas fa-trash-alt me-1"></i>Purge Selected</button>
           </div>
-        </div>
-        <div class="control-panel danger-zone">
-          <h6 class="fw-bold mb-2"><i class="fas fa-triangle-exclamation me-1 text-danger"></i>Purge Rules</h6>
-          <p class="text-muted small mb-0">Purge requires exact confirmation text. Posted ledger rows are preserved unless rollback is explicitly selected.</p>
         </div>
       </section>
 
-      <section class="glass-card p-4">
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <section class="bo-panel" id="panel-schema">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Schema Explorer</h5>
+              <div class="text-muted small">Columns, primary keys, and foreign-key relationships for the accounting database.</div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadSchema(true)"><i class="fas fa-sync-alt me-1"></i>Reload Schema</button>
+          </div>
+          <input class="form-control" id="schemaSearch" placeholder="Search tables or columns" oninput="renderSchemaList()">
+          <div class="schema-layout">
+            <div class="schema-list" id="schemaList"></div>
+            <div class="schema-detail" id="schemaDetail">
+              <div class="p-4 text-muted">Select a table to inspect columns and relationships.</div>
+            </div>
+          </div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>From</th><th>Column</th><th>To</th><th>Column</th><th>Constraint</th></tr></thead>
+              <tbody id="relationshipRows"><tr><td colspan="5" class="text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-checks">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Financial Data Checks</h5>
+              <div class="text-muted small">Accounting diagnostics replacing the RX patient duplicate/lock tools.</div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadFinancialChecks()"><i class="fas fa-sync-alt me-1"></i>Run Checks</button>
+          </div>
+          <div class="quality-grid" id="qualityCards"></div>
+          <div class="row g-3">
+            <div class="col-xl-6">
+              <h6 class="fw-bold">Possible Duplicate Transactions</h6>
+              <div class="compact-table-wrap">
+                <table class="table table-sm table-hover">
+                  <thead><tr><th>Account</th><th>Date</th><th>Amount</th><th>Description Key</th><th>IDs</th></tr></thead>
+                  <tbody id="duplicateTransactionRows"></tbody>
+                </table>
+              </div>
+            </div>
+            <div class="col-xl-6">
+              <h6 class="fw-bold">Account Activity Gaps</h6>
+              <div class="compact-table-wrap">
+                <table class="table table-sm table-hover">
+                  <thead><tr><th>Account</th><th>Class</th><th>Currency</th><th class="text-end">Transactions</th><th>Latest</th></tr></thead>
+                  <tbody id="accountGapRows"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
           <div>
-            <h5 class="mb-1">Import Batch Control</h5>
-            <div class="text-muted small">Use Remove for normal staging cleanup. Use Purge only for bad uploaded data.</div>
+            <h6 class="fw-bold">Category Use</h6>
+            <div class="compact-table-wrap">
+              <table class="table table-sm table-hover">
+                <thead><tr><th>Category</th><th>Type</th><th class="text-end">Transactions</th></tr></thead>
+                <tbody id="categoryUseRows"></tbody>
+              </table>
+            </div>
           </div>
-          <button class="btn btn-outline-primary btn-sm" onclick="loadImportBatches()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
         </div>
-        <div id="result" class="alert alert-secondary py-2">Loading backoffice controls...</div>
-        <div class="batch-wrap">
-          <table class="table table-sm table-hover align-middle">
-            <thead>
-              <tr>
-                <th>Batch</th>
-                <th>File</th>
-                <th>Type</th>
-                <th>Status</th>
-                <th class="text-end">Rows</th>
-                <th class="text-end">Posted</th>
-                <th class="text-end">Blocked</th>
-                <th>Created</th>
-                <th class="text-end">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="batchRows"><tr><td colspan="9" class="text-muted">Loading...</td></tr></tbody>
-          </table>
+      </section>
+
+      <section class="bo-panel" id="panel-imports">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Import Batch Control</h5>
+              <div class="text-muted small">Remove staging batches or purge bad uploaded statement data.</div>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="includeRemoved" checked>
+                <label class="form-check-label small" for="includeRemoved">Include removed</label>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" onclick="loadImportBatches()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+            </div>
+          </div>
+          <div id="result" class="alert alert-secondary py-2">Loading import batches...</div>
+          <div class="batch-wrap">
+            <table class="table table-sm table-hover align-middle">
+              <thead>
+                <tr>
+                  <th>Batch</th><th>File</th><th>Type</th><th>Status</th>
+                  <th class="text-end">Rows</th><th class="text-end">Posted</th><th class="text-end">Blocked</th>
+                  <th>Created</th><th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="batchRows"><tr><td colspan="9" class="text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-backups">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Backups</h5>
+              <div class="text-muted small">PostgreSQL dump status plus RX-style per-table CSV snapshots.</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" onclick="runDbBackup()"><i class="fas fa-database me-1"></i>Run DB Backup</button>
+              <button class="btn btn-primary btn-sm" onclick="createCsvBackup()"><i class="fas fa-file-csv me-1"></i>Create CSV Backup</button>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-xl-5">
+              <div class="quality-card">
+                <h6 class="fw-bold mb-2">Database Dump</h6>
+                <div id="dbBackupStatus" class="small text-muted">Loading...</div>
+              </div>
+            </div>
+            <div class="col-xl-7">
+              <div class="quality-card">
+                <h6 class="fw-bold mb-2">CSV Backups</h6>
+                <div id="csvBackupList" class="d-grid gap-2 small text-muted">Loading...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-health">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">System Health</h5>
+              <div class="text-muted small">Database size, table usage, Node process, memory, and active connections.</div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadHealth()"><i class="fas fa-sync-alt me-1"></i>Refresh Health</button>
+          </div>
+          <div class="quality-grid" id="healthCards"></div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Table</th><th class="text-end">Rows Estimate</th><th class="text-end">Size</th></tr></thead>
+              <tbody id="healthTableRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-logs">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Log Dashboard</h5>
+              <div class="text-muted small">Recent audit actions, unresolved errors, and activity patterns.</div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadLogDashboard()"><i class="fas fa-sync-alt me-1"></i>Refresh Logs</button>
+          </div>
+          <div class="quality-grid" id="logCards"></div>
+          <div class="row g-3">
+            <div class="col-xl-6">
+              <h6 class="fw-bold">Recent Audit</h6>
+              <div class="compact-table-wrap log-list">
+                <table class="table table-sm table-hover"><tbody id="recentAuditRows"></tbody></table>
+              </div>
+            </div>
+            <div class="col-xl-6">
+              <h6 class="fw-bold">Recent Errors</h6>
+              <div class="compact-table-wrap log-list">
+                <table class="table table-sm table-hover"><tbody id="recentErrorRows"></tbody></table>
+              </div>
+            </div>
+          </div>
+          <div class="row g-3">
+            <div class="col-xl-6">
+              <h6 class="fw-bold">Top Pages</h6>
+              <div id="pageVisitRows" class="d-grid gap-2"></div>
+            </div>
+            <div class="col-xl-6">
+              <h6 class="fw-bold">Top Audit Actions</h6>
+              <div id="topActionRows" class="d-grid gap-2"></div>
+            </div>
+          </div>
         </div>
       </section>
     </div>
   </div>
 </div>
+
+<div class="modal fade" id="viewerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title" id="viewerTitle">Table Data</h5>
+          <div class="text-muted small" id="viewerMeta">Loading...</div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body d-grid gap-3">
+        <div class="d-flex gap-2 flex-wrap align-items-center">
+          <input class="form-control" style="max-width:360px" id="viewerSearch" placeholder="Search visible rows" oninput="renderViewerRows()">
+          <select class="form-select" style="width:auto" id="viewerPageSize" onchange="renderViewerRows()">
+            <option value="25">25 rows</option>
+            <option value="50" selected>50 rows</option>
+            <option value="100">100 rows</option>
+            <option value="250">250 rows</option>
+          </select>
+          <a class="btn btn-outline-primary" id="viewerExportLink" href="#"><i class="fas fa-file-csv me-1"></i>Export CSV</a>
+        </div>
+        <div class="viewer-wrap">
+          <table class="table table-sm table-hover align-middle">
+            <thead id="viewerHead"></thead>
+            <tbody id="viewerBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
 <script src="/js/main.js"></script>
 <script>
-function headers(json) {
+let tableMeta = [];
+let tableCounts = {};
+let selectedTables = new Set();
+let schemaData = null;
+let selectedSchemaTable = null;
+let viewerRows = [];
+let viewerColumns = [];
+let viewerSort = { key: null, dir: 'asc' };
+
+function authHeaders(json) {
   const t = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
   const h = t ? { Authorization: 'Bearer ' + t } : {};
   if (json) h['Content-Type'] = 'application/json';
@@ -109,76 +350,283 @@ function headers(json) {
 function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
+function appPath(path) {
+  return typeof appUrl === 'function' ? appUrl(path) : path;
+}
+async function api(path, opts) {
+  const res = await fetch(appPath(path), Object.assign({}, opts || {}, { headers: Object.assign({}, authHeaders((opts || {}).json), (opts && opts.headers) || {}) }));
+  const text = await res.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { raw: text }; }
+  if (!res.ok) throw new Error(data.error || data.message || text || ('HTTP ' + res.status));
+  return data;
+}
+function fmtNum(value) {
+  return Number(value || 0).toLocaleString();
+}
+function fmtDate(value) {
+  if (!value) return '';
+  return String(value).slice(0, 19).replace('T', ' ');
+}
 function showResult(message, type) {
   const box = document.getElementById('result');
+  if (!box) return;
   box.className = 'alert alert-' + (type || 'secondary') + ' py-2';
   box.textContent = message;
 }
+function setTab(tab) {
+  document.querySelectorAll('.bo-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
+  document.querySelectorAll('.bo-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'panel-' + tab));
+  if (tab === 'schema' && !schemaData) loadSchema();
+  if (tab === 'checks') loadFinancialChecks();
+  if (tab === 'imports') loadImportBatches();
+  if (tab === 'backups') loadBackups();
+  if (tab === 'health') loadHealth();
+  if (tab === 'logs') loadLogDashboard();
+}
+
+async function loadStats() {
+  const data = await api('/api/admin/stats');
+  tableMeta = data.tables || [];
+  tableCounts = data.counts || {};
+  renderKpis();
+  renderTableCards();
+}
+function renderKpis() {
+  const totalRows = Object.values(tableCounts).reduce((sum, value) => sum + Number(value || 0), 0);
+  const withData = Object.values(tableCounts).filter(value => Number(value || 0) > 0).length;
+  const imports = Number(tableCounts.ImportBatches || 0);
+  const transactions = Number(tableCounts.Transactions || 0);
+  document.getElementById('kpiRow').innerHTML = [
+    ['Tables', tableMeta.length, 'text-primary'],
+    ['Total Records', totalRows, 'text-danger'],
+    ['Tables With Data', withData, 'text-success'],
+    ['Transactions', transactions, 'text-info'],
+    ['Import Batches', imports, 'text-warning']
+  ].map(item => '<div class="bo-kpi"><div class="num ' + item[2] + '">' + fmtNum(item[1]) + '</div><div class="lbl">' + esc(item[0]) + '</div></div>').join('');
+}
+function renderTableCards() {
+  document.getElementById('tableCards').innerHTML = tableMeta.map(t => {
+    const selected = selectedTables.has(t.key);
+    const count = tableCounts[t.key] || 0;
+    const iconColor = 'background:' + t.color + '22;color:' + t.color;
+    return '<div class="table-card ' + (selected ? 'selected' : '') + '">' +
+      '<div class="d-flex justify-content-between gap-2"><div class="d-flex gap-2 align-items-start"><div class="icon" style="' + iconColor + '"><i class="fas ' + esc(t.icon || 'fa-table') + '"></i></div><div><div class="fw-bold">' + esc(t.label) + '</div><div class="text-muted small">' + esc(t.area) + '</div></div></div>' +
+      '<div class="form-check"><input class="form-check-input" type="checkbox" ' + (!t.purgeable ? 'disabled title="Protected table"' : '') + (selected ? ' checked' : '') + ' onchange="toggleTableSelection(\'' + esc(t.key) + '\', this.checked)"></div></div>' +
+      '<div class="desc">' + esc(t.description || '') + '</div>' +
+      '<div class="fs-4 fw-bold">' + fmtNum(count) + ' <span class="fs-6 text-muted fw-normal">records</span></div>' +
+      '<div class="actions">' +
+        '<button class="btn btn-outline-primary btn-sm" onclick="openViewer(\'' + esc(t.key) + '\')"><i class="fas fa-eye me-1"></i>View</button>' +
+        '<a class="btn btn-outline-success btn-sm" href="' + appPath('/api/admin/table-export/' + encodeURIComponent(t.key)) + '"><i class="fas fa-file-csv me-1"></i>Export</a>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+  updatePurgeBar();
+}
+function toggleTableSelection(key, checked) {
+  if (checked) selectedTables.add(key); else selectedTables.delete(key);
+  renderTableCards();
+}
+function selectPurgeableTables(checked) {
+  selectedTables.clear();
+  if (checked) tableMeta.filter(t => t.purgeable).forEach(t => selectedTables.add(t.key));
+  renderTableCards();
+}
+function updatePurgeBar() {
+  const total = Array.from(selectedTables).reduce((sum, key) => sum + Number(tableCounts[key] || 0), 0);
+  document.getElementById('purgeSelectionText').textContent = selectedTables.size ? (selectedTables.size + ' table(s), ' + fmtNum(total) + ' record(s) selected.') : 'No tables selected.';
+  document.getElementById('purgeSelectedBtn').disabled = selectedTables.size === 0;
+}
+async function purgeSelectedTables() {
+  if (!selectedTables.size) return;
+  const expected = 'PURGE SELECTED ACCOUNTING TABLES';
+  const typed = prompt('This permanently deletes data from selected accounting tables. Type exactly: ' + expected);
+  if (typed !== expected) return alert('Purge cancelled. Confirmation text did not match.');
+  const data = await api('/api/admin/purge', {
+    method: 'DELETE',
+    json: true,
+    body: JSON.stringify({ tables: Array.from(selectedTables), confirmText: expected })
+  });
+  selectedTables.clear();
+  alert('Purge completed: ' + JSON.stringify(data.results));
+  await loadStats();
+}
+
+async function openViewer(tableKey) {
+  const meta = tableMeta.find(t => t.key === tableKey) || { label: tableKey };
+  document.getElementById('viewerTitle').textContent = meta.label;
+  document.getElementById('viewerMeta').textContent = 'Loading...';
+  document.getElementById('viewerHead').innerHTML = '';
+  document.getElementById('viewerBody').innerHTML = '<tr><td class="text-muted">Loading...</td></tr>';
+  document.getElementById('viewerExportLink').href = appPath('/api/admin/table-export/' + encodeURIComponent(tableKey));
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('viewerModal')).show();
+  const data = await api('/api/admin/table-data/' + encodeURIComponent(tableKey) + '?limit=1000');
+  viewerRows = data.rows || [];
+  viewerColumns = data.columns || [];
+  viewerSort = { key: null, dir: 'asc' };
+  document.getElementById('viewerMeta').textContent = fmtNum(data.total) + ' total record(s). Showing up to ' + fmtNum(viewerRows.length) + '.';
+  renderViewerRows();
+}
+function sortViewer(key) {
+  viewerSort.dir = viewerSort.key === key && viewerSort.dir === 'asc' ? 'desc' : 'asc';
+  viewerSort.key = key;
+  renderViewerRows();
+}
+function renderViewerRows() {
+  const search = document.getElementById('viewerSearch').value.trim().toLowerCase();
+  const size = Number(document.getElementById('viewerPageSize').value || 50);
+  let rows = viewerRows.slice();
+  if (search) rows = rows.filter(row => Object.values(row).join(' ').toLowerCase().includes(search));
+  if (viewerSort.key) {
+    const key = viewerSort.key;
+    const dir = viewerSort.dir;
+    rows.sort((a, b) => String(a[key] == null ? '' : a[key]).localeCompare(String(b[key] == null ? '' : b[key]), undefined, { numeric: true }) * (dir === 'asc' ? 1 : -1));
+  }
+  const visible = rows.slice(0, size);
+  document.getElementById('viewerHead').innerHTML = '<tr>' + viewerColumns.map(col => '<th><button class="sort-btn" onclick="sortViewer(\'' + esc(col) + '\')">' + esc(col) + (viewerSort.key === col ? (viewerSort.dir === 'asc' ? ' ▲' : ' ▼') : '') + '</button></th>').join('') + '</tr>';
+  document.getElementById('viewerBody').innerHTML = visible.length ? visible.map(row => '<tr>' + viewerColumns.map(col => '<td title="' + esc(row[col]) + '">' + esc(row[col]) + '</td>').join('') + '</tr>').join('') : '<tr><td colspan="' + viewerColumns.length + '" class="text-muted">No rows match.</td></tr>';
+}
+
+async function loadSchema(force) {
+  if (schemaData && !force) return;
+  schemaData = await api('/api/admin/schema');
+  selectedSchemaTable = schemaData.tables && schemaData.tables[0] ? schemaData.tables[0].name : null;
+  renderSchemaList();
+  renderRelationships();
+}
+function renderSchemaList() {
+  if (!schemaData) return;
+  const search = document.getElementById('schemaSearch').value.trim().toLowerCase();
+  const tables = schemaData.tables.filter(t => !search || t.name.toLowerCase().includes(search) || t.columns.some(c => c.name.toLowerCase().includes(search)));
+  document.getElementById('schemaList').innerHTML = tables.map(t => '<div class="schema-item ' + (t.name === selectedSchemaTable ? 'active' : '') + '" onclick="selectSchemaTable(\'' + esc(t.name) + '\')"><span>' + esc(t.name) + '</span><span class="text-muted small">' + t.columns.length + '</span></div>').join('');
+  renderSchemaDetail();
+}
+function selectSchemaTable(name) {
+  selectedSchemaTable = name;
+  renderSchemaList();
+}
+function renderSchemaDetail() {
+  const table = schemaData && schemaData.tables.find(t => t.name === selectedSchemaTable);
+  if (!table) return;
+  document.getElementById('schemaDetail').innerHTML =
+    '<div class="p-3 border-bottom"><h6 class="fw-bold mb-1">' + esc(table.name) + '</h6><div class="text-muted small">' + table.columns.length + ' columns</div></div>' +
+    '<div class="table-responsive"><table class="table table-sm table-hover mb-0"><thead><tr><th>Column</th><th>Type</th><th>Flags</th><th>References</th></tr></thead><tbody>' +
+    table.columns.map(c => '<tr><td class="fw-semibold">' + esc(c.name) + '</td><td>' + esc(c.type) + '</td><td>' + (c.isPK ? '<span class="badge text-bg-warning me-1">PK</span>' : '') + (c.isFK ? '<span class="badge text-bg-info me-1">FK</span>' : '') + (!c.nullable ? '<span class="badge text-bg-secondary">Required</span>' : '') + '</td><td>' + (c.references ? esc(c.references.toTable + '.' + c.references.toColumn) : '') + '</td></tr>').join('') +
+    '</tbody></table></div>';
+}
+function renderRelationships() {
+  const rows = schemaData && schemaData.relationships ? schemaData.relationships : [];
+  document.getElementById('relationshipRows').innerHTML = rows.length ? rows.map(r => '<tr><td>' + esc(r.from_table) + '</td><td>' + esc(r.from_column) + '</td><td>' + esc(r.to_table) + '</td><td>' + esc(r.to_column) + '</td><td class="small text-muted">' + esc(r.constraint_name) + '</td></tr>').join('') : '<tr><td colspan="5" class="text-muted">No relationships found.</td></tr>';
+}
+
+async function loadFinancialChecks() {
+  const data = await api('/api/admin/financial-checks');
+  document.getElementById('qualityCards').innerHTML = (data.checks || []).map(c => '<div class="quality-card ' + esc(c.severity) + '"><div class="text-muted small">' + esc(c.label) + '</div><div class="fs-3 fw-bold">' + fmtNum(c.count) + '</div><div class="small">' + esc(c.action) + '</div></div>').join('');
+  document.getElementById('duplicateTransactionRows').innerHTML = (data.duplicateTransactions || []).length ? data.duplicateTransactions.map(r => '<tr><td>' + esc(r.accountId) + '</td><td>' + esc(r.transactionDate) + '</td><td>' + esc(r.amount) + ' ' + esc(r.currency) + '</td><td>' + esc(r.descriptionKey) + '</td><td>' + esc((r.ids || []).join(', ')) + '</td></tr>').join('') : '<tr><td colspan="5" class="text-muted">No duplicate groups detected.</td></tr>';
+  document.getElementById('accountGapRows').innerHTML = (data.accountGaps || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.accountClass || r.accountType) + '</td><td>' + esc(r.currency) + '</td><td class="text-end">' + fmtNum(r.transactionCount) + '</td><td>' + esc(r.latestTransactionDate || '') + '</td></tr>').join('');
+  document.getElementById('categoryUseRows').innerHTML = (data.categoryUse || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.categoryType) + '</td><td class="text-end">' + fmtNum(r.transactionCount) + '</td></tr>').join('');
+}
+
 async function seedSimulation() {
-  const res = await fetch('/api/simulation/seed', { method: 'POST', headers: headers(true) });
-  showResult(await res.text(), res.ok ? 'success' : 'danger');
+  const data = await api('/api/simulation/seed', { method: 'POST', json: true });
+  alert('Created ' + data.created + ' sample transaction(s).');
+  await loadAll();
 }
 async function clearSimulation() {
   if (!confirm('Clear all simulation data? Curated rows are not deleted.')) return;
-  const res = await fetch('/api/simulation', { method: 'DELETE', headers: headers(true) });
-  showResult(await res.text(), res.ok ? 'success' : 'danger');
+  const data = await api('/api/simulation', { method: 'DELETE', json: true });
+  alert('Simulation cleared: ' + JSON.stringify(data));
+  await loadAll();
 }
 async function loadImportBatches() {
   const includeRemoved = document.getElementById('includeRemoved').checked;
-  const res = await fetch('/api/import/batches' + (includeRemoved ? '?includeRemoved=1' : ''), { headers: headers() });
-  const rows = res.ok ? await res.json() : [];
+  const rows = await api('/api/import/batches' + (includeRemoved ? '?includeRemoved=1' : ''));
   document.getElementById('batchRows').innerHTML = rows.length ? rows.map(row => {
     const removed = row.status === 'removed';
     const posted = Number(row.acceptedCount || 0);
-    return '<tr>' +
-      '<td>#' + esc(row.id) + '</td>' +
-      '<td>' + esc(row.fileName || '') + '</td>' +
-      '<td>' + esc(row.importType || '') + '</td>' +
-      '<td><span class="badge ' + (removed ? 'bg-danger' : 'bg-secondary') + '">' + esc(row.status) + '</span></td>' +
-      '<td class="text-end">' + esc(row.rowCount || 0) + '</td>' +
-      '<td class="text-end">' + esc(row.acceptedCount || 0) + '</td>' +
-      '<td class="text-end">' + esc(row.rejectedCount || 0) + '</td>' +
-      '<td>' + esc(row.createdAt ? String(row.createdAt).slice(0, 19).replace('T', ' ') : '') + '</td>' +
-      '<td class="text-end"><div class="d-inline-flex gap-2">' +
-        '<a class="btn btn-outline-primary btn-sm" href="/import">Open</a>' +
-        '<button class="btn btn-outline-warning btn-sm" ' + (removed ? 'disabled' : '') + ' onclick="removeBatch(' + Number(row.id) + ')">Remove</button>' +
-        '<button class="btn btn-outline-danger btn-sm" onclick="purgeBatch(' + Number(row.id) + ', false)">Purge</button>' +
-        '<button class="btn btn-danger btn-sm" ' + (posted ? '' : 'disabled') + ' onclick="purgeBatch(' + Number(row.id) + ', true)">Rollback+Purge</button>' +
-      '</div></td>' +
-    '</tr>';
+    return '<tr><td>#' + esc(row.id) + '</td><td>' + esc(row.fileName || '') + '</td><td>' + esc(row.importType || '') + '</td><td><span class="badge ' + (removed ? 'text-bg-danger' : 'text-bg-secondary') + '">' + esc(row.status) + '</span></td><td class="text-end">' + esc(row.rowCount || 0) + '</td><td class="text-end">' + esc(row.acceptedCount || 0) + '</td><td class="text-end">' + esc(row.rejectedCount || 0) + '</td><td>' + fmtDate(row.createdAt) + '</td><td class="text-end"><div class="d-inline-flex gap-2"><a class="btn btn-outline-primary btn-sm" href="/import">Open</a><button class="btn btn-outline-warning btn-sm" ' + (removed ? 'disabled' : '') + ' onclick="removeBatch(' + Number(row.id) + ')">Remove</button><button class="btn btn-outline-danger btn-sm" onclick="purgeBatch(' + Number(row.id) + ', false)">Purge</button><button class="btn btn-danger btn-sm" ' + (posted ? '' : 'disabled') + ' onclick="purgeBatch(' + Number(row.id) + ', true)">Rollback+Purge</button></div></td></tr>';
   }).join('') : '<tr><td colspan="9" class="text-muted">No import batches found.</td></tr>';
-  showResult(rows.length + ' import batch(es) loaded.', res.ok ? 'secondary' : 'danger');
+  showResult(rows.length + ' import batch(es) loaded.', 'secondary');
 }
 async function removeBatch(id) {
   if (!confirm('Remove batch #' + id + ' from the active staging queue? Posted ledger transactions stay preserved.')) return;
-  const res = await fetch('/api/import/batches/' + id, {
-    method: 'DELETE',
-    headers: headers(true),
-    body: JSON.stringify({ reason: 'Removed from backoffice data control.' })
-  });
-  const data = await res.json().catch(() => ({}));
-  showResult(data.message || data.error || 'Remove completed.', res.ok ? 'success' : 'danger');
+  const data = await api('/api/import/batches/' + id, { method: 'DELETE', json: true, body: JSON.stringify({ reason: 'Removed from backoffice data control.' }) });
+  showResult(data.message || 'Batch removed.', 'success');
   await loadImportBatches();
 }
 async function purgeBatch(id, rollbackPosted) {
   const expected = 'PURGE BATCH ' + id;
   const typed = prompt((rollbackPosted ? 'Rollback posted ledger transactions and purge ' : 'Purge staging data for ') + 'batch #' + id + '. Type exactly: ' + expected);
-  if (typed !== expected) {
-    showResult('Purge cancelled. Confirmation text did not match.', 'warning');
-    return;
-  }
+  if (typed !== expected) return showResult('Purge cancelled. Confirmation text did not match.', 'warning');
   if (rollbackPosted && !confirm('This will delete ledger transactions posted from batch #' + id + '. Continue?')) return;
-  const res = await fetch('/api/import/batches/' + id + '/purge', {
-    method: 'DELETE',
-    headers: headers(true),
-    body: JSON.stringify({ confirmText: expected, deletePostedTransactions: !!rollbackPosted })
-  });
-  const data = await res.json().catch(() => ({}));
-  showResult(data.message || data.error || 'Purge completed.', res.ok ? 'success' : 'danger');
+  const data = await api('/api/import/batches/' + id + '/purge', { method: 'DELETE', json: true, body: JSON.stringify({ confirmText: expected, deletePostedTransactions: !!rollbackPosted }) });
+  showResult(data.message || 'Purge completed.', 'success');
   await loadImportBatches();
 }
+
+async function loadBackups() {
+  const status = await api('/api/admin/backups/status');
+  document.getElementById('dbBackupStatus').innerHTML = '<div><strong>Schedule:</strong> ' + esc(status.schedule) + '</div><div><strong>Folder:</strong> ' + esc(status.backupDir) + '</div><div><strong>Recent:</strong> ' + (status.recentBackups || []).length + '</div>' + ((status.recentBackups || []).slice(0, 5).map(b => '<div class="border-top pt-2 mt-2"><span class="badge ' + (b.status === 'success' ? 'text-bg-success' : 'text-bg-danger') + '">' + esc(b.status) + '</span> ' + esc(b.filename || '') + ' <span class="text-muted">' + fmtDate(b.timestamp) + '</span></div>').join(''));
+  const csv = await api('/api/admin/csv-backups');
+  document.getElementById('csvBackupList').innerHTML = csv.backups.length ? csv.backups.map(b => '<div class="border rounded p-2"><div class="d-flex justify-content-between gap-2 flex-wrap"><div><strong>' + esc(b.name) + '</strong><div class="text-muted">' + fmtDate(b.createdAt) + ' / ' + fmtNum(b.sizeBytes) + ' bytes</div></div><button class="btn btn-outline-danger btn-sm" onclick="deleteCsvBackup(\'' + esc(b.name) + '\')"><i class="fas fa-trash"></i></button></div><div class="mt-2 d-flex gap-1 flex-wrap">' + (b.files || []).slice(0, 8).map(f => '<a class="btn btn-outline-secondary btn-sm" href="' + appPath('/api/admin/csv-backups/' + encodeURIComponent(b.name) + '/' + encodeURIComponent(f)) + '">' + esc(f) + '</a>').join('') + '</div></div>').join('') : '<div>No CSV backups yet.</div>';
+}
+async function runDbBackup() {
+  const data = await api('/api/admin/backups/run', { method: 'POST', json: true });
+  alert('DB backup ' + data.status + (data.error ? ': ' + data.error : ''));
+  await loadBackups();
+}
+async function createCsvBackup() {
+  const data = await api('/api/admin/csv-backups', { method: 'POST', json: true });
+  alert('CSV backup created: ' + data.name);
+  await loadBackups();
+}
+async function deleteCsvBackup(name) {
+  if (!confirm('Delete CSV backup "' + name + '"?')) return;
+  await api('/api/admin/csv-backups/' + encodeURIComponent(name), { method: 'DELETE', json: true });
+  await loadBackups();
+}
+
+function fmtBytes(value) {
+  const n = Number(value || 0);
+  if (n < 1024) return n + ' B';
+  if (n < 1048576) return (n / 1024).toFixed(1) + ' KB';
+  if (n < 1073741824) return (n / 1048576).toFixed(1) + ' MB';
+  return (n / 1073741824).toFixed(1) + ' GB';
+}
+async function loadHealth() {
+  const data = await api('/api/admin/health');
+  const node = data.node || {};
+  const dbInfo = data.db || {};
+  document.getElementById('healthCards').innerHTML = [
+    ['Database', dbInfo.name || '', dbInfo.size || '', 'good'],
+    ['Connections', data.connections || 0, 'active', 'info'],
+    ['Node', node.version || '', Math.floor((node.uptime || 0) / 60) + ' min uptime', 'good'],
+    ['Heap', fmtBytes(node.heapUsed), fmtBytes(node.heapTotal) + ' total', 'warning'],
+    ['System RAM', fmtBytes((node.totalMemBytes || 0) - (node.freeMemBytes || 0)), fmtBytes(node.totalMemBytes) + ' total', 'info']
+  ].map(c => '<div class="quality-card ' + c[3] + '"><div class="text-muted small">' + esc(c[0]) + '</div><div class="fw-bold fs-5">' + esc(c[1]) + '</div><div class="small">' + esc(c[2]) + '</div></div>').join('');
+  document.getElementById('healthTableRows').innerHTML = (data.tableStats || []).map(t => '<tr><td>' + esc(t.table) + '</td><td class="text-end">' + fmtNum(t.rowEstimate) + '</td><td class="text-end">' + esc(t.totalSize) + '</td></tr>').join('');
+}
+
+async function loadLogDashboard() {
+  const data = await api('/api/admin/log-dashboard');
+  const summary = data.summary || {};
+  document.getElementById('logCards').innerHTML = [
+    ['Audit Entries', summary.auditEntries || 0, 'good'],
+    ['Unresolved Errors', summary.unresolvedErrors || 0, summary.unresolvedErrors ? 'danger' : 'good'],
+    ['Activity 24h', summary.activity24h || 0, 'info']
+  ].map(c => '<div class="quality-card ' + c[2] + '"><div class="text-muted small">' + esc(c[0]) + '</div><div class="fs-3 fw-bold">' + fmtNum(c[1]) + '</div></div>').join('');
+  document.getElementById('recentAuditRows').innerHTML = (data.recentAudit || []).length ? data.recentAudit.map(r => '<tr><td><strong>' + esc(r.module || '') + '</strong><div class="small text-muted">' + esc(r.action || '') + '</div></td><td class="text-end small">' + fmtDate(r.createdAt || r.date) + '</td></tr>').join('') : '<tr><td class="text-muted">No audit rows.</td></tr>';
+  document.getElementById('recentErrorRows').innerHTML = (data.recentErrors || []).length ? data.recentErrors.map(r => '<tr><td><span class="badge ' + (r.resolved ? 'text-bg-secondary' : 'text-bg-danger') + '">' + esc(r.severity) + '</span><div class="small">' + esc(r.message || '') + '</div></td><td class="text-end small">' + fmtDate(r.createdAt) + '</td></tr>').join('') : '<tr><td class="text-muted">No error rows.</td></tr>';
+  document.getElementById('pageVisitRows').innerHTML = (data.pageVisits || []).map(r => '<div class="d-flex justify-content-between border rounded p-2"><span>' + esc(r.page) + '</span><strong>' + fmtNum(r.count) + '</strong></div>').join('');
+  document.getElementById('topActionRows').innerHTML = (data.topActions || []).map(r => '<div class="d-flex justify-content-between border rounded p-2"><span>' + esc(r.module + ' / ' + r.action) + '</span><strong>' + fmtNum(r.count) + '</strong></div>').join('');
+}
+
+async function loadAll() {
+  await loadStats();
+}
+document.querySelectorAll('.bo-tab').forEach(btn => btn.addEventListener('click', () => setTab(btn.dataset.tab)));
 document.getElementById('includeRemoved').addEventListener('change', loadImportBatches);
-document.addEventListener('DOMContentLoaded', loadImportBatches);
+document.addEventListener('DOMContentLoaded', loadAll);
 </script>
 </body>
 </html>

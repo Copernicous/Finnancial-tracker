@@ -66,6 +66,28 @@ async function main() {
     console.log('[smoke] api ok ' + api);
   }
 
+  if (loginData.user && loginData.user.isMaster === true) {
+    await expectOk('/backoffice', { headers: pageHeaders });
+    console.log('[smoke] page ok /backoffice');
+    const adminApis = [
+      '/api/admin/stats',
+      '/api/admin/schema',
+      '/api/admin/table-data/Transactions?limit=2',
+      '/api/admin/orphans',
+      '/api/admin/financial-checks',
+      '/api/admin/health',
+      '/api/admin/log-dashboard',
+      '/api/admin/backups/status',
+      '/api/admin/csv-backups'
+    ];
+    for (const api of adminApis) {
+      await expectOk(api, { headers: authHeaders });
+      console.log('[smoke] admin api ok ' + api);
+    }
+  } else {
+    console.log('[smoke] skipped /backoffice master checks for non-isMaster user');
+  }
+
   await expectOk('/api/import/merchant-suggest', {
     method: 'POST',
     headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders),
