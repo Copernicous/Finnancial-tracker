@@ -13,6 +13,7 @@ Home Accounting is a private household accounting web application based on the m
 - Category setup can be exported to CSV and re-imported from curated CSV or JSON without creating ledger transactions.
 - Category setup accepts `merchantKeywords`, `merchant_keywords`, or `merchant_keygroup` values and turns them into merchant matching rules.
 - Merchant categorization supports default rules, imported keyword groups, learned rules, and optional public lookup during staged statement review.
+- Review & Post includes missing-category filters, sortable columns, category search, compact lookup notes, and a details modal for public lookup evidence.
 
 See:
 

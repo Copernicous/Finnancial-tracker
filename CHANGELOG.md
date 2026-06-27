@@ -11,6 +11,7 @@
 - Added staged batch review and controlled posting into ledger transactions with exact-file and transaction-fingerprint duplicate protection.
 - Added staged document removal, master-only backoffice purge/rollback controls, merchant category suggestions, optional per-merchant online lookup, and learned merchant rules.
 - Added category chart CSV/JSON export/import with direct category upsert and merchant keyword-group rules for curated accounting setup.
+- Added the full default household category catalog, category search in review dropdowns, staged-batch/review filters and sorting, compact lookup notes, and lookup detail modal.
 - Replaced inherited operational pages with accounting-focused pages and removed obsolete inherited browser bundles, QA scripts, and route manifests.
 - Added financial DB reset and smoke-test commands for development and staging.
 - Preserved raw Excel files outside the import pipeline for future manual curation.

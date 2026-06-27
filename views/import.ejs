@@ -23,7 +23,7 @@
     .field-required { color: #dc3545; font-weight: 700; }
     .statement-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: .75rem; align-items: end; }
     .statement-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
-    .review-grid { display: grid; grid-template-columns: repeat(5, minmax(130px, 1fr)); gap: .75rem; align-items: end; }
+    .review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; align-items: end; }
     .review-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
     .review-wrap table { margin: 0; min-width: 1280px; }
     .review-wrap .form-control, .review-wrap .form-select { min-width: 120px; }
@@ -32,6 +32,15 @@
     .row-status { text-transform: capitalize; }
     .row-status.duplicate, .row-status.error { color: #dc3545; font-weight: 700; }
     .row-status.posted { color: #198754; font-weight: 700; }
+    .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; align-items: end; }
+    .sort-btn { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: 700; white-space: nowrap; }
+    .sort-btn:hover { color: var(--primary,#0d6efd); }
+    .lookup-note { max-width: 260px; color: var(--text-muted,#64748b); }
+    .lookup-compact { display: flex; align-items: center; gap: .4rem; min-width: 180px; }
+    .lookup-compact .lookup-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lookup-note strong { color: var(--text,#0f172a); }
+    .lookup-detail-body { white-space: pre-wrap; }
+    [data-theme="dark"] .lookup-note strong { color: var(--text,#e2e8f0); }
     @media (max-width: 992px) { .import-layout { grid-template-columns: 1fr; } }
     @media (max-width: 768px) { .statement-grid, .review-grid { grid-template-columns: 1fr; } }
   </style>
@@ -203,9 +212,44 @@
                 <button class="btn btn-outline-primary btn-sm" id="refreshHistoryBtn"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
               </div>
             </div>
+            <div class="filter-grid mb-3">
+              <div>
+                <label class="form-label">Search</label>
+                <input class="form-control" id="historySearchFilter" placeholder="File, dataset, user">
+              </div>
+              <div>
+                <label class="form-label">Status</label>
+                <select class="form-select" id="historyStatusFilter">
+                  <option value="">All statuses</option>
+                  <option value="staged">staged</option>
+                  <option value="needs_review">needs_review</option>
+                  <option value="partially_posted">partially_posted</option>
+                  <option value="posted">posted</option>
+                  <option value="removed">removed</option>
+                  <option value="closed">closed</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Dataset</label>
+                <select class="form-select" id="historyTypeFilter"><option value="">All datasets</option></select>
+              </div>
+              <div>
+                <label class="form-label">Visible</label>
+                <div class="fw-semibold" id="historyVisibleCount">0 batches</div>
+              </div>
+            </div>
             <div class="table-responsive">
               <table class="table table-hover align-middle">
-                <thead><tr><th>Batch</th><th>Dataset</th><th>File</th><th>Rows</th><th>Status</th><th>Created</th><th>User</th><th></th></tr></thead>
+                <thead><tr>
+                  <th><button class="sort-btn" data-history-sort="id">Batch <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-btn" data-history-sort="importType">Dataset <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-btn" data-history-sort="fileName">File <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-btn" data-history-sort="rowCount">Rows <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-btn" data-history-sort="status">Status <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-btn" data-history-sort="createdAt">Created <span class="sort-indicator"></span></button></th>
+                  <th><button class="sort-btn" data-history-sort="createdBy">User <span class="sort-indicator"></span></button></th>
+                  <th></th>
+                </tr></thead>
                 <tbody id="historyRows"><tr><td colspan="8" class="text-muted">Loading...</td></tr></tbody>
               </table>
             </div>
@@ -237,6 +281,10 @@
                 <select class="form-select" id="reviewDefaultCategory"><option value="">No default</option></select>
               </div>
               <div>
+                <label class="form-label">Category Search</label>
+                <input class="form-control" id="reviewCategorySearch" placeholder="Type to filter categories">
+              </div>
+              <div>
                 <label class="form-label">Ledger Status</label>
                 <select class="form-select" id="reviewDefaultStatus">
                   <option value="draft">draft</option>
@@ -252,22 +300,63 @@
               </div>
             </div>
 
+            <div class="filter-grid mb-3">
+              <div>
+                <label class="form-label">Search Rows</label>
+                <input class="form-control" id="reviewSearchFilter" placeholder="Description, merchant, note">
+              </div>
+              <div>
+                <label class="form-label">Row Status</label>
+                <select class="form-select" id="reviewStatusFilter">
+                  <option value="">All statuses</option>
+                  <option value="staged">staged</option>
+                  <option value="ready">ready</option>
+                  <option value="error">error</option>
+                  <option value="duplicate">duplicate</option>
+                  <option value="posted">posted</option>
+                  <option value="rejected">rejected</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Category</label>
+                <select class="form-select" id="reviewCategoryFilter">
+                  <option value="">All categories</option>
+                  <option value="missing">Missing category</option>
+                  <option value="present">Has category</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Type</label>
+                <select class="form-select" id="reviewTypeFilter">
+                  <option value="">All types</option>
+                  <option value="expense">expense</option>
+                  <option value="income">income</option>
+                  <option value="transfer">transfer</option>
+                  <option value="adjustment">adjustment</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Visible</label>
+                <div class="fw-semibold" id="reviewVisibleCount">0 rows</div>
+              </div>
+            </div>
+
             <div class="alert d-none" id="reviewResult"></div>
             <div class="review-wrap">
               <table class="table table-sm table-hover align-middle">
                 <thead>
                   <tr>
                     <th><input class="form-check-input" type="checkbox" id="selectAllReview"></th>
-                    <th>Row</th>
-                    <th>Status</th>
-                    <th>Date</th>
-                    <th>Account</th>
-                    <th>Category</th>
-                    <th>Type</th>
-                    <th class="text-end">Amount</th>
-                    <th>Description</th>
-                    <th>Merchant</th>
-                    <th>Note</th>
+                    <th><button class="sort-btn" data-review-sort="rowNumber">Row <span class="sort-indicator"></span></button></th>
+                    <th><button class="sort-btn" data-review-sort="status">Status <span class="sort-indicator"></span></button></th>
+                    <th><button class="sort-btn" data-review-sort="date">Date <span class="sort-indicator"></span></button></th>
+                    <th><button class="sort-btn" data-review-sort="account">Account <span class="sort-indicator"></span></button></th>
+                    <th><button class="sort-btn" data-review-sort="category">Category <span class="sort-indicator"></span></button></th>
+                    <th><button class="sort-btn" data-review-sort="type">Type <span class="sort-indicator"></span></button></th>
+                    <th class="text-end"><button class="sort-btn" data-review-sort="amount">Amount <span class="sort-indicator"></span></button></th>
+                    <th><button class="sort-btn" data-review-sort="description">Description <span class="sort-indicator"></span></button></th>
+                    <th><button class="sort-btn" data-review-sort="merchant">Merchant <span class="sort-indicator"></span></button></th>
+                    <th>Lookup / Note</th>
                   </tr>
                 </thead>
                 <tbody id="reviewRows"><tr><td colspan="11" class="text-muted">Open a staged batch to review rows.</td></tr></tbody>
@@ -280,6 +369,19 @@
   </div>
 </div>
 <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<div class="modal fade" id="lookupDetailModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="lookupDetailTitle">Lookup Detail</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-grid gap-3" id="lookupDetailBody"></div>
+      </div>
+    </div>
+  </div>
+</div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
 <a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
@@ -365,6 +467,11 @@ let accountRows = [];
 let categoryRows = [];
 let selectedBatchId = null;
 let batchRows = [];
+let historyRowsCache = [];
+let historySort = { key: 'createdAt', direction: 'desc' };
+let reviewSort = { key: 'rowNumber', direction: 'asc' };
+let rowLookupNotes = {};
+let rowLookupDetails = {};
 
 function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -460,6 +567,7 @@ async function loadStatementSetup() {
   statementProfiles = profilesRes.ok ? await profilesRes.json() : [];
   accountRows = accountsRes.ok ? await accountsRes.json() : [];
   categoryRows = categoriesRes.ok ? await categoriesRes.json() : [];
+  categoryRows.sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b), undefined, { sensitivity: 'base' }));
   document.getElementById('statementProfile').innerHTML = statementProfiles.map(profile =>
     '<option value="' + esc(profile.key) + '">' + esc(profile.label) + '</option>'
   ).join('');
@@ -467,12 +575,9 @@ async function loadStatementSetup() {
   const accountOptions = activeAccounts.map(account =>
     '<option value="' + account.id + '">' + esc(account.name) + ' (' + esc(account.currency || '') + ')</option>'
   ).join('');
-  const categoryOptions = categoryRows.filter(category => category.isActive !== false).map(category =>
-    '<option value="' + category.id + '">' + esc(category.groupName ? category.groupName + ' / ' + category.name : category.name) + '</option>'
-  ).join('');
   document.getElementById('statementAccount').innerHTML = '<option value="">No account selected</option>' + accountOptions;
   document.getElementById('reviewDefaultAccount').innerHTML = '<option value="">No default</option>' + accountOptions;
-  document.getElementById('reviewDefaultCategory').innerHTML = '<option value="">No default</option>' + categoryOptions;
+  refreshCategoryDropdowns();
 }
 async function handleFile(file) {
   selectedFile = file;
@@ -483,6 +588,31 @@ async function handleFile(file) {
 }
 function money(value) {
   return Number(value || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+}
+function plain(value) {
+  return String(value == null ? '' : value).toLowerCase();
+}
+function selectedOptionText(select) {
+  if (!select) return '';
+  return select.selectedOptions && select.selectedOptions[0] ? select.selectedOptions[0].textContent : '';
+}
+function compareValues(a, b, direction) {
+  const dir = direction === 'desc' ? -1 : 1;
+  const av = a == null ? '' : a;
+  const bv = b == null ? '' : b;
+  const an = Number(av);
+  const bn = Number(bv);
+  if (Number.isFinite(an) && Number.isFinite(bn) && String(av).trim() !== '' && String(bv).trim() !== '') {
+    return (an - bn) * dir;
+  }
+  return String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: 'base' }) * dir;
+}
+function updateSortIndicators(scope, state) {
+  document.querySelectorAll('[data-' + scope + '-sort]').forEach(btn => {
+    const indicator = btn.querySelector('.sort-indicator');
+    if (!indicator) return;
+    indicator.textContent = btn.dataset[scope + 'Sort'] === state.key ? (state.direction === 'asc' ? '^' : 'v') : '';
+  });
 }
 function renderStatementPreview(data) {
   const result = document.getElementById('statementResult');
@@ -559,6 +689,34 @@ function optionList(rows, selected, emptyLabel, labelFn) {
     return '<option value="' + esc(value) + '"' + (value === selectedText ? ' selected' : '') + '>' + esc(labelFn(row)) + '</option>';
   }).join('');
 }
+function categoryLabel(category) {
+  return category.groupName ? category.groupName + ' / ' + category.name : category.name;
+}
+function categoryMatchesSearch(category, search) {
+  if (!search) return true;
+  return plain([category.name, category.groupName, category.categoryType, categoryLabel(category)].join(' ')).includes(search);
+}
+function categoryOptions(selected, emptyLabel) {
+  const selectedText = selected == null ? '' : String(selected);
+  const search = plain(document.getElementById('reviewCategorySearch') ? document.getElementById('reviewCategorySearch').value : '');
+  const active = categoryRows.filter(category => category.isActive !== false);
+  const selectedCategory = selectedText ? active.find(category => String(category.id) === selectedText) : null;
+  let rows = active.filter(category => categoryMatchesSearch(category, search));
+  if (selectedCategory && !rows.some(category => String(category.id) === selectedText)) {
+    rows = [selectedCategory, ...rows];
+  }
+  return '<option value="">' + esc(emptyLabel) + '</option>' + rows.map(category => {
+    const value = String(category.id);
+    return '<option value="' + esc(value) + '"' + (value === selectedText ? ' selected' : '') + '>' + esc(categoryLabel(category)) + '</option>';
+  }).join('');
+}
+function refreshCategoryDropdowns() {
+  const defaultSelect = document.getElementById('reviewDefaultCategory');
+  if (defaultSelect) defaultSelect.innerHTML = categoryOptions(defaultSelect.value, 'No default');
+  document.querySelectorAll('.review-category').forEach(select => {
+    select.innerHTML = categoryOptions(select.value, 'No category');
+  });
+}
 function rowDraft(row) {
   return row && row.normalizedData ? row.normalizedData : {};
 }
@@ -574,6 +732,82 @@ function reviewMessage(message, type) {
   result.className = 'alert alert-' + (type || 'info');
   result.textContent = message;
 }
+function lookupNoteHtml(rowId, fallbackNote) {
+  const note = rowLookupNotes[rowId];
+  if (note) return note;
+  return '<span class="text-muted">' + esc(fallbackNote || '') + '</span>';
+}
+function showLookupDetail(rowId) {
+  const detail = rowLookupDetails[rowId];
+  if (!detail) return;
+  document.getElementById('lookupDetailTitle').textContent = detail.title || 'Lookup Detail';
+  document.getElementById('lookupDetailBody').innerHTML = [
+    detail.category ? '<div><div class="text-muted small">Category</div><div class="fw-semibold">' + esc(detail.category) + '</div></div>' : '',
+    detail.source ? '<div><div class="text-muted small">Matched By</div><div>' + esc(detail.source) + (detail.pattern ? ' / ' + esc(detail.pattern) : '') + '</div></div>' : '',
+    detail.cached ? '<div><span class="badge text-bg-info">Cached public lookup</span></div>' : '',
+    detail.query ? '<div><div class="text-muted small">Lookup Query</div><div class="lookup-detail-body">' + esc(detail.query) + '</div></div>' : '',
+    detail.summary ? '<div><div class="text-muted small">Online Summary</div><div class="lookup-detail-body">' + esc(detail.summary) + '</div></div>' : '',
+    detail.error ? '<div class="alert alert-warning mb-0">' + esc(detail.error) + '</div>' : '',
+    detail.url ? '<div><a class="btn btn-outline-primary btn-sm" href="' + esc(detail.url) + '" target="_blank" rel="noopener"><i class="fas fa-external-link-alt me-1"></i>Open Source</a></div>' : ''
+  ].filter(Boolean).join('');
+  bootstrap.Modal.getOrCreateInstance(document.getElementById('lookupDetailModal')).show();
+}
+function reviewRowValue(tr, key) {
+  if (key === 'rowNumber') return Number(tr.dataset.rowNumber || 0);
+  if (key === 'status') return tr.querySelector('.review-row-status') ? tr.querySelector('.review-row-status').value : '';
+  if (key === 'date') return tr.querySelector('.review-date') ? tr.querySelector('.review-date').value : '';
+  if (key === 'account') return selectedOptionText(tr.querySelector('.review-account'));
+  if (key === 'category') return selectedOptionText(tr.querySelector('.review-category'));
+  if (key === 'type') return tr.querySelector('.review-type') ? tr.querySelector('.review-type').value : '';
+  if (key === 'amount') return tr.querySelector('.review-amount') ? Number(tr.querySelector('.review-amount').value || 0) : 0;
+  if (key === 'description') return tr.querySelector('.review-description') ? tr.querySelector('.review-description').value : '';
+  if (key === 'merchant') return tr.querySelector('.review-merchant') ? tr.querySelector('.review-merchant').value : '';
+  return '';
+}
+function rowMatchesReviewFilters(tr) {
+  const search = plain(document.getElementById('reviewSearchFilter').value);
+  const status = document.getElementById('reviewStatusFilter').value;
+  const categoryFilter = document.getElementById('reviewCategoryFilter').value;
+  const type = document.getElementById('reviewTypeFilter').value;
+  const rowStatus = tr.querySelector('.review-row-status') ? tr.querySelector('.review-row-status').value : '';
+  const rowCategory = tr.querySelector('.review-category') ? tr.querySelector('.review-category').value : '';
+  const rowType = tr.querySelector('.review-type') ? tr.querySelector('.review-type').value : '';
+  const haystack = plain([
+    tr.dataset.rowNumber,
+    rowStatus,
+    rowType,
+    tr.querySelector('.review-date') ? tr.querySelector('.review-date').value : '',
+    selectedOptionText(tr.querySelector('.review-account')),
+    selectedOptionText(tr.querySelector('.review-category')),
+    tr.querySelector('.review-description') ? tr.querySelector('.review-description').value : '',
+    tr.querySelector('.review-merchant') ? tr.querySelector('.review-merchant').value : '',
+    tr.querySelector('.review-note') ? tr.querySelector('.review-note').innerText : ''
+  ].join(' '));
+  if (search && !haystack.includes(search)) return false;
+  if (status && rowStatus !== status) return false;
+  if (type && rowType !== type) return false;
+  if (categoryFilter === 'missing' && rowCategory) return false;
+  if (categoryFilter === 'present' && !rowCategory) return false;
+  return true;
+}
+function applyReviewFilters() {
+  const rows = Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]'));
+  let visible = 0;
+  rows.forEach(tr => {
+    const show = rowMatchesReviewFilters(tr);
+    tr.classList.toggle('d-none', !show);
+    if (show) visible += 1;
+  });
+  document.getElementById('reviewVisibleCount').textContent = visible + ' of ' + rows.length + ' rows';
+}
+function sortReviewRows(applyFiltersAfter) {
+  const tbody = document.getElementById('reviewRows');
+  const rows = Array.from(tbody.querySelectorAll('tr[data-row-id]'));
+  rows.sort((a, b) => compareValues(reviewRowValue(a, reviewSort.key), reviewRowValue(b, reviewSort.key), reviewSort.direction));
+  rows.forEach(row => tbody.appendChild(row));
+  updateSortIndicators('review', reviewSort);
+  if (applyFiltersAfter !== false) applyReviewFilters();
+}
 function renderBatchReview() {
   const panel = document.getElementById('batchReviewPanel');
   panel.classList.remove('d-none');
@@ -581,13 +815,12 @@ function renderBatchReview() {
   document.getElementById('reviewBatchMeta').textContent = batchRows.length + ' staged row(s). Duplicate and posted rows are locked.';
 
   const accountChoices = accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed');
-  const categoryChoices = categoryRows.filter(category => category.isActive !== false);
   document.getElementById('reviewRows').innerHTML = batchRows.length ? batchRows.map(row => {
     const draft = rowDraft(row);
     const status = row.status || 'staged';
     const disabled = !postableStatus(status);
     const note = row.errorMessage || (row.rawData && row.rawData.duplicateReason) || '';
-    return '<tr data-row-id="' + esc(row.id) + '">' +
+    return '<tr data-row-id="' + esc(row.id) + '" data-row-number="' + esc(row.rowNumber) + '">' +
       '<td><input class="form-check-input review-check" type="checkbox" ' + (disabled ? 'disabled' : '') + '></td>' +
       '<td>' + esc(row.rowNumber) + '</td>' +
       '<td><select class="form-select form-select-sm review-row-status" ' + (status === 'posted' || status === 'duplicate' ? 'disabled' : '') + '>' +
@@ -595,21 +828,25 @@ function renderBatchReview() {
       '</select><div class="row-status ' + esc(status) + '">' + esc(status) + '</div></td>' +
       '<td><input class="form-control form-control-sm review-date" type="date" value="' + esc(draft.transactionDate || '') + '" ' + (disabled ? 'disabled' : '') + '></td>' +
       '<td><select class="form-select form-select-sm review-account" ' + (disabled ? 'disabled' : '') + '>' + optionList(accountChoices, draft.accountId, 'Select account', account => account.name + (account.currency ? ' (' + account.currency + ')' : '')) + '</select></td>' +
-      '<td><select class="form-select form-select-sm review-category" ' + (disabled ? 'disabled' : '') + '>' + optionList(categoryChoices, draft.categoryId, 'No category', category => (category.groupName ? category.groupName + ' / ' : '') + category.name) + '</select></td>' +
+      '<td><select class="form-select form-select-sm review-category" ' + (disabled ? 'disabled' : '') + '>' + categoryOptions(draft.categoryId, 'No category') + '</select></td>' +
       '<td><select class="form-select form-select-sm review-type" ' + (disabled ? 'disabled' : '') + '>' +
         ['expense', 'income', 'transfer', 'adjustment'].map(item => '<option value="' + item + '"' + (item === draft.transactionType ? ' selected' : '') + '>' + item + '</option>').join('') +
       '</select></td>' +
       '<td><input class="form-control form-control-sm amount-input text-end review-amount" type="number" step="0.01" value="' + esc(draft.amount == null ? '' : draft.amount) + '" ' + (disabled ? 'disabled' : '') + '></td>' +
       '<td><input class="form-control form-control-sm description-input review-description" value="' + esc(draft.description || '') + '" ' + (disabled ? 'disabled' : '') + '></td>' +
       '<td><input class="form-control form-control-sm review-merchant" value="' + esc(draft.merchant || '') + '" ' + (disabled ? 'disabled' : '') + '></td>' +
-      '<td class="small text-muted">' + esc(note) + '</td>' +
+      '<td class="small lookup-note review-note">' + lookupNoteHtml(row.id, note) + '</td>' +
     '</tr>';
   }).join('') : '<tr><td colspan="11" class="text-muted">No rows in this batch.</td></tr>';
+  sortReviewRows(false);
+  applyReviewFilters();
   document.getElementById('batchReviewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 async function openBatch(id) {
   if (!id) return;
   selectedBatchId = Number(id);
+  rowLookupNotes = {};
+  rowLookupDetails = {};
   const res = await fetch('/api/import/batches/' + selectedBatchId + '/rows', { headers: authHeaders() });
   batchRows = res.ok ? await res.json() : [];
   renderBatchReview();
@@ -620,6 +857,7 @@ function collectReviewRows(selectedOnly) {
     const original = batchRows.find(row => Number(row.id) === id) || {};
     const draft = rowDraft(original);
     const checkbox = tr.querySelector('.review-check');
+    if (selectedOnly && tr.classList.contains('d-none')) return null;
     if (selectedOnly && (!checkbox || !checkbox.checked || checkbox.disabled)) return null;
     const accountId = tr.querySelector('.review-account').value;
     const categoryId = tr.querySelector('.review-category').value;
@@ -683,6 +921,7 @@ function applyReviewDefaults() {
   const defaultAccount = document.getElementById('reviewDefaultAccount').value;
   const defaultCategory = document.getElementById('reviewDefaultCategory').value;
   document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
+    if (tr.classList.contains('d-none')) return;
     const checkbox = tr.querySelector('.review-check');
     if (!checkbox || checkbox.disabled) return;
     if (defaultAccount) tr.querySelector('.review-account').value = defaultAccount;
@@ -690,6 +929,7 @@ function applyReviewDefaults() {
     const status = tr.querySelector('.review-row-status');
     if (status.value === 'staged' || status.value === 'error') status.value = 'ready';
   });
+  applyReviewFilters();
 }
 async function requestMerchantSuggestion(draft, onlineLookup) {
   const res = await fetch('/api/import/merchant-suggest', {
@@ -716,6 +956,40 @@ function applySuggestionToRow(tr, suggestion) {
   if (checkbox && !checkbox.disabled) checkbox.checked = true;
   return true;
 }
+function suggestionSourceLabel(source) {
+  if (source === 'category_keygroup') return 'category keyword';
+  if (source === 'online_lookup') return 'online lookup';
+  if (source === 'user') return 'learned rule';
+  if (source === 'default') return 'default rule';
+  return source || 'rule';
+}
+function setRowLookupNote(tr, data, onlineLookup) {
+  const rowId = tr.dataset.rowId;
+  const suggestion = data && data.suggestion;
+  const source = suggestion ? suggestionSourceLabel(suggestion.source) : (onlineLookup ? 'online checked' : 'no match');
+  const sourceUrl = data && data.lookupSources && data.lookupSources.length ? data.lookupSources[0].url : '';
+  rowLookupDetails[rowId] = {
+    title: (tr.querySelector('.review-merchant') ? tr.querySelector('.review-merchant').value : '') || 'Lookup Detail',
+    category: suggestion ? suggestion.categoryName : '',
+    source,
+    pattern: suggestion && suggestion.matchedPattern ? suggestion.matchedPattern : '',
+    query: data && data.lookupQuery ? data.lookupQuery : '',
+    summary: data && data.lookupSummary ? data.lookupSummary : '',
+    error: data && data.lookupError ? data.lookupError : '',
+    url: sourceUrl,
+    cached: !!(data && data.lookupCached)
+  };
+  const label = suggestion ? suggestion.categoryName : (data && data.lookupError ? 'Lookup limited' : 'No match');
+  const badgeClass = suggestion ? 'text-bg-success' : (data && data.lookupError ? 'text-bg-warning' : 'text-bg-secondary');
+  const hasDetail = !!(rowLookupDetails[rowId].summary || rowLookupDetails[rowId].query || rowLookupDetails[rowId].error || rowLookupDetails[rowId].url);
+  const html = '<div class="lookup-compact">' +
+    '<span class="badge ' + badgeClass + ' lookup-label">' + esc(label) + '</span>' +
+    (hasDetail ? '<button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" onclick="showLookupDetail(' + Number(rowId) + ')">Details</button>' : '') +
+    '</div><div class="small text-muted">' + esc(source) + (suggestion && suggestion.matchedPattern ? ' / ' + esc(suggestion.matchedPattern) : '') + '</div>';
+  rowLookupNotes[rowId] = html;
+  const note = tr.querySelector('.review-note');
+  if (note) note.innerHTML = html;
+}
 async function suggestReviewCategories(onlineLookup) {
   const defaultAccount = document.getElementById('reviewDefaultAccount').value || singleActiveAccountId();
   let suggested = 0;
@@ -724,13 +998,21 @@ async function suggestReviewCategories(onlineLookup) {
   let emptyLookup = 0;
   let lookupErrors = 0;
   let localFallbacks = 0;
+  const matchExamples = [];
   const rows = Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]'));
-  const targetRows = rows.filter(tr => {
+  const visiblePostableRows = rows.filter(tr => {
     const checkbox = tr.querySelector('.review-check');
-    return checkbox && !checkbox.disabled && (!onlineLookup || checkbox.checked);
+    return checkbox && !checkbox.disabled && !tr.classList.contains('d-none');
   });
+  const checkedRows = visiblePostableRows.filter(tr => {
+    const checkbox = tr.querySelector('.review-check');
+    return checkbox && checkbox.checked;
+  });
+  const targetRows = onlineLookup
+    ? (checkedRows.length ? checkedRows : visiblePostableRows.filter(tr => !(tr.querySelector('.review-category') || {}).value))
+    : visiblePostableRows;
   if (onlineLookup && !targetRows.length) {
-    return reviewMessage('Select one or more rows before running online lookup.', 'warning');
+    return reviewMessage('Select rows or filter to visible rows with missing categories before running online lookup.', 'warning');
   }
   const button = document.getElementById(onlineLookup ? 'lookupOnlineBtn' : 'suggestCategoriesBtn');
   const originalButtonHtml = button.innerHTML;
@@ -759,7 +1041,13 @@ async function suggestReviewCategories(onlineLookup) {
         if (!data.lookupSummary && !data.lookupError) emptyLookup += 1;
         if (!data.onlineSuggestion && data.localSuggestion) localFallbacks += 1;
       }
-      if (applySuggestionToRow(tr, data.suggestion)) suggested += 1;
+      setRowLookupNote(tr, data, onlineLookup);
+      if (applySuggestionToRow(tr, data.suggestion)) {
+        suggested += 1;
+        if (data.suggestion && matchExamples.length < 5) {
+          matchExamples.push((draft.merchant || draft.description || 'row') + ' -> ' + data.suggestion.categoryName + ' (' + suggestionSourceLabel(data.suggestion.source) + ')');
+        }
+      }
     }
   } catch (err) {
     reviewMessage(err.message || 'Unable to complete category lookup.', 'danger');
@@ -769,8 +1057,10 @@ async function suggestReviewCategories(onlineLookup) {
     button.innerHTML = originalButtonHtml;
   }
   if (onlineLookup) {
+    applyReviewFilters();
     reviewMessage(
       'Online lookup checked ' + lookedUp + ' row(s) and applied ' + suggested + ' categorization(s).' +
+        (matchExamples.length ? ' Matches: ' + matchExamples.join('; ') + '.' : '') +
         (localFallbacks ? ' Local rules filled ' + localFallbacks + ' row(s) when public lookup did not improve the match.' : '') +
         (emptyLookup ? ' No public lookup text returned for ' + emptyLookup + ' row(s).' : '') +
         (lookupErrors ? ' Lookup errors: ' + lookupErrors + '.' : '') +
@@ -779,12 +1069,14 @@ async function suggestReviewCategories(onlineLookup) {
     );
     return;
   }
-  reviewMessage('Merchant index suggested ' + suggested + ' categorization(s)' + (accountFilled ? ' and filled account on ' + accountFilled + ' row(s).' : '.'), suggested ? 'success' : 'warning');
+  applyReviewFilters();
+  reviewMessage('Merchant index suggested ' + suggested + ' categorization(s)' + (matchExamples.length ? ' Matches: ' + matchExamples.join('; ') + '.' : '') + (accountFilled ? ' Account filled on ' + accountFilled + ' row(s).' : ''), suggested ? 'success' : 'warning');
 }
 async function learnSelectedRules() {
   const rows = Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]'));
   let learned = 0;
   for (const tr of rows) {
+    if (tr.classList.contains('d-none')) continue;
     const checkbox = tr.querySelector('.review-check');
     if (!checkbox || !checkbox.checked || checkbox.disabled) continue;
     const merchant = tr.querySelector('.review-merchant').value || tr.querySelector('.review-description').value;
@@ -806,6 +1098,7 @@ async function learnSelectedRules() {
 }
 function selectPostableRows() {
   document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
+    if (tr.classList.contains('d-none')) return;
     const checkbox = tr.querySelector('.review-check');
     if (checkbox && !checkbox.disabled) checkbox.checked = true;
   });
@@ -929,10 +1222,30 @@ async function searchMerchantKeygroup() {
     btn.innerHTML = originalHtml;
   }
 }
-async function loadBatches() {
-  const includeRemoved = document.getElementById('showRemovedBatches').checked;
-  const res = await fetch('/api/import/batches' + (includeRemoved ? '?includeRemoved=1' : ''), { headers: authHeaders() });
-  const rows = res.ok ? await res.json() : [];
+function renderHistoryTypeFilter() {
+  const select = document.getElementById('historyTypeFilter');
+  const current = select.value;
+  const types = Array.from(new Set(historyRowsCache.map(row => row.importType).filter(Boolean))).sort();
+  select.innerHTML = '<option value="">All datasets</option>' + types.map(type =>
+    '<option value="' + esc(type) + '"' + (type === current ? ' selected' : '') + '>' + esc(type) + '</option>'
+  ).join('');
+}
+function filteredHistoryRows() {
+  const search = plain(document.getElementById('historySearchFilter').value);
+  const status = document.getElementById('historyStatusFilter').value;
+  const type = document.getElementById('historyTypeFilter').value;
+  return historyRowsCache.filter(row => {
+    const haystack = plain([row.id, row.importType, row.fileName, row.status, row.createdBy, row.createdAt].join(' '));
+    if (search && !haystack.includes(search)) return false;
+    if (status && row.status !== status) return false;
+    if (type && row.importType !== type) return false;
+    return true;
+  }).sort((a, b) => compareValues(a[historySort.key], b[historySort.key], historySort.direction));
+}
+function renderHistoryRows() {
+  const rows = filteredHistoryRows();
+  updateSortIndicators('history', historySort);
+  document.getElementById('historyVisibleCount').textContent = rows.length + ' of ' + historyRowsCache.length + ' batches';
   document.getElementById('historyRows').innerHTML = rows.length ? rows.map(row =>
     '<tr>' +
       '<td>#' + esc(row.id) + '</td>' +
@@ -947,7 +1260,14 @@ async function loadBatches() {
         '<button class="btn btn-outline-danger btn-sm" ' + (row.status === 'removed' ? 'disabled' : '') + ' onclick="removeBatch(' + Number(row.id) + ', \'' + esc(String(row.fileName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')"><i class="fas fa-trash-alt me-1"></i>Remove</button>' +
       '</div></td>' +
     '</tr>'
-  ).join('') : '<tr><td colspan="8" class="text-muted">No staged batches yet.</td></tr>';
+  ).join('') : '<tr><td colspan="8" class="text-muted">No staged batches match the current filters.</td></tr>';
+}
+async function loadBatches() {
+  const includeRemoved = document.getElementById('showRemovedBatches').checked;
+  const res = await fetch('/api/import/batches' + (includeRemoved ? '?includeRemoved=1' : ''), { headers: authHeaders() });
+  historyRowsCache = res.ok ? await res.json() : [];
+  renderHistoryTypeFilter();
+  renderHistoryRows();
 }
 async function removeBatch(id, fileName) {
   if (!id) return;
@@ -990,6 +1310,15 @@ document.getElementById('merchantKeySearch').addEventListener('keydown', event =
 document.getElementById('statementStageBtn').addEventListener('click', stageStatementFile);
 document.getElementById('refreshHistoryBtn').addEventListener('click', loadBatches);
 document.getElementById('showRemovedBatches').addEventListener('change', loadBatches);
+document.getElementById('historySearchFilter').addEventListener('input', renderHistoryRows);
+document.getElementById('historyStatusFilter').addEventListener('change', renderHistoryRows);
+document.getElementById('historyTypeFilter').addEventListener('change', renderHistoryRows);
+document.querySelectorAll('[data-history-sort]').forEach(btn => btn.addEventListener('click', () => {
+  const key = btn.dataset.historySort;
+  historySort.direction = historySort.key === key && historySort.direction === 'asc' ? 'desc' : 'asc';
+  historySort.key = key;
+  renderHistoryRows();
+}));
 document.getElementById('applyDefaultsBtn').addEventListener('click', applyReviewDefaults);
 document.getElementById('selectPostableBtn').addEventListener('click', selectPostableRows);
 document.getElementById('suggestCategoriesBtn').addEventListener('click', () => suggestReviewCategories(false));
@@ -998,8 +1327,32 @@ document.getElementById('learnRulesBtn').addEventListener('click', learnSelected
 document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 document.getElementById('postRowsBtn').addEventListener('click', postSelectedRows);
 document.getElementById('reloadReviewBtn').addEventListener('click', () => openBatch(selectedBatchId));
+document.getElementById('reviewSearchFilter').addEventListener('input', applyReviewFilters);
+document.getElementById('reviewStatusFilter').addEventListener('change', applyReviewFilters);
+document.getElementById('reviewCategoryFilter').addEventListener('change', applyReviewFilters);
+document.getElementById('reviewTypeFilter').addEventListener('change', applyReviewFilters);
+document.getElementById('reviewCategorySearch').addEventListener('input', () => {
+  refreshCategoryDropdowns();
+  applyReviewFilters();
+});
+document.querySelectorAll('[data-review-sort]').forEach(btn => btn.addEventListener('click', () => {
+  const key = btn.dataset.reviewSort;
+  reviewSort.direction = reviewSort.key === key && reviewSort.direction === 'asc' ? 'desc' : 'asc';
+  reviewSort.key = key;
+  sortReviewRows();
+}));
+document.getElementById('reviewRows').addEventListener('change', event => {
+  if (event.target.closest('select') || event.target.classList.contains('review-date') || event.target.classList.contains('review-amount')) applyReviewFilters();
+});
+document.getElementById('reviewRows').addEventListener('input', event => {
+  if (event.target.classList.contains('review-description') || event.target.classList.contains('review-merchant')) applyReviewFilters();
+});
 document.getElementById('selectAllReview').addEventListener('change', event => {
-  document.querySelectorAll('.review-check').forEach(input => { if (!input.disabled) input.checked = event.target.checked; });
+  document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
+    if (tr.classList.contains('d-none')) return;
+    const input = tr.querySelector('.review-check');
+    if (input && !input.disabled) input.checked = event.target.checked;
+  });
 });
 document.addEventListener('DOMContentLoaded', function() { renderSelected(); loadStatementSetup(); loadBatches(); });
 </script>

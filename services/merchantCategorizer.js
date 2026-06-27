@@ -78,11 +78,19 @@ function sourceConfidence(source) {
 }
 
 function ruleScore(rule, requestedType) {
-  const sourceScore = rule.source === 'user' ? 40 : (rule.source === 'category_keygroup' ? 30 : 10);
+  const sourceScore = rule.source === 'category_keygroup' ? 70 : (rule.source === 'user' ? 50 : 10);
   const typeScore = requestedType && normalize(rule.transactionType) === requestedType ? 30 : 0;
   const mismatchPenalty = requestedType && normalize(rule.transactionType) && normalize(rule.transactionType) !== requestedType ? -25 : 0;
   const patternScore = Math.min(normalize(rule.pattern).length, 50);
   return sourceScore + typeScore + mismatchPenalty + patternScore;
+}
+
+function includesTerm(haystack, term) {
+  const value = normalize(term);
+  if (!value) return false;
+  if (value.includes(' ')) return haystack.includes(value);
+  const escaped = value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)').test(haystack);
 }
 
 function suggestFromRules({ text, categories, customRules = [], transactionType }) {
@@ -116,18 +124,30 @@ function suggestFromRules({ text, categories, customRules = [], transactionType 
 function inferFromLookupText(text, categories) {
   const haystack = normalize(text);
   const hints = [
-    ['hotel motel lodging travel airline flight airport', 'Travel & Lodging'],
-    ['wireless mobile phone internet telecom communications', 'Utilities'],
-    ['gas fuel gasoline convenience station', 'Transportation'],
-    ['grocery supermarket food market', 'Groceries'],
-    ['pharmacy drugstore health medical dental doctor', 'Health & Pharmacy'],
-    ['software subscription streaming cloud app', 'Subscriptions & Software'],
-    ['restaurant cafe coffee dining food', 'Dining & Entertainment'],
-    ['hardware home improvement household supplies', 'Household Supplies'],
-    ['insurance', 'Insurance']
+    ['pharmacy|drugstore', 'Pharmacy'],
+    ['health|medical|doctor|hospital|clinic', 'Doctor and Medical'],
+    ['dental|dentist', 'Dental'],
+    ['gas|fuel|gasoline|oil|petroleum|energy', 'Gas and Fuel'],
+    ['convenience store', 'Convenience Store'],
+    ['hotel|motel|lodging', 'Hotels'],
+    ['airline|flight|airport', 'Flights'],
+    ['wireless|mobile phone|telecom|communications', 'Mobile Phone'],
+    ['internet|broadband|fiber|cable', 'Internet'],
+    ['grocery|supermarket|food market', 'Groceries'],
+    ['software|subscription|streaming|cloud app', 'Subscriptions & Software'],
+    ['restaurant|cafe|dining', 'Restaurants'],
+    ['coffee|snack', 'Coffee and Snacks'],
+    ['hardware|home improvement|household supplies', 'Home Improvement'],
+    ['insurance', 'Insurance'],
+    ['toll|parking|transit', 'Transportation'],
+    ['utility|utilities', 'Utilities'],
+    ['travel', 'Travel & Lodging'],
+    ['health pharmacy', 'Health & Pharmacy'],
+    ['entertainment', 'Dining & Entertainment'],
+    ['household', 'Household Supplies']
   ];
   for (const [words, categoryName] of hints) {
-    if (!words.split(' ').some((word) => haystack.includes(word))) continue;
+    if (!words.split('|').some((word) => includesTerm(haystack, word))) continue;
     const category = categoryByName(categories, categoryName);
     if (category) {
       return {

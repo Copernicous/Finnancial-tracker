@@ -706,6 +706,7 @@ async function lookupWikipediaSummary(query) {
     headers: { 'User-Agent': 'HomeAccountingMerchantLookup/0.1' },
     signal: AbortSignal.timeout(7000)
   });
+  if (searchResponse.status === 429) throw new Error('Public lookup rate limited by Wikipedia (HTTP 429). Try fewer rows or wait a minute.');
   if (!searchResponse.ok) throw new Error('Wikipedia search returned HTTP ' + searchResponse.status);
   const searchData = await searchResponse.json();
   const first = searchData && searchData.query && Array.isArray(searchData.query.search)
@@ -717,6 +718,7 @@ async function lookupWikipediaSummary(query) {
     headers: { 'User-Agent': 'HomeAccountingMerchantLookup/0.1' },
     signal: AbortSignal.timeout(7000)
   });
+  if (summaryResponse.status === 429) throw new Error('Public lookup rate limited by Wikipedia (HTTP 429). Try fewer rows or wait a minute.');
   if (!summaryResponse.ok) {
     return {
       query,
@@ -736,15 +738,25 @@ async function lookupWikipediaSummary(query) {
   };
 }
 
+const merchantLookupCache = new Map();
+const MERCHANT_LOOKUP_CACHE_MS = 6 * 60 * 60 * 1000;
+
 async function lookupMerchantOnline(query) {
   const merchantQuery = cleanMerchantLookupQuery(query);
   if (!merchantQuery) return { text: '', query: '' };
+  const cacheKey = merchantCategorizer.normalize(merchantQuery);
+  const cached = merchantLookupCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { ...cached.value, cached: true };
+  }
+
   const searchQuery = `${merchantQuery} company business type`;
   const url = 'https://api.duckduckgo.com/?format=json&no_html=1&skip_disambig=1&q=' + encodeURIComponent(searchQuery);
   const response = await fetch(url, {
     headers: { 'User-Agent': 'HomeAccountingMerchantLookup/0.1' },
     signal: AbortSignal.timeout(7000)
   });
+  if (response.status === 429) throw new Error('Public lookup rate limited by DuckDuckGo (HTTP 429). Try fewer rows or wait a minute.');
   if (!response.ok) throw new Error('Lookup returned HTTP ' + response.status);
   const data = await response.json();
   const related = Array.isArray(data.RelatedTopics) ? data.RelatedTopics.slice(0, 3).map((item) => item.Text || '').filter(Boolean).join(' ') : '';
@@ -752,17 +764,21 @@ async function lookupMerchantOnline(query) {
   const text = [data.Heading, data.AbstractText, data.AbstractSource, related].filter(Boolean).join(' ');
   if (!text) {
     const wiki = await lookupWikipediaSummary(merchantQuery);
-    return {
+    const value = {
       query: searchQuery + (wiki.query ? ' | Wikipedia: ' + wiki.query : ''),
       text: wiki.text,
       sources: wiki.sources
     };
+    merchantLookupCache.set(cacheKey, { value, expiresAt: Date.now() + MERCHANT_LOOKUP_CACHE_MS });
+    return value;
   }
-  return {
+  const value = {
     query: searchQuery,
     text,
     sources
   };
+  merchantLookupCache.set(cacheKey, { value, expiresAt: Date.now() + MERCHANT_LOOKUP_CACHE_MS });
+  return value;
 }
 
 exports.suggestMerchantCategory = async (req, res) => {
@@ -807,7 +823,8 @@ exports.suggestMerchantCategory = async (req, res) => {
       onlineLookupUsed: true,
       lookupQuery: lookup.query,
       lookupSummary: lookup.text ? lookup.text.slice(0, 400) : '',
-      lookupSources: lookup.sources || []
+      lookupSources: lookup.sources || [],
+      lookupCached: !!lookup.cached
     });
   } catch (err) {
     res.json({
