@@ -174,6 +174,7 @@
               </div>
               <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-outline-secondary btn-sm" id="selectPostableBtn"><i class="fas fa-check-square me-1"></i>Select Postable</button>
+                <button class="btn btn-outline-success btn-sm" id="suggestCategoriesBtn"><i class="fas fa-magic me-1"></i>Suggest Categories</button>
                 <button class="btn btn-outline-primary btn-sm" id="saveReviewBtn"><i class="fas fa-save me-1"></i>Save Review</button>
                 <button class="btn btn-success btn-sm" id="postRowsBtn"><i class="fas fa-file-import me-1"></i>Post Selected</button>
               </div>
@@ -517,6 +518,30 @@ function rowDraft(row) {
 function postableStatus(status) {
   return ['staged', 'ready', 'error'].includes(String(status || 'staged'));
 }
+const CATEGORY_RULES = [
+  { category: 'Credit Card Payment', type: 'transfer', words: ['online payment', 'payment thank you', 'autopay'] },
+  { category: 'Utilities', type: 'expense', words: ['google fi', 'electric', 'water', 'internet', 'xfinity', 'comcast', 'verizon', 't-mobile', 'tmobile', 'at&t', 'att '] },
+  { category: 'Transportation', type: 'expense', words: ['chevron', 'shell', 'exxon', 'mobil', 'wawa', 'bp ', 'sunoco', 'uber', 'lyft', 'parking', 'toll'] },
+  { category: 'Groceries', type: 'expense', words: ['publix', 'walmart', 'costco', 'whole foods', 'trader joe', 'grocery', 'market'] },
+  { category: 'Dining & Entertainment', type: 'expense', words: ['restaurant', 'cafe', 'coffee', 'starbucks', 'doordash', 'uber eats', 'netflix', 'spotify', 'cinema'] },
+  { category: 'Bank Fees', type: 'expense', words: ['fee', 'interest charge', 'minimum interest'] },
+  { category: 'Insurance', type: 'expense', words: ['insurance', 'geico', 'progressive', 'state farm'] },
+  { category: 'Housing', type: 'expense', words: ['mortgage', 'rent', 'hoa'] }
+];
+function categoryByName(name) {
+  return categoryRows.find(category => String(category.name || '').toLowerCase() === String(name || '').toLowerCase());
+}
+function suggestedCategory(draft) {
+  const haystack = [draft.description, draft.merchant, draft.tags, draft.statementSection].join(' ').toLowerCase();
+  const rule = CATEGORY_RULES.find(item => item.words.some(word => haystack.includes(word)));
+  if (!rule) return null;
+  const category = categoryByName(rule.category);
+  return category ? { id: category.id, type: rule.type, name: category.name } : null;
+}
+function singleActiveAccountId() {
+  const active = accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed');
+  return active.length === 1 ? String(active[0].id) : '';
+}
 function reviewMessage(message, type) {
   const result = document.getElementById('reviewResult');
   result.className = 'alert alert-' + (type || 'info');
@@ -639,6 +664,37 @@ function applyReviewDefaults() {
     if (status.value === 'staged' || status.value === 'error') status.value = 'ready';
   });
 }
+function suggestReviewCategories() {
+  const defaultAccount = document.getElementById('reviewDefaultAccount').value || singleActiveAccountId();
+  let suggested = 0;
+  let accountFilled = 0;
+  document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
+    const checkbox = tr.querySelector('.review-check');
+    if (!checkbox || checkbox.disabled) return;
+    const original = batchRows.find(row => Number(row.id) === Number(tr.dataset.rowId)) || {};
+    const draft = {
+      ...rowDraft(original),
+      description: tr.querySelector('.review-description').value,
+      merchant: tr.querySelector('.review-merchant').value,
+      transactionType: tr.querySelector('.review-type').value
+    };
+    const accountSelect = tr.querySelector('.review-account');
+    if (!accountSelect.value && defaultAccount) {
+      accountSelect.value = defaultAccount;
+      accountFilled += 1;
+    }
+    const match = suggestedCategory(draft);
+    if (match) {
+      tr.querySelector('.review-category').value = String(match.id);
+      tr.querySelector('.review-type').value = match.type;
+      const status = tr.querySelector('.review-row-status');
+      if (status.value === 'staged' || status.value === 'error') status.value = 'ready';
+      checkbox.checked = true;
+      suggested += 1;
+    }
+  });
+  reviewMessage('Suggested ' + suggested + ' categorization(s)' + (accountFilled ? ' and filled account on ' + accountFilled + ' row(s).' : '.') , suggested ? 'success' : 'warning');
+}
 function selectPostableRows() {
   document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
     const checkbox = tr.querySelector('.review-check');
@@ -689,6 +745,7 @@ document.getElementById('statementStageBtn').addEventListener('click', stageStat
 document.getElementById('refreshHistoryBtn').addEventListener('click', loadBatches);
 document.getElementById('applyDefaultsBtn').addEventListener('click', applyReviewDefaults);
 document.getElementById('selectPostableBtn').addEventListener('click', selectPostableRows);
+document.getElementById('suggestCategoriesBtn').addEventListener('click', suggestReviewCategories);
 document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 document.getElementById('postRowsBtn').addEventListener('click', postSelectedRows);
 document.getElementById('reloadReviewBtn').addEventListener('click', () => openBatch(selectedBatchId));
