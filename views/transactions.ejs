@@ -157,6 +157,24 @@
       padding: .7rem .9rem;
       border-top: 1px solid var(--border);
     }
+    .tx-table-controls {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: .55rem;
+      flex-wrap: wrap;
+    }
+    .tx-page-size {
+      display: inline-flex;
+      align-items: center;
+      gap: .4rem;
+      color: var(--text-muted);
+      font-size: .76rem;
+      font-weight: 700;
+    }
+    .tx-page-size .form-select {
+      width: 86px;
+    }
     .tx-chart-controls {
       display: flex;
       align-items: center;
@@ -431,58 +449,7 @@
               <label for="toFilter">To</label>
               <input class="form-control form-control-sm" type="date" id="toFilter">
             </div>
-            <div class="tx-field">
-              <label for="perPageFilter">View</label>
-              <select class="form-select form-select-sm" id="perPageFilter">
-                <option value="25">25</option>
-                <option value="50" selected>50</option>
-                <option value="100">100</option>
-                <option value="250">250</option>
-                <option value="500">500</option>
-              </select>
-            </div>
           </form>
-        </div>
-      </section>
-
-      <section class="tx-panel">
-        <div class="tx-category-strip no-print" id="categoryStrip"></div>
-        <div class="tx-ledger-toolbar no-print">
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <div class="form-check m-0">
-              <input class="form-check-input" type="checkbox" id="selectAllRows">
-              <label class="form-check-label small" for="selectAllRows">Select</label>
-            </div>
-            <select class="form-select form-select-sm" id="bulkCategory" style="width:220px"><option value="">Choose category...</option></select>
-            <button class="btn btn-outline-primary btn-sm" type="button" id="bulkCategoryBtn"><i class="fas fa-tags me-1"></i>Apply</button>
-            <button class="btn btn-outline-success btn-sm" type="button" id="autoCategorizeBtn"><i class="fas fa-wand-magic-sparkles me-1"></i>Auto Match</button>
-            <button class="btn btn-outline-info btn-sm" type="button" id="onlineLookupBtn"><i class="fas fa-globe me-1"></i>Online Lookup</button>
-            <button class="btn btn-outline-warning btn-sm" type="button" id="uncategorizedBtn"><i class="fas fa-filter me-1"></i>Uncategorized</button>
-          </div>
-          <div class="tx-muted" id="selectedCount">0 selected</div>
-        </div>
-        <div class="tx-table-wrap table-responsive">
-          <table class="table table-hover align-middle tx-table">
-            <thead>
-              <tr>
-                <th class="no-print" style="width:34px"></th>
-                <th data-sort="transactionDate">Date</th>
-                <th data-sort="accountName">Account</th>
-                <th data-sort="categoryName">Category</th>
-                <th data-sort="merchant">Merchant</th>
-                <th data-sort="description">Description</th>
-                <th data-sort="transactionType">Type</th>
-                <th data-sort="amount" class="text-end">Amount</th>
-                <th data-sort="status">Status</th>
-                <th class="text-end no-print">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="ledgerRows"><tr><td colspan="10" class="text-muted">Loading...</td></tr></tbody>
-          </table>
-        </div>
-        <div class="tx-pagination no-print">
-          <div class="tx-muted" id="pageInfo">Page 1</div>
-          <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
         </div>
       </section>
 
@@ -511,6 +478,66 @@
         </div>
         <div class="tx-panel-body">
           <div class="tx-chart-frame"><canvas id="trendChart"></canvas></div>
+        </div>
+      </section>
+
+      <section class="tx-panel">
+        <div class="tx-panel-header no-print">
+          <div>
+            <h5 class="tx-title">Ledger Review</h5>
+            <div class="tx-muted">Use page controls first, then select visible rows for bulk changes.</div>
+          </div>
+          <div class="tx-table-controls">
+            <label class="tx-page-size" for="perPageFilter">Rows
+              <select class="form-select form-select-sm" id="perPageFilter">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="500">500</option>
+              </select>
+            </label>
+            <span class="tx-muted" id="pageInfoTop">Page 1</span>
+            <nav><ul class="pagination pagination-sm mb-0" id="paginationTop"></ul></nav>
+          </div>
+        </div>
+        <div class="tx-category-strip no-print" id="categoryStrip"></div>
+        <div class="tx-ledger-toolbar no-print">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="form-check m-0">
+              <input class="form-check-input" type="checkbox" id="selectAllRows">
+              <label class="form-check-label small" for="selectAllRows">Visible rows</label>
+            </div>
+            <select class="form-select form-select-sm" id="bulkCategory" style="width:220px"><option value="">Choose category...</option></select>
+            <button class="btn btn-outline-primary btn-sm" type="button" id="bulkCategoryBtn"><i class="fas fa-tags me-1"></i>Apply</button>
+            <button class="btn btn-outline-success btn-sm" type="button" id="autoCategorizeBtn"><i class="fas fa-wand-magic-sparkles me-1"></i>Auto Match</button>
+            <button class="btn btn-outline-info btn-sm" type="button" id="onlineLookupBtn"><i class="fas fa-globe me-1"></i>Online Lookup</button>
+            <button class="btn btn-outline-warning btn-sm" type="button" id="uncategorizedBtn"><i class="fas fa-filter me-1"></i>Uncategorized</button>
+          </div>
+          <div class="tx-muted" id="selectedCount">0 visible selected</div>
+        </div>
+        <div class="tx-table-wrap table-responsive">
+          <table class="table table-hover align-middle tx-table">
+            <thead>
+              <tr>
+                <th class="no-print" style="width:34px"></th>
+                <th data-sort="transactionDate">Date</th>
+                <th data-sort="accountName">Account</th>
+                <th data-sort="categoryName">Category</th>
+                <th data-sort="merchant">Merchant</th>
+                <th data-sort="description">Description</th>
+                <th data-sort="transactionType">Type</th>
+                <th data-sort="amount" class="text-end">Amount</th>
+                <th data-sort="status">Status</th>
+                <th class="text-end no-print">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerRows"><tr><td colspan="10" class="text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="tx-pagination no-print">
+          <div class="tx-muted" id="pageInfo">Page 1</div>
+          <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
         </div>
       </section>
     </div>
@@ -841,7 +868,9 @@ function renderPagination() {
   const limit = lastSearch.limit || 50;
   const first = totalPages ? ((page - 1) * limit) + 1 : 0;
   const last = Math.min((lastSearch.total || 0), page * limit);
-  document.getElementById('pageInfo').textContent = first + '-' + last + ' of ' + (lastSearch.total || 0).toLocaleString();
+  const label = first + '-' + last + ' of ' + (lastSearch.total || 0).toLocaleString();
+  document.getElementById('pageInfo').textContent = label;
+  document.getElementById('pageInfoTop').textContent = label;
   const pages = [
     ['first', 1, page === 1, '<i class="fas fa-angles-left"></i>'],
     ['prev', Math.max(1, page - 1), page === 1, '<i class="fas fa-angle-left"></i>'],
@@ -849,11 +878,13 @@ function renderPagination() {
     ['next', Math.min(totalPages, page + 1), page === totalPages, '<i class="fas fa-angle-right"></i>'],
     ['last', totalPages, page === totalPages, '<i class="fas fa-angles-right"></i>']
   ];
-  document.getElementById('pagination').innerHTML = pages.map(item => {
+  const html = pages.map(item => {
     const active = item[0] === 'current' ? ' active' : '';
     const disabled = item[2] && item[0] !== 'current' ? ' disabled' : '';
     return '<li class="page-item' + active + disabled + '"><button class="page-link" type="button" data-page="' + item[1] + '">' + item[3] + '</button></li>';
   }).join('');
+  document.getElementById('pagination').innerHTML = html;
+  document.getElementById('paginationTop').innerHTML = html;
 }
 
 function selectedIds() {
@@ -861,7 +892,7 @@ function selectedIds() {
 }
 function updateSelectedCount() {
   const count = selectedIds().length;
-  document.getElementById('selectedCount').textContent = count + ' selected';
+  document.getElementById('selectedCount').textContent = count + ' visible selected';
   document.getElementById('selectAllRows').checked = rows.length > 0 && count === rows.length;
 }
 
@@ -1116,10 +1147,16 @@ document.getElementById('selectAllRows').addEventListener('change', event => {
   document.querySelectorAll('.tx-row-check').forEach(input => { input.checked = event.target.checked; });
   updateSelectedCount();
 });
-document.getElementById('pagination').addEventListener('click', event => {
-  const btn = event.target.closest('button[data-page]');
-  if (!btn || btn.closest('.disabled') || btn.closest('.active')) return;
-  lastSearch.page = Number(btn.dataset.page) || 1;
+document.querySelectorAll('#pagination, #paginationTop').forEach(pager => {
+  pager.addEventListener('click', event => {
+    const btn = event.target.closest('button[data-page]');
+    if (!btn || btn.closest('.disabled') || btn.closest('.active')) return;
+    lastSearch.page = Number(btn.dataset.page) || 1;
+    loadRows();
+  });
+});
+document.getElementById('perPageFilter').addEventListener('change', () => {
+  lastSearch.page = 1;
   loadRows();
 });
 document.getElementById('categoryStrip').addEventListener('click', event => {
