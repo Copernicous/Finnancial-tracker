@@ -19,6 +19,11 @@ No historical transactions, balances, or workbook totals are imported from the o
 - Curated import staging with templates, preview, batch history, and no automatic ledger posting.
 - Bank statement import profiles that parse uploaded statements into staged rows, then post reviewed selections into the ledger.
 - Duplicate protection with exact statement-file hashes and transaction fingerprints.
+- Category setup import/export for maintaining the live accounting category chart from curated CSV or JSON.
+- Merchant keyword groups from category setup, with `merchantKeywords`, `merchant_keywords`, and `merchant_keygroup` accepted as import fields.
+- Merchant category index with default rules, imported keyword groups, learned user rules, transaction-type scoring, and optional public lookup for selected staged rows.
+- Category setup includes a merchant keyword search tester so users can verify how a merchant/payee phrase will categorize before posting imports.
+- Master backoffice cleanup for staged-document removal, bad-batch purge, and explicit posted-transaction rollback.
 - Development, staging, reset, smoke, and Windows executable build commands.
 
 ## Financial Domain Features
@@ -26,6 +31,7 @@ No historical transactions, balances, or workbook totals are imported from the o
 - Chart of accounts with institution, account class, subtype, currency, opening/current balance, credit limit, interest rate, and net-worth inclusion.
 - Manual transactions with merchant/payee, category, related account, amount, currency, original currency, FX rate, status, tags, cleared date, memo, and recurring flag.
 - Categories grouped by income, home, living, protection, lifestyle, finance, and transfers.
+- Expanded practical expense categories for travel, shopping, health, subscriptions, household supplies, professional services, and education.
 - Budgets by year/month/category, budget type, planned amount, threshold, status, and notes.
 - Recurring transactions for salary, utilities, subscriptions, savings transfers, card payments, and investments.
 - Financial goals for savings targets, sinking funds, and debt payoff.

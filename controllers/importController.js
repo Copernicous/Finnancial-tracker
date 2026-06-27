@@ -4,11 +4,12 @@ const crypto = require('crypto');
 const { Op } = require('sequelize');
 const db = require('../models');
 const { parseBankStatement } = require('../services/bankStatementParser');
+const merchantCategorizer = require('../services/merchantCategorizer');
 
 const TEMPLATES = {
   accounts: ['name', 'accountCode', 'accountType', 'accountClass', 'accountSubtype', 'currency', 'financialInstitutionName', 'openingBalance', 'openingBalanceDate', 'currentBalance', 'creditLimit', 'interestRate', 'includeInNetWorth', 'status', 'notes'],
   transactions: ['transactionDate', 'accountName', 'categoryName', 'relatedAccountName', 'description', 'merchant', 'transactionType', 'amount', 'currency', 'originalAmount', 'originalCurrency', 'exchangeRate', 'status', 'referenceNumber', 'tags', 'clearedDate', 'memo'],
-  categories: ['name', 'categoryType', 'groupName', 'budgetBehavior', 'parentName', 'taxRelevant', 'isActive'],
+  categories: ['name', 'categoryType', 'groupName', 'budgetBehavior', 'parentName', 'taxRelevant', 'isActive', 'merchantKeywords'],
   budgets: ['name', 'year', 'month', 'categoryName', 'budgetType', 'plannedAmount', 'currency', 'alertThresholdPct', 'isActive', 'notes'],
   recurring: ['name', 'accountName', 'categoryName', 'transactionType', 'amount', 'currency', 'frequency', 'nextDate', 'endDate', 'merchant', 'isActive', 'notes'],
   goals: ['name', 'goalType', 'accountName', 'targetAmount', 'currentAmount', 'currency', 'targetDate', 'priority', 'status', 'notes'],
@@ -27,6 +28,11 @@ function parseCsv(buffer) {
       .on('end', () => resolve(rows))
       .on('error', reject);
   });
+}
+
+function csvEscape(value) {
+  const text = String(value == null ? '' : value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 function toNumber(value) {
@@ -48,6 +54,15 @@ function cleanDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
 }
 
+function cleanBoolean(value, fallback) {
+  if (value === undefined || value === null || value === '') return fallback;
+  if (typeof value === 'boolean') return value;
+  const text = cleanText(value).toLowerCase();
+  if (['1', 'true', 'yes', 'y', 'active', 'enabled'].includes(text)) return true;
+  if (['0', 'false', 'no', 'n', 'inactive', 'disabled'].includes(text)) return false;
+  return fallback;
+}
+
 function parseJsonField(value, fallback) {
   if (!value) return fallback;
   if (typeof value === 'object') return value;
@@ -60,6 +75,111 @@ function parseJsonField(value, fallback) {
 
 function batchNotes(batch) {
   return parseJsonField(batch && batch.notes, {});
+}
+
+async function getStoredMerchantRules() {
+  const row = await db.SystemSetting.findOne({ where: { key: 'merchant_category_rules' } });
+  const rules = parseJsonField(row && row.value, []);
+  return Array.isArray(rules) ? rules : [];
+}
+
+async function saveStoredMerchantRules(rules) {
+  const value = JSON.stringify(rules.slice(0, 1000));
+  await db.SystemSetting.upsert({
+    key: 'merchant_category_rules',
+    value,
+    description: 'User-maintained merchant category index for statement imports.'
+  });
+}
+
+function firstPresent(source, keys) {
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) return source[key];
+  }
+  return undefined;
+}
+
+function parseKeywordList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanText(item)).filter(Boolean);
+  }
+  return cleanText(value)
+    .split(/[|;,]/)
+    .map((item) => cleanText(item))
+    .filter(Boolean);
+}
+
+function extractJsonPayload(text) {
+  const trimmed = cleanText(text);
+  if (!trimmed) return null;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) return trimmed;
+  const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if (fenced && fenced[1]) return fenced[1].trim();
+  const firstBrace = trimmed.indexOf('{');
+  const lastBrace = trimmed.lastIndexOf('}');
+  if (firstBrace >= 0 && lastBrace > firstBrace) return trimmed.slice(firstBrace, lastBrace + 1);
+  return null;
+}
+
+function normalizeCategoryImportRow(row, index) {
+  const source = row || {};
+  const hasField = (keys) => keys.some((key) => Object.prototype.hasOwnProperty.call(source, key));
+  const name = cleanText(firstPresent(source, ['name', 'category_name', 'categoryName']));
+  const categoryType = cleanText(firstPresent(source, ['categoryType', 'category_type', 'transaction_type', 'transactionType'])).toLowerCase();
+  return {
+    rowNumber: index + 2,
+    name,
+    categoryType,
+    groupName: cleanText(firstPresent(source, ['groupName', 'group_name'])) || null,
+    budgetBehavior: cleanText(firstPresent(source, ['budgetBehavior', 'budget_behavior'])).toLowerCase() || null,
+    parentName: cleanText(firstPresent(source, ['parentName', 'parent_name'])),
+    taxRelevant: cleanBoolean(firstPresent(source, ['taxRelevant', 'tax_relevant']), false),
+    isActive: cleanBoolean(firstPresent(source, ['isActive', 'is_active']), true),
+    merchantKeywords: parseKeywordList(firstPresent(source, [
+      'merchantKeywords',
+      'merchant_keywords',
+      'merchantKeyGroup',
+      'merchant_keygroup',
+      'merchantKeygroup',
+      'keygroup'
+    ])),
+    fields: {
+      categoryType: hasField(['categoryType', 'category_type', 'transaction_type', 'transactionType']),
+      groupName: hasField(['groupName', 'group_name']),
+      budgetBehavior: hasField(['budgetBehavior', 'budget_behavior']),
+      parentName: hasField(['parentName', 'parent_name']),
+      taxRelevant: hasField(['taxRelevant', 'tax_relevant']),
+      isActive: hasField(['isActive', 'is_active']),
+      merchantKeywords: hasField(['merchantKeywords', 'merchant_keywords', 'merchantKeyGroup', 'merchant_keygroup', 'merchantKeygroup', 'keygroup'])
+    }
+  };
+}
+
+async function parseCategorySetupRows(buffer) {
+  const text = buffer.toString('utf8');
+  const jsonPayload = extractJsonPayload(text);
+  if (jsonPayload) {
+    try {
+      const parsed = JSON.parse(jsonPayload);
+      const sourceRows = Array.isArray(parsed) ? parsed : parsed.categories;
+      if (Array.isArray(sourceRows)) {
+        return {
+          rows: sourceRows.map((row, index) => normalizeCategoryImportRow(row, index)),
+          format: 'json'
+        };
+      }
+    } catch (err) {
+      if (cleanText(text).startsWith('{') || cleanText(text).includes('```json')) {
+        throw err;
+      }
+    }
+  }
+
+  const csvRows = await parseCsv(buffer);
+  return {
+    rows: csvRows.map((row, index) => normalizeCategoryImportRow(row, index)),
+    format: 'csv'
+  };
 }
 
 function normalizeDraft(input, defaults = {}) {
@@ -150,8 +270,195 @@ exports.getTemplate = (req, res) => {
   res.send(headers.join(',') + '\n');
 };
 
+exports.exportCategories = async (req, res) => {
+  const [categories, customRules] = await Promise.all([
+    db.Category.findAll({
+      include: [{ model: db.Category, as: 'Parent', attributes: ['name'] }],
+      order: [['groupName', 'ASC'], ['name', 'ASC']]
+    }),
+    getStoredMerchantRules()
+  ]);
+  const keywordsByCategory = new Map();
+  customRules.forEach((rule) => {
+    if (!rule || !rule.categoryName || !rule.pattern) return;
+    const key = merchantCategorizer.normalize(rule.categoryName);
+    if (!keywordsByCategory.has(key)) keywordsByCategory.set(key, []);
+    const values = keywordsByCategory.get(key);
+    if (!values.includes(rule.pattern)) values.push(rule.pattern);
+  });
+  const headers = TEMPLATES.categories;
+  const lines = [
+    headers.join(','),
+    ...categories.map((category) => headers.map((header) => {
+      if (header === 'parentName') return csvEscape(category.Parent ? category.Parent.name : '');
+      if (header === 'merchantKeywords') {
+        return csvEscape((keywordsByCategory.get(merchantCategorizer.normalize(category.name)) || []).join('|'));
+      }
+      return csvEscape(category[header]);
+    }).join(','))
+  ];
+
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="home_accounting_categories.csv"');
+  res.send(lines.join('\n') + '\n');
+};
+
+exports.importCategories = async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Category CSV or JSON setup file is required.' });
+
+  const parsedSetup = await parseCategorySetupRows(req.file.buffer);
+  const rows = parsedSetup.rows;
+  const allowedTypes = new Set(['income', 'expense', 'transfer', 'adjustment']);
+  const warnings = [];
+  const prepared = rows.map((row) => {
+    const categoryType = allowedTypes.has(row.categoryType) ? row.categoryType : 'expense';
+    return {
+      ...row,
+      categoryType,
+      budgetBehavior: row.budgetBehavior || 'variable'
+    };
+  });
+
+  let created = 0;
+  let updated = 0;
+  let skipped = 0;
+  const keywordRuleImports = [];
+
+  await db.sequelize.transaction(async (transaction) => {
+    const existing = await db.Category.findAll({ transaction });
+    const byName = new Map(existing.map((category) => [merchantCategorizer.normalize(category.name), category]));
+    const imported = [];
+
+    for (const item of prepared) {
+      if (!item.name) {
+        skipped += 1;
+        warnings.push(`Row ${item.rowNumber}: missing category name.`);
+        continue;
+      }
+
+      const key = merchantCategorizer.normalize(item.name);
+      const current = byName.get(key);
+      const payload = { name: item.name };
+      if (!current || item.fields.categoryType) payload.categoryType = item.categoryType;
+      if (!current || item.fields.groupName) payload.groupName = item.groupName;
+      if (!current || item.fields.budgetBehavior) payload.budgetBehavior = item.budgetBehavior;
+      if (!current || item.fields.taxRelevant) payload.taxRelevant = item.taxRelevant;
+      if (!current || item.fields.isActive) payload.isActive = item.isActive;
+
+      if (current) {
+        await current.update(payload, { transaction });
+        updated += 1;
+        imported.push({ item, category: current });
+      } else {
+        const category = await db.Category.create(payload, { transaction });
+        byName.set(key, category);
+        created += 1;
+        imported.push({ item, category });
+      }
+
+      if (item.fields.merchantKeywords && item.merchantKeywords.length) {
+        item.merchantKeywords.forEach((keyword) => {
+          keywordRuleImports.push({
+            pattern: keyword,
+            categoryName: item.name,
+            transactionType: item.categoryType,
+            groupName: item.groupName,
+            sourceRow: item.rowNumber
+          });
+        });
+      }
+    }
+
+    for (const { item, category } of imported) {
+      if (!item.fields.parentName) continue;
+      const parentName = item.parentName;
+      if (!parentName) {
+        await category.update({ parentId: null }, { transaction });
+        continue;
+      }
+
+      const parent = byName.get(merchantCategorizer.normalize(parentName));
+      if (!parent) {
+        warnings.push(`Row ${item.rowNumber}: parent category "${parentName}" was not found.`);
+        continue;
+      }
+      if (Number(parent.id) === Number(category.id)) {
+        warnings.push(`Row ${item.rowNumber}: category cannot be its own parent.`);
+        continue;
+      }
+      await category.update({ parentId: parent.id }, { transaction });
+    }
+  });
+
+  let keywordRulesCreated = 0;
+  let keywordRulesUpdated = 0;
+  let keywordRulesSkipped = 0;
+  if (keywordRuleImports.length) {
+    const rules = await getStoredMerchantRules();
+    const existingIndex = new Map(rules.map((rule, index) => [
+      merchantCategorizer.normalize(rule.pattern) + '|' + merchantCategorizer.normalize(rule.transactionType || ''),
+      index
+    ]));
+    const now = new Date().toISOString();
+
+    for (const item of keywordRuleImports) {
+      const pattern = merchantCategorizer.normalize(item.pattern);
+      const transactionType = allowedTypes.has(merchantCategorizer.normalize(item.transactionType))
+        ? merchantCategorizer.normalize(item.transactionType)
+        : 'expense';
+      if (!pattern || pattern.length < 2) {
+        keywordRulesSkipped += 1;
+        warnings.push(`Row ${item.sourceRow}: skipped short merchant keyword "${item.pattern}".`);
+        continue;
+      }
+
+      const key = pattern + '|' + transactionType;
+      const rule = {
+        pattern,
+        categoryName: item.categoryName,
+        transactionType,
+        source: 'category_keygroup',
+        notes: cleanText(item.groupName ? `Imported from category setup: ${item.groupName}.` : 'Imported from category setup.'),
+        updatedAt: now,
+        updatedByUserId: req.user && req.user.id
+      };
+      const index = existingIndex.get(key);
+      if (index === undefined) {
+        rules.unshift(rule);
+        existingIndex.set(key, 0);
+        for (const [mapKey, mapIndex] of existingIndex.entries()) {
+          if (mapKey !== key) existingIndex.set(mapKey, mapIndex + 1);
+        }
+        keywordRulesCreated += 1;
+      } else {
+        rules[index] = rule;
+        keywordRulesUpdated += 1;
+      }
+    }
+
+    if (keywordRulesCreated || keywordRulesUpdated) {
+      await saveStoredMerchantRules(rules);
+    }
+  }
+
+  res.json({
+    ok: true,
+    message: `${created} category/categories created and ${updated} updated.`,
+    format: parsedSetup.format,
+    created,
+    updated,
+    skipped,
+    keywordRulesCreated,
+    keywordRulesUpdated,
+    keywordRulesSkipped,
+    warnings
+  });
+};
+
 exports.getBatches = async (req, res) => {
+  const includeRemoved = ['1', 'true', 'yes'].includes(String(req.query.includeRemoved || '').toLowerCase());
   const batches = await db.ImportBatch.findAll({
+    where: includeRemoved ? {} : { status: { [Op.ne]: 'removed' } },
     include: [{ model: db.User, as: 'CreatedBy', attributes: ['id', 'firstName', 'lastName', 'username'] }],
     order: [['createdAt', 'DESC']],
     limit: 100
@@ -179,9 +486,107 @@ exports.getBatchRows = async (req, res) => {
   res.json(rows);
 };
 
+exports.removeBatch = async (req, res) => {
+  const batch = await db.ImportBatch.findByPk(req.params.id);
+  if (!batch) return res.status(404).json({ error: 'Import batch not found.' });
+  if (batch.status === 'removed') {
+    return res.json({ ok: true, message: 'Staged document is already removed.', removedRows: 0, postedRowsPreserved: 0 });
+  }
+
+  const reason = cleanText(req.body && req.body.reason) || 'Removed from staging queue by user.';
+  const existingNotes = batchNotes(batch);
+  const rows = await db.ImportRow.findAll({ where: { importBatchId: batch.id } });
+  const postedRows = rows.filter((row) => row.status === 'posted' || row.postedTransactionId).length;
+  const removableRows = rows.filter((row) => row.status !== 'posted' && !row.postedTransactionId);
+
+  await db.sequelize.transaction(async (transaction) => {
+    if (removableRows.length) {
+      await db.ImportRow.update({
+        status: 'removed',
+        errorMessage: reason
+      }, {
+        where: {
+          importBatchId: batch.id,
+          status: { [Op.ne]: 'posted' },
+          postedTransactionId: null
+        },
+        transaction
+      });
+    }
+
+    await batch.update({
+      status: 'removed',
+      notes: JSON.stringify({
+        ...existingNotes,
+        removedAt: new Date().toISOString(),
+        removedByUserId: req.user && req.user.id,
+        removalReason: reason,
+        postedRowsPreserved: postedRows
+      })
+    }, { transaction });
+  });
+
+  res.json({
+    ok: true,
+    message: postedRows
+      ? `Staged document removed from the active queue. ${postedRows} posted ledger row(s) were preserved.`
+      : 'Staged document removed from the active queue.',
+    removedRows: removableRows.length,
+    postedRowsPreserved: postedRows
+  });
+};
+
+exports.purgeBatch = async (req, res) => {
+  const batch = await db.ImportBatch.findByPk(req.params.id);
+  if (!batch) return res.status(404).json({ error: 'Import batch not found.' });
+
+  const confirmText = cleanText(req.body && req.body.confirmText);
+  const expected = `PURGE BATCH ${batch.id}`;
+  if (confirmText !== expected) {
+    return res.status(400).json({ error: `Confirmation text must be exactly: ${expected}` });
+  }
+
+  const deletePostedTransactions = !!(req.body && req.body.deletePostedTransactions);
+  const rows = await db.ImportRow.findAll({ where: { importBatchId: batch.id } });
+  const postedRows = rows.filter((row) => row.status === 'posted' || row.postedTransactionId);
+  const postedTransactionIds = Array.from(new Set(postedRows.map((row) => row.postedTransactionId).filter(Boolean)));
+
+  if (postedTransactionIds.length && !deletePostedTransactions) {
+    return res.status(409).json({
+      error: 'This batch has posted ledger transactions. Enable posted transaction rollback to purge it.',
+      postedTransactions: postedTransactionIds.length
+    });
+  }
+
+  let deletedTransactions = 0;
+  await db.sequelize.transaction(async (transaction) => {
+    if (postedTransactionIds.length) {
+      deletedTransactions = await db.Transaction.destroy({
+        where: {
+          id: { [Op.in]: postedTransactionIds },
+          sourceType: 'bank_statement'
+        },
+        transaction
+      });
+    }
+    await db.ImportRow.destroy({ where: { importBatchId: batch.id }, transaction });
+    await batch.destroy({ transaction });
+  });
+
+  res.json({
+    ok: true,
+    message: deletedTransactions
+      ? `Batch #${batch.id} purged and ${deletedTransactions} posted ledger transaction(s) rolled back.`
+      : `Batch #${batch.id} purged from staging.`,
+    deletedImportRows: rows.length,
+    deletedTransactions
+  });
+};
+
 exports.updateBatchRows = async (req, res) => {
   const batch = await db.ImportBatch.findByPk(req.params.id);
   if (!batch) return res.status(404).json({ error: 'Import batch not found.' });
+  if (batch.status === 'removed') return res.status(409).json({ error: 'This staged document has been removed from the active queue.' });
 
   const incomingRows = Array.isArray(req.body.rows) ? req.body.rows : [];
   if (!incomingRows.length) return res.status(400).json({ error: 'No rows were provided.' });
@@ -234,6 +639,189 @@ exports.getBankStatementProfiles = async (req, res) => {
   ]);
 };
 
+exports.getMerchantRules = async (req, res) => {
+  const customRules = await getStoredMerchantRules();
+  res.json({
+    customRules,
+    defaultRules: merchantCategorizer.DEFAULT_MERCHANT_RULES
+  });
+};
+
+exports.saveMerchantRule = async (req, res) => {
+  const pattern = cleanText(req.body.pattern || req.body.merchant);
+  const categoryId = cleanId(req.body.categoryId);
+  const transactionType = cleanText(req.body.transactionType || 'expense').toLowerCase();
+  if (!pattern) return res.status(400).json({ error: 'Merchant pattern is required.' });
+  if (!categoryId) return res.status(400).json({ error: 'Category is required.' });
+
+  const category = await db.Category.findByPk(categoryId);
+  if (!category) return res.status(404).json({ error: 'Category not found.' });
+
+  const rules = await getStoredMerchantRules();
+  const normalizedPattern = merchantCategorizer.normalize(pattern);
+  const nextRule = {
+    pattern: normalizedPattern,
+    categoryName: category.name,
+    transactionType: ['income', 'expense', 'transfer', 'adjustment'].includes(transactionType) ? transactionType : category.categoryType || 'expense',
+    source: 'user',
+    notes: cleanText(req.body.notes),
+    updatedAt: new Date().toISOString(),
+    updatedByUserId: req.user && req.user.id
+  };
+  const existingIndex = rules.findIndex((rule) =>
+    merchantCategorizer.normalize(rule.pattern) === normalizedPattern &&
+    merchantCategorizer.normalize(rule.transactionType || '') === merchantCategorizer.normalize(nextRule.transactionType || '')
+  );
+  if (existingIndex >= 0) rules[existingIndex] = nextRule;
+  else rules.unshift(nextRule);
+  await saveStoredMerchantRules(rules);
+
+  res.json({ ok: true, rule: nextRule, count: rules.length });
+};
+
+function cleanMerchantLookupQuery(value) {
+  return cleanText(value)
+    .replace(/\b\d{4,}\b/g, ' ')
+    .replace(/[#*]+/g, ' ')
+    .replace(/[^a-zA-Z0-9&.\-/ ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 90);
+}
+
+function stripHtml(value) {
+  return cleanText(String(value || '').replace(/<[^>]*>/g, ' '));
+}
+
+async function lookupWikipediaSummary(query) {
+  const params = new URLSearchParams({
+    action: 'query',
+    list: 'search',
+    srsearch: query,
+    format: 'json',
+    origin: '*',
+    srlimit: '1'
+  });
+  const searchResponse = await fetch('https://en.wikipedia.org/w/api.php?' + params.toString(), {
+    headers: { 'User-Agent': 'HomeAccountingMerchantLookup/0.1' },
+    signal: AbortSignal.timeout(7000)
+  });
+  if (!searchResponse.ok) throw new Error('Wikipedia search returned HTTP ' + searchResponse.status);
+  const searchData = await searchResponse.json();
+  const first = searchData && searchData.query && Array.isArray(searchData.query.search)
+    ? searchData.query.search[0]
+    : null;
+  if (!first || !first.title) return { text: '', query, sources: [] };
+
+  const summaryResponse = await fetch('https://en.wikipedia.org/api/rest_v1/page/summary/' + encodeURIComponent(first.title.replace(/ /g, '_')), {
+    headers: { 'User-Agent': 'HomeAccountingMerchantLookup/0.1' },
+    signal: AbortSignal.timeout(7000)
+  });
+  if (!summaryResponse.ok) {
+    return {
+      query,
+      text: [first.title, stripHtml(first.snippet)].filter(Boolean).join(' '),
+      sources: []
+    };
+  }
+
+  const summary = await summaryResponse.json();
+  const pageUrl = summary && summary.content_urls && summary.content_urls.desktop
+    ? summary.content_urls.desktop.page
+    : null;
+  return {
+    query,
+    text: [summary.title, summary.description, summary.extract].filter(Boolean).join(' '),
+    sources: pageUrl ? [{ label: 'Wikipedia', url: pageUrl }] : []
+  };
+}
+
+async function lookupMerchantOnline(query) {
+  const merchantQuery = cleanMerchantLookupQuery(query);
+  if (!merchantQuery) return { text: '', query: '' };
+  const searchQuery = `${merchantQuery} company business type`;
+  const url = 'https://api.duckduckgo.com/?format=json&no_html=1&skip_disambig=1&q=' + encodeURIComponent(searchQuery);
+  const response = await fetch(url, {
+    headers: { 'User-Agent': 'HomeAccountingMerchantLookup/0.1' },
+    signal: AbortSignal.timeout(7000)
+  });
+  if (!response.ok) throw new Error('Lookup returned HTTP ' + response.status);
+  const data = await response.json();
+  const related = Array.isArray(data.RelatedTopics) ? data.RelatedTopics.slice(0, 3).map((item) => item.Text || '').filter(Boolean).join(' ') : '';
+  const sources = data.AbstractURL ? [{ label: data.AbstractSource || 'DuckDuckGo', url: data.AbstractURL }] : [];
+  const text = [data.Heading, data.AbstractText, data.AbstractSource, related].filter(Boolean).join(' ');
+  if (!text) {
+    const wiki = await lookupWikipediaSummary(merchantQuery);
+    return {
+      query: searchQuery + (wiki.query ? ' | Wikipedia: ' + wiki.query : ''),
+      text: wiki.text,
+      sources: wiki.sources
+    };
+  }
+  return {
+    query: searchQuery,
+    text,
+    sources
+  };
+}
+
+exports.suggestMerchantCategory = async (req, res) => {
+  const merchant = cleanText(req.body.merchant || req.body.description || req.body.text);
+  const description = cleanText(req.body.description);
+  const transactionType = cleanText(req.body.transactionType).toLowerCase();
+  const onlineLookup = !!req.body.onlineLookup;
+  if (!merchant && !description) return res.status(400).json({ error: 'Merchant or description is required.' });
+
+  const [categories, customRules] = await Promise.all([
+    db.Category.findAll({ where: { isActive: { [Op.ne]: false } }, order: [['groupName', 'ASC'], ['name', 'ASC']] }),
+    getStoredMerchantRules()
+  ]);
+  const localSuggestion = merchantCategorizer.suggestFromRules({
+    text: [merchant, description].join(' '),
+    categories,
+    customRules,
+    transactionType
+  });
+  if (!onlineLookup) {
+    return res.json({
+      ok: true,
+      merchant,
+      suggestion: localSuggestion,
+      localSuggestion,
+      onlineSuggestion: null,
+      onlineLookupUsed: false
+    });
+  }
+
+  try {
+    const lookup = await lookupMerchantOnline([merchant, description].join(' '));
+    const onlineSuggestion = lookup.text
+      ? merchantCategorizer.inferFromLookupText([merchant, description, lookup.text].join(' '), categories)
+      : null;
+    res.json({
+      ok: true,
+      merchant,
+      suggestion: onlineSuggestion || localSuggestion,
+      localSuggestion,
+      onlineSuggestion,
+      onlineLookupUsed: true,
+      lookupQuery: lookup.query,
+      lookupSummary: lookup.text ? lookup.text.slice(0, 400) : '',
+      lookupSources: lookup.sources || []
+    });
+  } catch (err) {
+    res.json({
+      ok: true,
+      merchant,
+      suggestion: localSuggestion,
+      localSuggestion,
+      onlineSuggestion: null,
+      onlineLookupUsed: true,
+      lookupError: err.message
+    });
+  }
+};
+
 exports.importBankStatement = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Statement file is required.' });
 
@@ -244,6 +832,7 @@ exports.importBankStatement = async (req, res) => {
   const existingBatch = await db.ImportBatch.findOne({
     where: {
       importType: 'bank_statement_' + profile,
+      status: { [Op.ne]: 'removed' },
       notes: { [Op.iLike]: `%${hash}%` }
     },
     order: [['id', 'ASC']]
@@ -370,12 +959,14 @@ exports.importBankStatement = async (req, res) => {
 exports.postBatchRows = async (req, res) => {
   const batch = await db.ImportBatch.findByPk(req.params.id);
   if (!batch) return res.status(404).json({ error: 'Import batch not found.' });
+  if (batch.status === 'removed') return res.status(409).json({ error: 'This staged document has been removed from the active queue.' });
   const notes = batchNotes(batch);
   if (notes.fileHashSha256) {
     const originalBatch = await db.ImportBatch.findOne({
       where: {
         importType: batch.importType,
         id: { [Op.lt]: batch.id },
+        status: { [Op.ne]: 'removed' },
         notes: { [Op.iLike]: `%${notes.fileHashSha256}%` }
       },
       order: [['id', 'ASC']]

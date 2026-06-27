@@ -110,6 +110,10 @@ The compiled server is written to `dist/server.exe`. Keep `.env`, `.env.staging`
 - No upload posts ledger transactions automatically; users must open the staged batch, review mappings, and post selected rows.
 - Advantage / Citi PDF statements can be uploaded from `/import` using the bank-statement importer.
 - Exact statement-file hashes and posted transaction fingerprints are checked before posting to prevent duplicate imports.
+- Category setup CSV/JSON export/import lives on `/import` and updates the live category chart directly.
+- Category setup can include `merchantKeywords`, `merchant_keywords`, or `merchant_keygroup`; those values are indexed as merchant matching rules.
+- Merchant suggestions use default rules, imported keyword groups, learned user rules, transaction type, and optional public lookup for selected staged rows.
+- Staged documents can be removed from the active queue; master backoffice can purge bad batches and optionally roll back protected posted statement transactions.
 - Future curated import mapping should resolve accounts, categories, currencies, duplicates, and approval status before posting.
 
 ## Verification Checklist

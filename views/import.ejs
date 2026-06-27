@@ -116,6 +116,45 @@
           <section class="glass-card p-4">
             <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
               <div>
+                <h5 class="mb-1">Category Setup</h5>
+                <div class="text-muted small">Export the category chart or import curated CSV/JSON with merchant keyword groups.</div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" id="categoryExportBtn"><i class="fas fa-file-export me-1"></i>Export Categories</button>
+            </div>
+            <div class="row g-3 align-items-end">
+              <div class="col-lg-8">
+                <label class="form-label">Curated Category CSV or JSON</label>
+                <input class="form-control" type="file" id="categoryImportFile" accept=".csv,.json,.txt,text/csv,application/json,text/plain">
+              </div>
+              <div class="col-lg-4 d-grid">
+                <button class="btn btn-primary" id="categoryImportBtn"><i class="fas fa-tags me-1"></i>Import Categories</button>
+              </div>
+            </div>
+            <div class="row g-3 align-items-end mt-1">
+              <div class="col-lg-6">
+                <label class="form-label">Merchant Keyword Search</label>
+                <input class="form-control" id="merchantKeySearch" placeholder="Merchant, payee, or statement text">
+              </div>
+              <div class="col-lg-3">
+                <label class="form-label">Type</label>
+                <select class="form-select" id="merchantKeySearchType">
+                  <option value="expense">expense</option>
+                  <option value="income">income</option>
+                  <option value="transfer">transfer</option>
+                  <option value="adjustment">adjustment</option>
+                </select>
+              </div>
+              <div class="col-lg-3 d-grid">
+                <button class="btn btn-outline-secondary" id="merchantKeySearchBtn"><i class="fas fa-search me-1"></i>Find Category</button>
+              </div>
+            </div>
+            <div class="alert mt-3 d-none" id="categoryImportResult"></div>
+            <div class="alert mt-3 d-none" id="merchantKeySearchResult"></div>
+          </section>
+
+          <section class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <div>
                 <h5 class="mb-1">Bank Statement Import</h5>
                 <div class="text-muted small">Parse uploaded bank statements into staged rows for review. Nothing posts to the ledger.</div>
               </div>
@@ -156,7 +195,13 @@
                 <h5 class="mb-1">Staged Import Batches</h5>
                 <div class="text-muted small">Uploaded rows waiting for future curated mapping and review.</div>
               </div>
-              <button class="btn btn-outline-primary btn-sm" id="refreshHistoryBtn"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="showRemovedBatches">
+                  <label class="form-check-label small" for="showRemovedBatches">Show Removed</label>
+                </div>
+                <button class="btn btn-outline-primary btn-sm" id="refreshHistoryBtn"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+              </div>
             </div>
             <div class="table-responsive">
               <table class="table table-hover align-middle">
@@ -175,6 +220,8 @@
               <div class="d-flex flex-wrap gap-2">
                 <button class="btn btn-outline-secondary btn-sm" id="selectPostableBtn"><i class="fas fa-check-square me-1"></i>Select Postable</button>
                 <button class="btn btn-outline-success btn-sm" id="suggestCategoriesBtn"><i class="fas fa-magic me-1"></i>Suggest Categories</button>
+                <button class="btn btn-outline-info btn-sm" id="lookupOnlineBtn"><i class="fas fa-search me-1"></i>Lookup Online</button>
+                <button class="btn btn-outline-secondary btn-sm" id="learnRulesBtn"><i class="fas fa-bookmark me-1"></i>Learn Selected</button>
                 <button class="btn btn-outline-primary btn-sm" id="saveReviewBtn"><i class="fas fa-save me-1"></i>Save Review</button>
                 <button class="btn btn-success btn-sm" id="postRowsBtn"><i class="fas fa-file-import me-1"></i>Post Selected</button>
               </div>
@@ -256,9 +303,9 @@ const DATASETS = {
   categories: {
     icon: 'fa-tags',
     title: 'Categories',
-    description: 'Income, expense, transfer, and adjustment categories.',
+    description: 'Income, expense, transfer, adjustment categories, and merchant keyword groups.',
     required: ['name', 'categoryType'],
-    headers: ['name', 'categoryType', 'groupName', 'budgetBehavior', 'parentName', 'taxRelevant', 'isActive']
+    headers: ['name', 'categoryType', 'groupName', 'budgetBehavior', 'parentName', 'taxRelevant', 'isActive', 'merchantKeywords']
   },
   budgets: {
     icon: 'fa-scale-balanced',
@@ -518,26 +565,6 @@ function rowDraft(row) {
 function postableStatus(status) {
   return ['staged', 'ready', 'error'].includes(String(status || 'staged'));
 }
-const CATEGORY_RULES = [
-  { category: 'Credit Card Payment', type: 'transfer', words: ['online payment', 'payment thank you', 'autopay'] },
-  { category: 'Utilities', type: 'expense', words: ['google fi', 'electric', 'water', 'internet', 'xfinity', 'comcast', 'verizon', 't-mobile', 'tmobile', 'at&t', 'att '] },
-  { category: 'Transportation', type: 'expense', words: ['chevron', 'shell', 'exxon', 'mobil', 'wawa', 'bp ', 'sunoco', 'uber', 'lyft', 'parking', 'toll'] },
-  { category: 'Groceries', type: 'expense', words: ['publix', 'walmart', 'costco', 'whole foods', 'trader joe', 'grocery', 'market'] },
-  { category: 'Dining & Entertainment', type: 'expense', words: ['restaurant', 'cafe', 'coffee', 'starbucks', 'doordash', 'uber eats', 'netflix', 'spotify', 'cinema'] },
-  { category: 'Bank Fees', type: 'expense', words: ['fee', 'interest charge', 'minimum interest'] },
-  { category: 'Insurance', type: 'expense', words: ['insurance', 'geico', 'progressive', 'state farm'] },
-  { category: 'Housing', type: 'expense', words: ['mortgage', 'rent', 'hoa'] }
-];
-function categoryByName(name) {
-  return categoryRows.find(category => String(category.name || '').toLowerCase() === String(name || '').toLowerCase());
-}
-function suggestedCategory(draft) {
-  const haystack = [draft.description, draft.merchant, draft.tags, draft.statementSection].join(' ').toLowerCase();
-  const rule = CATEGORY_RULES.find(item => item.words.some(word => haystack.includes(word)));
-  if (!rule) return null;
-  const category = categoryByName(rule.category);
-  return category ? { id: category.id, type: rule.type, name: category.name } : null;
-}
 function singleActiveAccountId() {
   const active = accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed');
   return active.length === 1 ? String(active[0].id) : '';
@@ -664,36 +691,118 @@ function applyReviewDefaults() {
     if (status.value === 'staged' || status.value === 'error') status.value = 'ready';
   });
 }
-function suggestReviewCategories() {
+async function requestMerchantSuggestion(draft, onlineLookup) {
+  const res = await fetch('/api/import/merchant-suggest', {
+    method: 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      merchant: draft.merchant || draft.description,
+      description: draft.description,
+      transactionType: draft.transactionType,
+      onlineLookup: !!onlineLookup
+    })
+  });
+  if (!res.ok) return null;
+  const data = await res.json().catch(() => ({}));
+  return data;
+}
+function applySuggestionToRow(tr, suggestion) {
+  if (!suggestion || !suggestion.categoryId) return false;
+  tr.querySelector('.review-category').value = String(suggestion.categoryId);
+  if (suggestion.transactionType) tr.querySelector('.review-type').value = suggestion.transactionType;
+  const status = tr.querySelector('.review-row-status');
+  if (status.value === 'staged' || status.value === 'error') status.value = 'ready';
+  const checkbox = tr.querySelector('.review-check');
+  if (checkbox && !checkbox.disabled) checkbox.checked = true;
+  return true;
+}
+async function suggestReviewCategories(onlineLookup) {
   const defaultAccount = document.getElementById('reviewDefaultAccount').value || singleActiveAccountId();
   let suggested = 0;
   let accountFilled = 0;
-  document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
+  let lookedUp = 0;
+  let emptyLookup = 0;
+  let lookupErrors = 0;
+  let localFallbacks = 0;
+  const rows = Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]'));
+  const targetRows = rows.filter(tr => {
     const checkbox = tr.querySelector('.review-check');
-    if (!checkbox || checkbox.disabled) return;
-    const original = batchRows.find(row => Number(row.id) === Number(tr.dataset.rowId)) || {};
-    const draft = {
-      ...rowDraft(original),
-      description: tr.querySelector('.review-description').value,
-      merchant: tr.querySelector('.review-merchant').value,
-      transactionType: tr.querySelector('.review-type').value
-    };
-    const accountSelect = tr.querySelector('.review-account');
-    if (!accountSelect.value && defaultAccount) {
-      accountSelect.value = defaultAccount;
-      accountFilled += 1;
-    }
-    const match = suggestedCategory(draft);
-    if (match) {
-      tr.querySelector('.review-category').value = String(match.id);
-      tr.querySelector('.review-type').value = match.type;
-      const status = tr.querySelector('.review-row-status');
-      if (status.value === 'staged' || status.value === 'error') status.value = 'ready';
-      checkbox.checked = true;
-      suggested += 1;
-    }
+    return checkbox && !checkbox.disabled && (!onlineLookup || checkbox.checked);
   });
-  reviewMessage('Suggested ' + suggested + ' categorization(s)' + (accountFilled ? ' and filled account on ' + accountFilled + ' row(s).' : '.') , suggested ? 'success' : 'warning');
+  if (onlineLookup && !targetRows.length) {
+    return reviewMessage('Select one or more rows before running online lookup.', 'warning');
+  }
+  const button = document.getElementById(onlineLookup ? 'lookupOnlineBtn' : 'suggestCategoriesBtn');
+  const originalButtonHtml = button.innerHTML;
+  button.disabled = true;
+  button.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>' + (onlineLookup ? 'Looking Up' : 'Suggesting');
+  reviewMessage((onlineLookup ? 'Looking up selected merchants online...' : 'Suggesting categories from merchant index...'), 'info');
+  try {
+    for (const tr of targetRows) {
+      const original = batchRows.find(row => Number(row.id) === Number(tr.dataset.rowId)) || {};
+      const draft = {
+        ...rowDraft(original),
+        description: tr.querySelector('.review-description').value,
+        merchant: tr.querySelector('.review-merchant').value,
+        transactionType: tr.querySelector('.review-type').value
+      };
+      const accountSelect = tr.querySelector('.review-account');
+      if (!accountSelect.value && defaultAccount) {
+        accountSelect.value = defaultAccount;
+        accountFilled += 1;
+      }
+      const data = await requestMerchantSuggestion(draft, onlineLookup);
+      if (!data) continue;
+      if (onlineLookup) {
+        lookedUp += 1;
+        if (data.lookupError) lookupErrors += 1;
+        if (!data.lookupSummary && !data.lookupError) emptyLookup += 1;
+        if (!data.onlineSuggestion && data.localSuggestion) localFallbacks += 1;
+      }
+      if (applySuggestionToRow(tr, data.suggestion)) suggested += 1;
+    }
+  } catch (err) {
+    reviewMessage(err.message || 'Unable to complete category lookup.', 'danger');
+    return;
+  } finally {
+    button.disabled = false;
+    button.innerHTML = originalButtonHtml;
+  }
+  if (onlineLookup) {
+    reviewMessage(
+      'Online lookup checked ' + lookedUp + ' row(s) and applied ' + suggested + ' categorization(s).' +
+        (localFallbacks ? ' Local rules filled ' + localFallbacks + ' row(s) when public lookup did not improve the match.' : '') +
+        (emptyLookup ? ' No public lookup text returned for ' + emptyLookup + ' row(s).' : '') +
+        (lookupErrors ? ' Lookup errors: ' + lookupErrors + '.' : '') +
+        (accountFilled ? ' Account filled on ' + accountFilled + ' row(s).' : ''),
+      suggested ? 'success' : 'warning'
+    );
+    return;
+  }
+  reviewMessage('Merchant index suggested ' + suggested + ' categorization(s)' + (accountFilled ? ' and filled account on ' + accountFilled + ' row(s).' : '.'), suggested ? 'success' : 'warning');
+}
+async function learnSelectedRules() {
+  const rows = Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]'));
+  let learned = 0;
+  for (const tr of rows) {
+    const checkbox = tr.querySelector('.review-check');
+    if (!checkbox || !checkbox.checked || checkbox.disabled) continue;
+    const merchant = tr.querySelector('.review-merchant').value || tr.querySelector('.review-description').value;
+    const categoryId = tr.querySelector('.review-category').value;
+    if (!merchant || !categoryId) continue;
+    const res = await fetch('/api/import/merchant-rules', {
+      method: 'POST',
+      headers: authHeaders(true),
+      body: JSON.stringify({
+        pattern: merchant.toLowerCase().slice(0, 60),
+        categoryId: Number(categoryId),
+        transactionType: tr.querySelector('.review-type').value,
+        notes: 'Learned from import batch #' + selectedBatchId
+      })
+    });
+    if (res.ok) learned += 1;
+  }
+  reviewMessage('Learned ' + learned + ' merchant rule(s) for future imports.', learned ? 'success' : 'warning');
 }
 function selectPostableRows() {
   document.querySelectorAll('#reviewRows tr[data-row-id]').forEach(tr => {
@@ -715,8 +824,114 @@ async function stageFile() {
     : esc(data.error || data.message || 'Unable to stage file.');
   if (res.ok) loadBatches();
 }
+function categorySetupMessage(message, type) {
+  const result = document.getElementById('categoryImportResult');
+  result.className = 'alert alert-' + (type || 'info') + ' mt-3';
+  result.textContent = message;
+}
+function merchantKeySearchMessage(message, type) {
+  const result = document.getElementById('merchantKeySearchResult');
+  result.className = 'alert alert-' + (type || 'info') + ' mt-3';
+  result.textContent = message;
+}
+async function exportCategoriesFile() {
+  const btn = document.getElementById('categoryExportBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Exporting';
+  try {
+    const res = await fetch('/api/import/categories/export', { headers: authHeaders() });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      categorySetupMessage(data.error || data.message || 'Unable to export categories.', 'danger');
+      return;
+    }
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'home_accounting_categories.csv';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    categorySetupMessage('Category CSV exported.', 'success');
+  } catch (err) {
+    categorySetupMessage(err.message || 'Unable to export categories.', 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+async function importCategoriesFile() {
+  const file = document.getElementById('categoryImportFile').files[0];
+  if (!file) return categorySetupMessage('Select a category CSV first.', 'warning');
+  const btn = document.getElementById('categoryImportBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Importing';
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/import/categories/import', { method: 'POST', headers: authHeaders(), body: form });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      categorySetupMessage(data.error || data.message || 'Unable to import categories.', 'danger');
+      return;
+    }
+    categorySetupMessage(
+      (data.message || 'Categories imported.') +
+        (data.keywordRulesCreated || data.keywordRulesUpdated ? ' Merchant keyword rules: ' + (data.keywordRulesCreated || 0) + ' created, ' + (data.keywordRulesUpdated || 0) + ' updated.' : '') +
+        (data.skipped ? ' Skipped: ' + data.skipped + '.' : '') +
+        (data.warnings && data.warnings.length ? ' Warnings: ' + data.warnings.length + '.' : ''),
+      data.warnings && data.warnings.length ? 'warning' : 'success'
+    );
+    await loadStatementSetup();
+    if (selectedBatchId) await openBatch(selectedBatchId);
+  } catch (err) {
+    categorySetupMessage(err.message || 'Unable to import categories.', 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
+async function searchMerchantKeygroup() {
+  const text = document.getElementById('merchantKeySearch').value.trim();
+  if (!text) return merchantKeySearchMessage('Enter a merchant, payee, or statement phrase first.', 'warning');
+  const btn = document.getElementById('merchantKeySearchBtn');
+  const originalHtml = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Searching';
+  try {
+    const res = await fetch('/api/import/merchant-suggest', {
+      method: 'POST',
+      headers: authHeaders(true),
+      body: JSON.stringify({
+        merchant: text,
+        description: text,
+        transactionType: document.getElementById('merchantKeySearchType').value || 'expense',
+        onlineLookup: false
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) return merchantKeySearchMessage(data.error || data.message || 'Unable to search merchant keywords.', 'danger');
+    if (!data.suggestion) return merchantKeySearchMessage('No category matched the current merchant keyword index.', 'warning');
+    merchantKeySearchMessage(
+      'Matched ' + data.suggestion.categoryName +
+        ' using "' + data.suggestion.matchedPattern + '"' +
+        (data.suggestion.source ? ' from ' + data.suggestion.source + '.' : '.'),
+      'success'
+    );
+  } catch (err) {
+    merchantKeySearchMessage(err.message || 'Unable to search merchant keywords.', 'danger');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalHtml;
+  }
+}
 async function loadBatches() {
-  const res = await fetch('/api/import/batches', { headers: authHeaders() });
+  const includeRemoved = document.getElementById('showRemovedBatches').checked;
+  const res = await fetch('/api/import/batches' + (includeRemoved ? '?includeRemoved=1' : ''), { headers: authHeaders() });
   const rows = res.ok ? await res.json() : [];
   document.getElementById('historyRows').innerHTML = rows.length ? rows.map(row =>
     '<tr>' +
@@ -724,12 +939,39 @@ async function loadBatches() {
       '<td>' + esc(row.importType) + '</td>' +
       '<td>' + esc(row.fileName || '') + '</td>' +
       '<td>' + esc(row.rowCount) + '<div class="small text-muted">' + esc(row.acceptedCount || 0) + ' posted / ' + esc(row.rejectedCount || 0) + ' blocked</div></td>' +
-      '<td><span class="badge bg-secondary">' + esc(row.status) + '</span></td>' +
+      '<td><span class="badge ' + (row.status === 'removed' ? 'bg-danger' : 'bg-secondary') + '">' + esc(row.status) + '</span></td>' +
       '<td>' + esc(row.createdAt ? String(row.createdAt).slice(0, 19).replace('T', ' ') : '') + '</td>' +
       '<td>' + esc(row.createdBy || '') + '</td>' +
-      '<td class="text-end"><button class="btn btn-outline-primary btn-sm" onclick="openBatch(' + Number(row.id) + ')"><i class="fas fa-clipboard-check me-1"></i>Open</button></td>' +
+      '<td class="text-end"><div class="d-inline-flex gap-2">' +
+        '<button class="btn btn-outline-primary btn-sm" onclick="openBatch(' + Number(row.id) + ')"><i class="fas fa-clipboard-check me-1"></i>Open</button>' +
+        '<button class="btn btn-outline-danger btn-sm" ' + (row.status === 'removed' ? 'disabled' : '') + ' onclick="removeBatch(' + Number(row.id) + ', \'' + esc(String(row.fileName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')"><i class="fas fa-trash-alt me-1"></i>Remove</button>' +
+      '</div></td>' +
     '</tr>'
   ).join('') : '<tr><td colspan="8" class="text-muted">No staged batches yet.</td></tr>';
+}
+async function removeBatch(id, fileName) {
+  if (!id) return;
+  const label = fileName || ('batch #' + id);
+  if (!window.confirm('Remove ' + label + ' from the active staging queue? Posted ledger transactions will stay protected.')) return;
+  const res = await fetch('/api/import/batches/' + id, {
+    method: 'DELETE',
+    headers: authHeaders(true),
+    body: JSON.stringify({ reason: 'Removed from staging queue from import screen.' })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    reviewMessage(data.error || data.message || 'Unable to remove staged document.', 'danger');
+    return;
+  }
+  if (Number(selectedBatchId) === Number(id)) {
+    selectedBatchId = null;
+    batchRows = [];
+    document.getElementById('batchReviewPanel').classList.add('d-none');
+  }
+  await loadBatches();
+  const result = document.getElementById('statementResult');
+  result.className = 'alert alert-success mt-3';
+  result.textContent = data.message || 'Staged document removed from active queue.';
 }
 document.getElementById('dropZone').addEventListener('click', () => document.getElementById('file').click());
 document.getElementById('dropZone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('dragging'); });
@@ -741,11 +983,18 @@ document.getElementById('dropZone').addEventListener('drop', e => {
 });
 document.getElementById('file').addEventListener('change', e => handleFile(e.target.files[0]));
 document.getElementById('stageBtn').addEventListener('click', stageFile);
+document.getElementById('categoryExportBtn').addEventListener('click', exportCategoriesFile);
+document.getElementById('categoryImportBtn').addEventListener('click', importCategoriesFile);
+document.getElementById('merchantKeySearchBtn').addEventListener('click', searchMerchantKeygroup);
+document.getElementById('merchantKeySearch').addEventListener('keydown', event => { if (event.key === 'Enter') searchMerchantKeygroup(); });
 document.getElementById('statementStageBtn').addEventListener('click', stageStatementFile);
 document.getElementById('refreshHistoryBtn').addEventListener('click', loadBatches);
+document.getElementById('showRemovedBatches').addEventListener('change', loadBatches);
 document.getElementById('applyDefaultsBtn').addEventListener('click', applyReviewDefaults);
 document.getElementById('selectPostableBtn').addEventListener('click', selectPostableRows);
-document.getElementById('suggestCategoriesBtn').addEventListener('click', suggestReviewCategories);
+document.getElementById('suggestCategoriesBtn').addEventListener('click', () => suggestReviewCategories(false));
+document.getElementById('lookupOnlineBtn').addEventListener('click', () => suggestReviewCategories(true));
+document.getElementById('learnRulesBtn').addEventListener('click', learnSelectedRules);
 document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 document.getElementById('postRowsBtn').addEventListener('click', postSelectedRows);
 document.getElementById('reloadReviewBtn').addEventListener('click', () => openBatch(selectedBatchId));

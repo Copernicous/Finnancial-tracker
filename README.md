@@ -10,6 +10,9 @@ Home Accounting is a private household accounting web application based on the m
 - Historical transactions, balances, and workbook totals are not imported into the clean app.
 - The main operating page is `/finance`, with selectors, KPIs, graphs, budgets, goals, investments, recurring items, and searchable transactions.
 - The `/import` page includes an Advantage / Citi credit card PDF importer with staged review, duplicate checks, and controlled posting into ledger transactions.
+- Category setup can be exported to CSV and re-imported from curated CSV or JSON without creating ledger transactions.
+- Category setup accepts `merchantKeywords`, `merchant_keywords`, or `merchant_keygroup` values and turns them into merchant matching rules.
+- Merchant categorization supports default rules, imported keyword groups, learned rules, and optional public lookup during staged statement review.
 
 See:
 
@@ -77,4 +80,5 @@ The compiled artifact is created under `dist/`. Copy the build package, environm
 - Do not commit `.env`, `.env.staging`, secrets, uploads, backups, compiled builds, or local databases.
 - Do not commit `data-source/raw-excel/`; it is a local source archive for later curated work.
 - Backoffice will include clear/reset tools for simulation and accounting data while preserving users, roles, audit history, and source archives.
+- Master backoffice controls can remove staged documents or purge bad import batches with an explicit posted-transaction rollback option.
 

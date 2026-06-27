@@ -56,6 +56,8 @@ async function main() {
     '/api/account-balance-snapshots',
     '/api/import/batches',
     '/api/import/bank-statement/profiles',
+    '/api/import/merchant-rules',
+    '/api/import/categories/export',
     '/api/finance/overview?year=2026&currency=ALL',
     '/api/finance/search?limit=10'
   ];
@@ -63,6 +65,13 @@ async function main() {
     await expectOk(api, { headers: authHeaders });
     console.log('[smoke] api ok ' + api);
   }
+
+  await expectOk('/api/import/merchant-suggest', {
+    method: 'POST',
+    headers: Object.assign({ 'Content-Type': 'application/json' }, authHeaders),
+    body: JSON.stringify({ merchant: 'Google Fi', description: 'Google Fi wireless service', transactionType: 'expense', onlineLookup: false })
+  });
+  console.log('[smoke] api ok /api/import/merchant-suggest');
 
   if (shouldSeed) {
     const seeded = await expectOk('/api/simulation/seed', {

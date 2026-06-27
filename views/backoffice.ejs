@@ -8,6 +8,14 @@
   <link href="/assets/inter.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .control-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+    .control-panel { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; background: var(--surface,#fff); padding: 1rem; }
+    .batch-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
+    .batch-wrap table { margin: 0; min-width: 1120px; }
+    .danger-zone { border-color: rgba(220,53,69,.45); background: rgba(220,53,69,.04); }
+    @media (max-width: 1100px) { .control-grid { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
 <div class="wrapper">
@@ -18,28 +26,159 @@
       <span class="ms-3 fw-bold fs-5">Backoffice</span>
       <div class="ms-auto"><button id="logoutBtn" class="btn btn-danger btn-sm">Logout</button></div>
     </nav>
-    <div class="container-fluid px-4">
-      <div class="glass-card p-4">
-        <h5>Data Control Center</h5>
-        <p class="text-muted">Administrative accounting controls for simulation data, curated imports, backups, users, roles, and audit review.</p>
-        <div class="d-flex gap-2 flex-wrap">
-          <button class="btn btn-outline-primary" onclick="seedSimulation()">Create 2026 Simulation Data</button>
-          <button class="btn btn-outline-danger" onclick="clearSimulation()">Clear Simulation Data</button>
-          <a class="btn btn-outline-secondary" href="/audit-log">Audit Log</a>
-          <a class="btn btn-outline-secondary" href="/backups">Backups</a>
+
+    <div class="container-fluid px-4 d-grid gap-3">
+      <section class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+          <div>
+            <h5 class="mb-1">Data Control Center</h5>
+            <p class="text-muted mb-0">Master controls for simulation data, staged imports, bad upload cleanup, backups, and audit review.</p>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-secondary" href="/audit-log"><i class="fas fa-history me-1"></i>Audit Log</a>
+            <a class="btn btn-outline-secondary" href="/backups"><i class="fas fa-database me-1"></i>Backups</a>
+          </div>
         </div>
-        <div id="result" class="mt-3 text-muted"></div>
-      </div>
+      </section>
+
+      <section class="control-grid">
+        <div class="control-panel">
+          <h6 class="fw-bold mb-2"><i class="fas fa-chart-line me-1 text-primary"></i>Simulation Data</h6>
+          <p class="text-muted small">Create or clear 2026 demonstration data without touching curated/imported rows.</p>
+          <div class="d-flex gap-2 flex-wrap">
+            <button class="btn btn-outline-primary btn-sm" onclick="seedSimulation()">Create Sample</button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearSimulation()">Clear Sample</button>
+          </div>
+        </div>
+        <div class="control-panel">
+          <h6 class="fw-bold mb-2"><i class="fas fa-file-import me-1 text-primary"></i>Import Cleanup</h6>
+          <p class="text-muted small">Soft remove staged uploads from the active queue, or purge bad batches from backoffice.</p>
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="includeRemoved" checked>
+            <label class="form-check-label" for="includeRemoved">Include removed batches</label>
+          </div>
+        </div>
+        <div class="control-panel danger-zone">
+          <h6 class="fw-bold mb-2"><i class="fas fa-triangle-exclamation me-1 text-danger"></i>Purge Rules</h6>
+          <p class="text-muted small mb-0">Purge requires exact confirmation text. Posted ledger rows are preserved unless rollback is explicitly selected.</p>
+        </div>
+      </section>
+
+      <section class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="mb-1">Import Batch Control</h5>
+            <div class="text-muted small">Use Remove for normal staging cleanup. Use Purge only for bad uploaded data.</div>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" onclick="loadImportBatches()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+        </div>
+        <div id="result" class="alert alert-secondary py-2">Loading backoffice controls...</div>
+        <div class="batch-wrap">
+          <table class="table table-sm table-hover align-middle">
+            <thead>
+              <tr>
+                <th>Batch</th>
+                <th>File</th>
+                <th>Type</th>
+                <th>Status</th>
+                <th class="text-end">Rows</th>
+                <th class="text-end">Posted</th>
+                <th class="text-end">Blocked</th>
+                <th>Created</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="batchRows"><tr><td colspan="9" class="text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </div>
 </div>
 <script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
 <script src="/js/base.js"></script>
 <script src="/js/main.js"></script>
 <script>
-function headers(){ const t=localStorage.getItem('haToken')||localStorage.getItem('token')||''; return { 'Content-Type':'application/json', ...(t?{Authorization:'Bearer '+t}:{}) }; }
-async function seedSimulation(){ const r=await fetch('/api/simulation/seed',{method:'POST',headers:headers()}); document.getElementById('result').textContent=await r.text(); }
-async function clearSimulation(){ const r=await fetch('/api/simulation',{method:'DELETE',headers:headers()}); document.getElementById('result').textContent=await r.text(); }
+function headers(json) {
+  const t = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
+  const h = t ? { Authorization: 'Bearer ' + t } : {};
+  if (json) h['Content-Type'] = 'application/json';
+  return h;
+}
+function esc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function showResult(message, type) {
+  const box = document.getElementById('result');
+  box.className = 'alert alert-' + (type || 'secondary') + ' py-2';
+  box.textContent = message;
+}
+async function seedSimulation() {
+  const res = await fetch('/api/simulation/seed', { method: 'POST', headers: headers(true) });
+  showResult(await res.text(), res.ok ? 'success' : 'danger');
+}
+async function clearSimulation() {
+  if (!confirm('Clear all simulation data? Curated rows are not deleted.')) return;
+  const res = await fetch('/api/simulation', { method: 'DELETE', headers: headers(true) });
+  showResult(await res.text(), res.ok ? 'success' : 'danger');
+}
+async function loadImportBatches() {
+  const includeRemoved = document.getElementById('includeRemoved').checked;
+  const res = await fetch('/api/import/batches' + (includeRemoved ? '?includeRemoved=1' : ''), { headers: headers() });
+  const rows = res.ok ? await res.json() : [];
+  document.getElementById('batchRows').innerHTML = rows.length ? rows.map(row => {
+    const removed = row.status === 'removed';
+    const posted = Number(row.acceptedCount || 0);
+    return '<tr>' +
+      '<td>#' + esc(row.id) + '</td>' +
+      '<td>' + esc(row.fileName || '') + '</td>' +
+      '<td>' + esc(row.importType || '') + '</td>' +
+      '<td><span class="badge ' + (removed ? 'bg-danger' : 'bg-secondary') + '">' + esc(row.status) + '</span></td>' +
+      '<td class="text-end">' + esc(row.rowCount || 0) + '</td>' +
+      '<td class="text-end">' + esc(row.acceptedCount || 0) + '</td>' +
+      '<td class="text-end">' + esc(row.rejectedCount || 0) + '</td>' +
+      '<td>' + esc(row.createdAt ? String(row.createdAt).slice(0, 19).replace('T', ' ') : '') + '</td>' +
+      '<td class="text-end"><div class="d-inline-flex gap-2">' +
+        '<a class="btn btn-outline-primary btn-sm" href="/import">Open</a>' +
+        '<button class="btn btn-outline-warning btn-sm" ' + (removed ? 'disabled' : '') + ' onclick="removeBatch(' + Number(row.id) + ')">Remove</button>' +
+        '<button class="btn btn-outline-danger btn-sm" onclick="purgeBatch(' + Number(row.id) + ', false)">Purge</button>' +
+        '<button class="btn btn-danger btn-sm" ' + (posted ? '' : 'disabled') + ' onclick="purgeBatch(' + Number(row.id) + ', true)">Rollback+Purge</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="9" class="text-muted">No import batches found.</td></tr>';
+  showResult(rows.length + ' import batch(es) loaded.', res.ok ? 'secondary' : 'danger');
+}
+async function removeBatch(id) {
+  if (!confirm('Remove batch #' + id + ' from the active staging queue? Posted ledger transactions stay preserved.')) return;
+  const res = await fetch('/api/import/batches/' + id, {
+    method: 'DELETE',
+    headers: headers(true),
+    body: JSON.stringify({ reason: 'Removed from backoffice data control.' })
+  });
+  const data = await res.json().catch(() => ({}));
+  showResult(data.message || data.error || 'Remove completed.', res.ok ? 'success' : 'danger');
+  await loadImportBatches();
+}
+async function purgeBatch(id, rollbackPosted) {
+  const expected = 'PURGE BATCH ' + id;
+  const typed = prompt((rollbackPosted ? 'Rollback posted ledger transactions and purge ' : 'Purge staging data for ') + 'batch #' + id + '. Type exactly: ' + expected);
+  if (typed !== expected) {
+    showResult('Purge cancelled. Confirmation text did not match.', 'warning');
+    return;
+  }
+  if (rollbackPosted && !confirm('This will delete ledger transactions posted from batch #' + id + '. Continue?')) return;
+  const res = await fetch('/api/import/batches/' + id + '/purge', {
+    method: 'DELETE',
+    headers: headers(true),
+    body: JSON.stringify({ confirmText: expected, deletePostedTransactions: !!rollbackPosted })
+  });
+  const data = await res.json().catch(() => ({}));
+  showResult(data.message || data.error || 'Purge completed.', res.ok ? 'success' : 'danger');
+  await loadImportBatches();
+}
+document.getElementById('includeRemoved').addEventListener('change', loadImportBatches);
+document.addEventListener('DOMContentLoaded', loadImportBatches);
 </script>
 </body>
 </html>

@@ -7,6 +7,7 @@
   // Build a visible-set from userPerms
   const UP      = locals.userPerms || null;
   const isAdmin = locals.isAdmin || (locals.currentUser && locals.currentUser.role === 'Administrator');
+  const isMaster = locals.isMaster || (locals.currentUser && locals.currentUser.isMaster === true);
 
   // Returns true if visible:
   //   • No UP (no token)     → permissive (JS redirect handles auth)
@@ -23,12 +24,12 @@
   const refActive   = ['financial-institutions','categories','reconciliations','proofs'].includes(ap);
   const planningActive = ['finance','budgets','recurring','financial-goals','investments','currency-rates','balance-snapshots'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
-  const adminActive = ['roles','users','system-settings','backups','import','active-users'].includes(ap);
+  const adminActive = ['roles','users','system-settings','backups','import','active-users','backoffice'].includes(ap);
 
   const refVisible   = sv('financial_institutions') || sv('categories') || sv('reconciliations') || sv('proofs');
   const planningVisible = sv('reports') || sv('budgets') || sv('recurring') || sv('goals') || sv('investments') || sv('currency_rates') || sv('balance_snapshots');
   const rptVisible   = sv('reports') || sv('audit_log');
-  const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users');
+  const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users') || isMaster;
 %>
 <!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
@@ -205,6 +206,11 @@
                         <i class="fas fa-users me-2"></i>Who's Online
                         <span id="sidebarOnlineBadge" style="display:none;margin-left:auto;background:#22c55e;color:#fff;border-radius:20px;padding:1px 7px;font-size:.65rem;font-weight:700;line-height:1.6">0</span>
                     </a>
+                </li>
+                <% } %>
+                <% if (isMaster) { %>
+                <li class="<%= ap === 'backoffice' ? 'active' : '' %>">
+                    <a href="/backoffice"><i class="fas fa-toolbox me-2"></i>Backoffice</a>
                 </li>
                 <% } %>
             </ul>
