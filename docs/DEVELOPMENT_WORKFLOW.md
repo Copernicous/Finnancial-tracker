@@ -108,7 +108,8 @@ The compiled server is written to `dist/server.exe`. Keep `.env`, `.env.staging`
 - Import templates are available at `/import`.
 - Uploads create `ImportBatch` and `ImportRow` records only.
 - No upload posts ledger transactions automatically.
-- Future curated import mapping should resolve accounts, categories, currencies, and duplicates before posting.
+- Advantage / Citi PDF statements can be uploaded from `/import` using the bank-statement importer.
+- Future curated import mapping should resolve accounts, categories, currencies, duplicates, and approval status before posting.
 
 ## Verification Checklist
 

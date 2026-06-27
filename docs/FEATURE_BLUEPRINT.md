@@ -17,6 +17,7 @@ No historical transactions, balances, or workbook totals are imported from the o
 - Proxy-aware links and navigation for FortiGate-style rewritten URLs.
 - CSV export, print-friendly reporting, and formula-safe spreadsheet output.
 - Curated import staging with templates, preview, batch history, and no automatic ledger posting.
+- Bank statement import profiles that parse uploaded statements into staged rows without ledger posting.
 - Development, staging, reset, smoke, and Windows executable build commands.
 
 ## Financial Domain Features
@@ -53,6 +54,7 @@ The app borrows feature concepts common in household finance tools without impor
 - Goals and sinking funds.
 - Multi-currency structure and exchange-rate support.
 - Spreadsheet-safe exports and accountant-friendly review trails.
+- Advantage / Citi credit card PDF parsing with statement metadata, row confidence, and duplicate fingerprints.
 
 Useful public references for these concepts:
 

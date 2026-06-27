@@ -54,6 +54,7 @@ async function main() {
     '/api/investment-holdings',
     '/api/currency-rates',
     '/api/account-balance-snapshots',
+    '/api/import/bank-statement/profiles',
     '/api/finance/overview?year=2026&currency=ALL',
     '/api/finance/search?limit=10'
   ];

@@ -1,6 +1,8 @@
 const csv = require('csv-parser');
 const { Readable } = require('stream');
+const crypto = require('crypto');
 const db = require('../models');
+const { parseBankStatement } = require('../services/bankStatementParser');
 
 const TEMPLATES = {
   accounts: ['name', 'accountCode', 'accountType', 'accountClass', 'accountSubtype', 'currency', 'financialInstitutionName', 'openingBalance', 'openingBalanceDate', 'currentBalance', 'creditLimit', 'interestRate', 'includeInNetWorth', 'status', 'notes'],
@@ -61,6 +63,97 @@ exports.getBatchRows = async (req, res) => {
     limit: 500
   });
   res.json(rows);
+};
+
+exports.getBankStatementProfiles = async (req, res) => {
+  res.json([
+    {
+      key: 'advantage_citi_pdf',
+      label: 'Advantage / Citi Credit Card PDF',
+      institution: 'Citi Advantage',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    }
+  ]);
+};
+
+exports.importBankStatement = async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'Statement file is required.' });
+
+  const profile = req.body.profile || 'advantage_citi_pdf';
+  const requestedAccountId = req.body.accountId ? Number(req.body.accountId) : null;
+  const accountId = Number.isInteger(requestedAccountId) && requestedAccountId > 0 ? requestedAccountId : null;
+  const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+  const parsed = await parseBankStatement({ buffer: req.file.buffer, profile });
+
+  const notesPayload = {
+    source: 'bank_statement_web_upload',
+    profile,
+    parserVersion: parsed.parserVersion,
+    fileHashSha256: hash,
+    originalFileName: req.file.originalname,
+    pageCount: parsed.pageCount,
+    lineCount: parsed.lineCount,
+    metadata: parsed.metadata,
+    warnings: parsed.warnings || [],
+    postingPolicy: 'stage_only_no_ledger_posting'
+  };
+
+  const batch = await db.sequelize.transaction(async (transaction) => {
+    const created = await db.ImportBatch.create({
+      importType: 'bank_statement_' + profile,
+      fileName: req.file.originalname,
+      status: parsed.transactions.length ? 'staged' : 'needs_review',
+      rowCount: parsed.transactions.length,
+      acceptedCount: 0,
+      rejectedCount: 0,
+      notes: JSON.stringify(notesPayload),
+      createdByUserId: req.user && req.user.id
+    }, { transaction });
+
+    if (parsed.transactions.length) {
+      await db.ImportRow.bulkCreate(parsed.transactions.map((row, index) => ({
+        importBatchId: created.id,
+        rowNumber: index + 1,
+        rawData: row,
+        normalizedData: {
+          transactionDate: row.postDate,
+          saleDate: row.saleDate,
+          accountId,
+          description: row.description,
+          merchant: row.description,
+          transactionType: row.suggestedLedgerType,
+          amount: row.suggestedLedgerAmount,
+          currency: row.currency || 'USD',
+          status: 'draft',
+          sourceType: 'bank_statement',
+          referenceNumber: row.fingerprint,
+          tags: ['bank-statement', profile, row.transactionType].filter(Boolean).join(','),
+          statementAmount: row.amount,
+          statementSection: row.section,
+          cardholder: row.cardholder,
+          confidence: row.confidence,
+          parserVersion: parsed.parserVersion
+        },
+        status: 'staged',
+        matchedAccountId: accountId
+      })), { transaction });
+    }
+
+    return created;
+  });
+
+  res.json({
+    ok: true,
+    batchId: batch.id,
+    profile,
+    rowCount: parsed.transactions.length,
+    metadata: parsed.metadata,
+    warnings: parsed.warnings || [],
+    previewRows: parsed.transactions.slice(0, 50),
+    message: 'Bank statement parsed and staged for review. No ledger data was posted.'
+  });
 };
 
 exports.importDataset = async (req, res) => {

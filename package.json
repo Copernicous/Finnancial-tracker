@@ -61,7 +61,12 @@
       "node_modules/node-cron/**/*.js",
       "node_modules/multer/**/*.js",
       "node_modules/sequelize/**/*.js",
-      "node_modules/pg/**/*.js"
+      "node_modules/pg/**/*.js",
+      "node_modules/pdf-parse/**/*.js",
+      "node_modules/pdf-parse/**/*.cjs",
+      "node_modules/pdfjs-dist/**/*.js",
+      "node_modules/pdfjs-dist/**/*.mjs",
+      "node_modules/@napi-rs/canvas/**/*"
     ],
     "assets": [
       "views/**/*",
@@ -96,6 +101,7 @@
     "multer": "^2.2.0",
     "node-cron": "^4.4.1",
     "nodemailer": "^9.0.1",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.22.0",
     "pg-hstore": "^2.3.4",
     "qrcode": "^1.5.4",

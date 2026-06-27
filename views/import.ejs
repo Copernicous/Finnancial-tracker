@@ -21,7 +21,10 @@
     .preview-wrap { max-height: 330px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
     .preview-wrap table { margin: 0; min-width: 720px; }
     .field-required { color: #dc3545; font-weight: 700; }
+    .statement-grid { display: grid; grid-template-columns: repeat(4, minmax(150px, 1fr)); gap: .75rem; align-items: end; }
+    .statement-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
     @media (max-width: 992px) { .import-layout { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .statement-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -99,6 +102,43 @@
               </table>
             </div>
             <div class="alert mt-3 d-none" id="result"></div>
+          </section>
+
+          <section class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <div>
+                <h5 class="mb-1">Bank Statement Import</h5>
+                <div class="text-muted small">Parse uploaded bank statements into staged rows for review. Nothing posts to the ledger.</div>
+              </div>
+              <span class="badge bg-warning text-dark"><i class="fas fa-lock me-1"></i>Stage Only</span>
+            </div>
+
+            <div class="statement-grid">
+              <div>
+                <label class="form-label">Profile</label>
+                <select class="form-select" id="statementProfile"></select>
+              </div>
+              <div>
+                <label class="form-label">Target Account</label>
+                <select class="form-select" id="statementAccount"><option value="">No account selected</option></select>
+              </div>
+              <div>
+                <label class="form-label">Statement PDF</label>
+                <input class="form-control" type="file" id="statementFile" accept=".pdf,application/pdf">
+              </div>
+              <div class="d-grid">
+                <button class="btn btn-primary" id="statementStageBtn"><i class="fas fa-file-invoice-dollar me-1"></i>Parse & Stage</button>
+              </div>
+            </div>
+
+            <div class="alert mt-3 d-none" id="statementResult"></div>
+            <div class="statement-result-grid mt-3 d-none" id="statementMeta"></div>
+            <div class="preview-wrap mt-3 d-none" id="statementPreviewWrap">
+              <table class="table table-sm table-hover">
+                <thead><tr><th>Post Date</th><th>Cardholder</th><th>Section</th><th>Description</th><th class="text-end">Statement Amount</th><th class="text-end">Suggested Ledger</th></tr></thead>
+                <tbody id="statementPreviewRows"></tbody>
+              </table>
+            </div>
           </section>
 
           <section class="glass-card p-4">
@@ -202,6 +242,8 @@ const DATASETS = {
 let selectedDataset = 'transactions';
 let selectedFile = null;
 let parsedRows = [];
+let statementProfiles = [];
+let accountRows = [];
 
 function authHeaders() {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -286,12 +328,92 @@ function compareFile() {
   document.getElementById('previewBody').innerHTML = parsedRows.slice(1, 8).map(row => '<tr>' + actual.map((_, i) => '<td>' + esc(row[i] || '') + '</td>').join('') + '</tr>').join('') || '<tr><td class="text-muted">No data rows.</td></tr>';
   wrap.classList.remove('d-none');
 }
+async function loadStatementSetup() {
+  const [profilesRes, accountsRes] = await Promise.all([
+    fetch('/api/import/bank-statement/profiles', { headers: authHeaders() }),
+    fetch('/api/accounts', { headers: authHeaders() })
+  ]);
+  statementProfiles = profilesRes.ok ? await profilesRes.json() : [];
+  accountRows = accountsRes.ok ? await accountsRes.json() : [];
+  document.getElementById('statementProfile').innerHTML = statementProfiles.map(profile =>
+    '<option value="' + esc(profile.key) + '">' + esc(profile.label) + '</option>'
+  ).join('');
+  document.getElementById('statementAccount').innerHTML = '<option value="">No account selected</option>' +
+    accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed').map(account =>
+      '<option value="' + account.id + '">' + esc(account.name) + ' (' + esc(account.currency || '') + ')</option>'
+    ).join('');
+}
 async function handleFile(file) {
   selectedFile = file;
   document.getElementById('fileLabel').textContent = file ? file.name : '';
   if (!file) return;
   parsedRows = parseCsv(await file.text());
   compareFile();
+}
+function money(value) {
+  return Number(value || 0).toLocaleString(undefined, { style: 'currency', currency: 'USD' });
+}
+function renderStatementPreview(data) {
+  const result = document.getElementById('statementResult');
+  const meta = document.getElementById('statementMeta');
+  const wrap = document.getElementById('statementPreviewWrap');
+  result.classList.remove('d-none', 'alert-success', 'alert-danger', 'alert-warning');
+  result.classList.add(data.ok ? 'alert-success' : 'alert-danger');
+  result.innerHTML = data.ok
+    ? '<strong>Batch #' + esc(data.batchId) + ' staged.</strong> ' + esc(data.message) + ' Rows: ' + esc(data.rowCount)
+    : esc(data.error || data.message || 'Unable to parse statement.');
+
+  if (!data.ok) return;
+  const m = data.metadata || {};
+  meta.classList.remove('d-none');
+  meta.innerHTML = [
+    ['Statement Date', m.statementDate || ''],
+    ['Billing Period', (m.billingPeriodStart || '') + ' to ' + (m.billingPeriodEnd || '')],
+    ['Account Last 4', m.accountLast4 || ''],
+    ['New Balance', m.newBalance == null ? '' : money(m.newBalance)],
+    ['Minimum Due', m.minimumPaymentDue == null ? '' : money(m.minimumPaymentDue)],
+    ['Due Date', m.paymentDueDate || '']
+  ].map(item => '<div class="spec-chip"><div class="text-muted small">' + esc(item[0]) + '</div><div class="fw-bold">' + esc(item[1]) + '</div></div>').join('');
+
+  const rows = data.previewRows || [];
+  document.getElementById('statementPreviewRows').innerHTML = rows.length ? rows.map(row =>
+    '<tr>' +
+      '<td>' + esc(row.postDate || '') + '</td>' +
+      '<td>' + esc(row.cardholder || '') + '</td>' +
+      '<td>' + esc(row.section || '') + '</td>' +
+      '<td>' + esc(row.description || '') + '</td>' +
+      '<td class="text-end">' + money(row.amount) + '</td>' +
+      '<td class="text-end">' + money(row.suggestedLedgerAmount) + '</td>' +
+    '</tr>'
+  ).join('') : '<tr><td colspan="6" class="text-muted">No rows detected.</td></tr>';
+  wrap.classList.remove('d-none');
+}
+async function stageStatementFile() {
+  const file = document.getElementById('statementFile').files[0];
+  if (!file) {
+    const result = document.getElementById('statementResult');
+    result.className = 'alert alert-warning mt-3';
+    result.textContent = 'Select a statement PDF first.';
+    return;
+  }
+  const btn = document.getElementById('statementStageBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Parsing';
+  try {
+    const form = new FormData();
+    form.append('profile', document.getElementById('statementProfile').value || 'advantage_citi_pdf');
+    form.append('accountId', document.getElementById('statementAccount').value || '');
+    form.append('file', file);
+    const res = await fetch('/api/import/bank-statement', { method: 'POST', headers: authHeaders(), body: form });
+    const data = await res.json().catch(() => ({}));
+    renderStatementPreview(Object.assign({ ok: res.ok }, data));
+    if (res.ok) loadBatches();
+  } catch (err) {
+    renderStatementPreview({ ok: false, error: err.message || 'Unable to parse statement.' });
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-file-invoice-dollar me-1"></i>Parse & Stage';
+  }
 }
 async function stageFile() {
   if (!selectedFile) return;
@@ -332,8 +454,9 @@ document.getElementById('dropZone').addEventListener('drop', e => {
 });
 document.getElementById('file').addEventListener('change', e => handleFile(e.target.files[0]));
 document.getElementById('stageBtn').addEventListener('click', stageFile);
+document.getElementById('statementStageBtn').addEventListener('click', stageStatementFile);
 document.getElementById('refreshHistoryBtn').addEventListener('click', loadBatches);
-document.addEventListener('DOMContentLoaded', function() { renderSelected(); loadBatches(); });
+document.addEventListener('DOMContentLoaded', function() { renderSelected(); loadStatementSetup(); loadBatches(); });
 </script>
 </body>
 </html>

@@ -9,6 +9,7 @@ Home Accounting is a private household accounting web application based on the m
 - Old workbooks may inform structure such as account names and aliases.
 - Historical transactions, balances, and workbook totals are not imported into the clean app.
 - The main operating page is `/finance`, with selectors, KPIs, graphs, budgets, goals, investments, recurring items, and searchable transactions.
+- The `/import` page includes a stage-only Advantage / Citi credit card PDF statement importer.
 
 See:
 
