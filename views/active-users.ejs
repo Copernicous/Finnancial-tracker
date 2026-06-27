@@ -8,6 +8,22 @@
   <link href="/assets/inter.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .session-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem; }
+    .session-card { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; padding: 1rem; background: var(--surface,#fff); position: relative; overflow: hidden; }
+    .session-card:before { content: ""; position: absolute; inset: 0 auto 0 0; width: 4px; background: #94a3b8; }
+    .session-card.active:before { background: #198754; }
+    .session-card.idle:before { background: #ffc107; }
+    .session-card.away:before { background: #dc3545; }
+    .avatar { width: 44px; height: 44px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 800; background: linear-gradient(135deg,#0d6efd,#20c997); flex: 0 0 auto; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: .35rem; }
+    .dot-active { background: #198754; }
+    .dot-idle { background: #ffc107; }
+    .dot-away { background: #dc3545; }
+    .metric-card { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; padding: 1rem; background: var(--surface,#fff); }
+    .page-pill { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--border,#e2e8f0); border-radius: 999px; padding: .25rem .6rem; font-size: .78rem; max-width: 100%; }
+    .page-pill span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
 </head>
 <body>
 <div class="wrapper">
@@ -17,24 +33,37 @@
       <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
       <span class="ms-3 fw-bold fs-5">Who's Online</span>
       <div class="ms-auto d-flex align-items-center gap-3">
+        <span class="small text-muted" id="refreshLabel">Auto-refresh 30s</span>
         <span id="userGreeting" class="text-muted small"></span>
         <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
       </div>
     </nav>
 
     <div class="container-fluid px-4">
+      <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="metric-card"><div class="text-muted small">Online</div><div class="fs-2 fw-bold" id="cntTotal">0</div></div></div>
+        <div class="col-md-3"><div class="metric-card"><div class="text-muted small">Active</div><div class="fs-2 fw-bold text-success" id="cntActive">0</div></div></div>
+        <div class="col-md-3"><div class="metric-card"><div class="text-muted small">Idle</div><div class="fs-2 fw-bold text-warning" id="cntIdle">0</div></div></div>
+        <div class="col-md-3"><div class="metric-card"><div class="text-muted small">Away</div><div class="fs-2 fw-bold text-danger" id="cntAway">0</div></div></div>
+      </div>
+
       <div class="glass-card p-4">
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
           <div>
-            <h5 class="mb-1">Active Sessions</h5>
-            <div class="text-muted small">Users seen in the accounting workspace during the last 15 minutes.</div>
+            <h5 class="mb-1">Active Accounting Sessions</h5>
+            <div class="text-muted small">Users seen in the workspace during the last 15 minutes.</div>
           </div>
-          <button class="btn btn-outline-primary btn-sm" onclick="loadSessions()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="toggleView()"><i class="fas fa-th-large me-1"></i><span id="viewLabel">Cards</span></button>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadSessions(true)"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+          </div>
         </div>
-        <div class="table-responsive">
+
+        <div id="cardsView" class="session-grid"></div>
+        <div id="tableView" class="table-responsive d-none">
           <table class="table table-hover align-middle">
             <thead><tr><th>User</th><th>Role</th><th>Current Page</th><th>Last Seen</th><th>Idle</th><th>IP</th></tr></thead>
-            <tbody id="sessionsBody"><tr><td colspan="6" class="text-muted">Loading...</td></tr></tbody>
+            <tbody id="sessionsBody"></tbody>
           </table>
         </div>
       </div>
@@ -46,6 +75,8 @@
 <script src="/js/base.js"></script>
 <script src="/js/main.js"></script>
 <script>
+let cardMode = true;
+let countdown = 30;
 function authHeaders() {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
   return token ? { Authorization: 'Bearer ' + token } : {};
@@ -53,32 +84,98 @@ function authHeaders() {
 function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
-function idle(ms) {
-  const minutes = Math.floor((ms || 0) / 60000);
-  if (minutes < 1) return 'Now';
-  return minutes + ' min';
+function statusFor(ms) {
+  const m = Math.floor((ms || 0) / 60000);
+  if (m < 2) return 'active';
+  if (m < 6) return 'idle';
+  return 'away';
 }
-async function loadSessions() {
-  const body = document.getElementById('sessionsBody');
-  body.innerHTML = '<tr><td colspan="6" class="text-muted">Loading...</td></tr>';
+function idleLabel(ms) {
+  const seconds = Math.floor((ms || 0) / 1000);
+  if (seconds < 60) return seconds + 's';
+  const minutes = Math.floor(seconds / 60);
+  return minutes + 'm';
+}
+function initials(row) {
+  const first = row.firstName || '';
+  const last = row.lastName || '';
+  if (first || last) return (first.slice(0, 1) + last.slice(0, 1)).toUpperCase();
+  return String(row.username || 'U').slice(0, 2).toUpperCase();
+}
+function pageIcon(page) {
+  const text = String(page || '').toLowerCase();
+  if (text.includes('report')) return 'fa-chart-line';
+  if (text.includes('entry') || text.includes('transaction')) return 'fa-receipt';
+  if (text.includes('account')) return 'fa-wallet';
+  if (text.includes('import')) return 'fa-file-import';
+  if (text.includes('user') || text.includes('role')) return 'fa-users-cog';
+  return 'fa-desktop';
+}
+function render(rows) {
+  const counts = { active: 0, idle: 0, away: 0 };
+  rows.forEach(row => counts[statusFor(row.idleMs)]++);
+  document.getElementById('cntTotal').textContent = rows.length;
+  document.getElementById('cntActive').textContent = counts.active;
+  document.getElementById('cntIdle').textContent = counts.idle;
+  document.getElementById('cntAway').textContent = counts.away;
+
+  const cards = document.getElementById('cardsView');
+  const table = document.getElementById('sessionsBody');
+  if (!rows.length) {
+    cards.innerHTML = '<div class="text-muted">No active sessions yet.</div>';
+    table.innerHTML = '<tr><td colspan="6" class="text-muted">No active sessions yet.</td></tr>';
+    return;
+  }
+  cards.innerHTML = rows.map(row => {
+    const status = statusFor(row.idleMs);
+    const name = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || row.username;
+    const page = row.currentPage || row.currentUrl || 'Workspace';
+    return '<article class="session-card ' + status + '">' +
+      '<div class="d-flex gap-3 align-items-start">' +
+        '<div class="avatar">' + esc(initials(row)) + '</div>' +
+        '<div class="min-w-0 flex-grow-1">' +
+          '<div class="d-flex justify-content-between gap-2"><strong class="text-truncate">' + esc(name) + '</strong><span class="small text-muted">@' + esc(row.username) + '</span></div>' +
+          '<div class="small text-muted mb-2">' + esc(row.role) + '</div>' +
+          '<div class="page-pill mb-2"><i class="fas ' + pageIcon(page) + ' text-primary"></i><span>' + esc(page) + '</span></div>' +
+          '<div class="d-flex justify-content-between small">' +
+            '<span><span class="status-dot dot-' + status + '"></span>' + esc(status.toUpperCase()) + ' - idle ' + esc(idleLabel(row.idleMs)) + '</span>' +
+            '<span class="text-muted">' + esc(row.ip || '') + '</span>' +
+          '</div>' +
+        '</div>' +
+      '</div>' +
+    '</article>';
+  }).join('');
+  table.innerHTML = rows.map(row => {
+    const name = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || row.username;
+    const status = statusFor(row.idleMs);
+    return '<tr><td><strong>' + esc(name) + '</strong><br><small class="text-muted">@' + esc(row.username) + '</small></td><td>' + esc(row.role) + '</td><td>' + esc(row.currentPage || row.currentUrl) + '</td><td>' + esc(new Date(row.lastSeen).toLocaleString()) + '</td><td><span class="status-dot dot-' + status + '"></span>' + esc(idleLabel(row.idleMs)) + '</td><td>' + esc(row.ip) + '</td></tr>';
+  }).join('');
+}
+async function loadSessions(manual) {
+  if (manual) countdown = 30;
   const res = await fetch('/api/active-sessions', { headers: authHeaders() });
   if (!res.ok) {
-    body.innerHTML = '<tr><td colspan="6" class="text-danger">Unable to load active users.</td></tr>';
+    document.getElementById('cardsView').innerHTML = '<div class="text-danger">Unable to load active users.</div>';
     return;
   }
-  const rows = await res.json();
-  if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="6" class="text-muted">No active sessions yet.</td></tr>';
-    return;
-  }
-  body.innerHTML = rows.map(row => {
-    const name = ((row.firstName || '') + ' ' + (row.lastName || '')).trim() || row.username;
-    return '<tr><td><strong>' + esc(name) + '</strong><br><small class="text-muted">@' + esc(row.username) + '</small></td><td>' + esc(row.role) + '</td><td>' + esc(row.currentPage || row.currentUrl) + '</td><td>' + esc(new Date(row.lastSeen).toLocaleString()) + '</td><td>' + esc(idle(row.idleMs)) + '</td><td>' + esc(row.ip) + '</td></tr>';
-  }).join('');
+  render(await res.json());
+}
+function toggleView() {
+  cardMode = !cardMode;
+  document.getElementById('cardsView').classList.toggle('d-none', !cardMode);
+  document.getElementById('tableView').classList.toggle('d-none', cardMode);
+  document.getElementById('viewLabel').textContent = cardMode ? 'Cards' : 'Table';
 }
 document.addEventListener('DOMContentLoaded', function() {
   loadSessions();
-  setInterval(loadSessions, 30000);
+  setInterval(function() {
+    countdown -= 1;
+    if (countdown <= 0) {
+      countdown = 30;
+      loadSessions();
+    }
+    document.getElementById('refreshLabel').textContent = 'Auto-refresh ' + countdown + 's';
+  }, 1000);
 });
 </script>
 </body>

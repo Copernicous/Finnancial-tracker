@@ -8,6 +8,21 @@
   <link href="/assets/inter.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .import-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1rem; }
+    .dataset-card { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; padding: .9rem; cursor: pointer; background: var(--surface,#fff); transition: border-color .15s, box-shadow .15s; }
+    .dataset-card.active { border-color: var(--primary,#0d6efd); box-shadow: 0 0 0 3px rgba(13,110,253,.12); }
+    .drop-zone { border: 2px dashed var(--border,#cbd5e1); border-radius: 8px; padding: 1.25rem; background: var(--surface-2,#f8fafc); text-align: center; cursor: pointer; }
+    .drop-zone.dragging { border-color: var(--primary,#0d6efd); background: rgba(13,110,253,.06); }
+    .spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .5rem; }
+    .spec-chip { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; padding: .55rem .65rem; background: var(--surface,#fff); font-size: .82rem; }
+    .step-pill { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--border,#e2e8f0); border-radius: 999px; padding: .35rem .7rem; font-size: .78rem; color: var(--text-muted,#64748b); }
+    .step-pill.active { color: var(--primary,#0d6efd); border-color: rgba(13,110,253,.45); background: rgba(13,110,253,.06); }
+    .preview-wrap { max-height: 330px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
+    .preview-wrap table { margin: 0; min-width: 720px; }
+    .field-required { color: #dc3545; font-weight: 700; }
+    @media (max-width: 992px) { .import-layout { grid-template-columns: 1fr; } }
+  </style>
 </head>
 <body>
 <div class="wrapper">
@@ -23,36 +38,69 @@
     </nav>
 
     <div class="container-fluid px-4">
-      <div class="row g-4">
-        <div class="col-lg-5">
-          <div class="glass-card p-4 h-100">
-            <h5 class="mb-3"><i class="fas fa-file-csv me-2 text-primary"></i>Templates</h5>
-            <p class="text-muted small">These templates define the future curated import format. Uploads are staged as import batches only; they do not post ledger entries automatically.</p>
-            <div class="list-group" id="templateList"></div>
+      <div class="d-flex flex-wrap gap-2 mb-3">
+        <span class="step-pill active"><i class="fas fa-table"></i>Template</span>
+        <span class="step-pill active"><i class="fas fa-search"></i>Preview</span>
+        <span class="step-pill"><i class="fas fa-archive"></i>Stage Only</span>
+        <span class="step-pill"><i class="fas fa-user-check"></i>Future Review</span>
+      </div>
+
+      <div class="import-layout">
+        <aside class="glass-card p-3">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h6 class="fw-bold mb-0">Accounting Datasets</h6>
+            <span class="badge bg-primary">2026</span>
           </div>
-        </div>
-        <div class="col-lg-7">
-          <div class="glass-card p-4">
-            <h5 class="mb-3"><i class="fas fa-upload me-2 text-primary"></i>Stage Curated CSV</h5>
-            <form id="importForm">
-              <div class="mb-3">
-                <label class="form-label">Dataset</label>
-                <select class="form-select" id="dataset">
-                  <option value="accounts">Accounts</option>
-                  <option value="transactions">Transactions</option>
-                  <option value="categories">Categories</option>
-                  <option value="proofs">Proofs</option>
-                </select>
+          <div id="datasetCards" class="d-grid gap-2"></div>
+        </aside>
+
+        <main class="d-grid gap-3">
+          <section class="glass-card p-4">
+            <div class="d-flex justify-content-between flex-wrap gap-3 mb-3">
+              <div>
+                <h5 class="mb-1" id="datasetTitle">Dataset</h5>
+                <div class="text-muted small" id="datasetDescription"></div>
               </div>
-              <div class="mb-3">
-                <label class="form-label">CSV File</label>
-                <input class="form-control" id="file" type="file" accept=".csv" required>
+              <a class="btn btn-outline-primary btn-sm align-self-start" id="templateLink" href="#">
+                <i class="fas fa-download me-1"></i>Download Template
+              </a>
+            </div>
+
+            <div class="row g-3">
+              <div class="col-lg-7">
+                <div class="drop-zone" id="dropZone">
+                  <i class="fas fa-cloud-upload-alt text-primary mb-2" style="font-size:2rem"></i>
+                  <div class="fw-semibold">Drop curated CSV here</div>
+                  <div class="text-muted small">or click to browse. Data is staged only, not posted to the ledger.</div>
+                  <div class="mt-2 small fw-semibold text-primary" id="fileLabel"></div>
+                  <input type="file" id="file" accept=".csv" hidden>
+                </div>
               </div>
-              <button class="btn btn-primary" type="submit"><i class="fas fa-inbox me-1"></i>Stage File</button>
-            </form>
-            <div class="alert alert-info mt-4 d-none" id="result"></div>
-          </div>
-        </div>
+              <div class="col-lg-5">
+                <div class="spec-grid" id="qualityCards"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <div>
+                <h5 class="mb-1">Template Compare</h5>
+                <div class="text-muted small">Local browser preview checks headers before the file is staged.</div>
+              </div>
+              <button class="btn btn-primary" id="stageBtn" disabled><i class="fas fa-inbox me-1"></i>Stage File</button>
+            </div>
+
+            <div id="comparePanel" class="alert alert-secondary py-2">Select a file to compare it against the selected accounting template.</div>
+            <div class="preview-wrap d-none" id="previewWrap">
+              <table class="table table-sm table-hover">
+                <thead id="previewHead"></thead>
+                <tbody id="previewBody"></tbody>
+              </table>
+            </div>
+            <div class="alert mt-3 d-none" id="result"></div>
+          </section>
+        </main>
       </div>
     </div>
   </div>
@@ -63,12 +111,40 @@
 <script src="/js/base.js"></script>
 <script src="/js/main.js"></script>
 <script>
-const datasets = [
-  ['accounts', 'Accounts', 'Chart of accounts with institution references and opening balances.'],
-  ['transactions', 'Transactions', '2026 ledger activity after curation.'],
-  ['categories', 'Categories', 'Income, expense, transfer, and adjustment categories.'],
-  ['proofs', 'Proofs', 'Document references connected to accounting records.']
-];
+const DATASETS = {
+  accounts: {
+    icon: 'fa-wallet',
+    title: 'Accounts',
+    description: 'Chart of accounts, opening balances, and institution references.',
+    required: ['name', 'accountType', 'currency'],
+    headers: ['name', 'accountCode', 'accountType', 'currency', 'financialInstitutionName', 'openingBalance', 'openingBalanceDate', 'notes']
+  },
+  transactions: {
+    icon: 'fa-receipt',
+    title: 'Transactions',
+    description: 'Curated 2026 ledger activity ready for accounting review.',
+    required: ['transactionDate', 'accountName', 'description', 'transactionType', 'amount'],
+    headers: ['transactionDate', 'accountName', 'categoryName', 'description', 'transactionType', 'amount', 'currency', 'status', 'referenceNumber', 'memo']
+  },
+  categories: {
+    icon: 'fa-tags',
+    title: 'Categories',
+    description: 'Income, expense, transfer, and adjustment categories.',
+    required: ['name', 'categoryType'],
+    headers: ['name', 'categoryType', 'parentName', 'taxRelevant']
+  },
+  proofs: {
+    icon: 'fa-paperclip',
+    title: 'Proofs',
+    description: 'Document references tied to accounting records.',
+    required: ['ownerType', 'originalName'],
+    headers: ['ownerType', 'ownerExternalRef', 'originalName', 'notes']
+  }
+};
+let selectedDataset = 'transactions';
+let selectedFile = null;
+let parsedRows = [];
+
 function authHeaders() {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
   return token ? { Authorization: 'Bearer ' + token } : {};
@@ -76,25 +152,113 @@ function authHeaders() {
 function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
-document.getElementById('templateList').innerHTML = datasets.map(item =>
-  '<a class="list-group-item list-group-item-action d-flex justify-content-between align-items-center" href="/api/import/template/' + item[0] + '">' +
-  '<span><strong>' + esc(item[1]) + '</strong><br><small class="text-muted">' + esc(item[2]) + '</small></span><i class="fas fa-download text-primary"></i></a>'
-).join('');
-document.getElementById('importForm').addEventListener('submit', async function(event) {
-  event.preventDefault();
-  const dataset = document.getElementById('dataset').value;
-  const file = document.getElementById('file').files[0];
+function parseCsv(text) {
+  const rows = [];
+  let row = [], cell = '', quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i], next = text[i + 1];
+    if (ch === '"' && quoted && next === '"') { cell += '"'; i++; continue; }
+    if (ch === '"') { quoted = !quoted; continue; }
+    if (ch === ',' && !quoted) { row.push(cell); cell = ''; continue; }
+    if ((ch === '\n' || ch === '\r') && !quoted) {
+      if (ch === '\r' && next === '\n') i++;
+      row.push(cell); cell = '';
+      if (row.some(v => v.trim() !== '')) rows.push(row);
+      row = [];
+      continue;
+    }
+    cell += ch;
+  }
+  row.push(cell);
+  if (row.some(v => v.trim() !== '')) rows.push(row);
+  return rows;
+}
+function renderDatasets() {
+  document.getElementById('datasetCards').innerHTML = Object.keys(DATASETS).map(key => {
+    const d = DATASETS[key];
+    return '<div class="dataset-card ' + (key === selectedDataset ? 'active' : '') + '" onclick="selectDataset(\'' + key + '\')">' +
+      '<div class="d-flex align-items-start gap-2"><i class="fas ' + d.icon + ' text-primary mt-1"></i><div><div class="fw-semibold">' + esc(d.title) + '</div><div class="text-muted small">' + esc(d.description) + '</div></div></div>' +
+      '</div>';
+  }).join('');
+}
+function renderSelected() {
+  const d = DATASETS[selectedDataset];
+  document.getElementById('datasetTitle').textContent = d.title;
+  document.getElementById('datasetDescription').textContent = d.description;
+  document.getElementById('templateLink').href = '/api/import/template/' + selectedDataset;
+  document.getElementById('qualityCards').innerHTML = [
+    ['Expected Columns', d.headers.length, 'fa-columns'],
+    ['Required Fields', d.required.length, 'fa-exclamation-circle'],
+    ['Import Mode', 'Stage', 'fa-archive'],
+    ['Ledger Posting', 'Manual Review', 'fa-user-check']
+  ].map(item => '<div class="spec-chip"><div class="text-muted small"><i class="fas ' + item[2] + ' me-1"></i>' + esc(item[0]) + '</div><div class="fw-bold">' + esc(item[1]) + '</div></div>').join('');
+  renderDatasets();
+  compareFile();
+}
+function selectDataset(key) {
+  selectedDataset = key;
+  renderSelected();
+}
+function compareFile() {
+  const panel = document.getElementById('comparePanel');
+  const wrap = document.getElementById('previewWrap');
+  const stageBtn = document.getElementById('stageBtn');
+  wrap.classList.add('d-none');
+  stageBtn.disabled = true;
+  if (!parsedRows.length) {
+    panel.className = 'alert alert-secondary py-2';
+    panel.textContent = 'Select a file to compare it against the selected accounting template.';
+    return;
+  }
+  const expected = DATASETS[selectedDataset].headers;
+  const required = DATASETS[selectedDataset].required;
+  const actual = parsedRows[0].map(h => h.trim());
+  const missing = expected.filter(h => !actual.includes(h));
+  const missingRequired = required.filter(h => !actual.includes(h));
+  const extra = actual.filter(h => !expected.includes(h));
+  const ok = missingRequired.length === 0;
+  panel.className = 'alert py-2 ' + (ok ? 'alert-success' : 'alert-danger');
+  panel.innerHTML = '<strong>' + (ok ? 'Header check passed.' : 'Missing required headers.') + '</strong> ' +
+    'Rows detected: ' + Math.max(parsedRows.length - 1, 0) +
+    (missing.length ? '<br>Missing expected: ' + esc(missing.join(', ')) : '') +
+    (extra.length ? '<br>Extra columns staged as reference only: ' + esc(extra.join(', ')) : '');
+  stageBtn.disabled = !ok || !selectedFile;
+
+  document.getElementById('previewHead').innerHTML = '<tr>' + actual.map(h => '<th>' + esc(h) + (required.includes(h) ? ' <span class="field-required">*</span>' : '') + '</th>').join('') + '</tr>';
+  document.getElementById('previewBody').innerHTML = parsedRows.slice(1, 8).map(row => '<tr>' + actual.map((_, i) => '<td>' + esc(row[i] || '') + '</td>').join('') + '</tr>').join('') || '<tr><td class="text-muted">No data rows.</td></tr>';
+  wrap.classList.remove('d-none');
+}
+async function handleFile(file) {
+  selectedFile = file;
+  document.getElementById('fileLabel').textContent = file ? file.name : '';
+  if (!file) return;
+  parsedRows = parseCsv(await file.text());
+  compareFile();
+}
+async function stageFile() {
+  if (!selectedFile) return;
   const form = new FormData();
-  form.append('file', file);
-  const res = await fetch('/api/import/' + dataset, { method: 'POST', headers: authHeaders(), body: form });
+  form.append('file', selectedFile);
+  const res = await fetch('/api/import/' + selectedDataset, { method: 'POST', headers: authHeaders(), body: form });
   const data = await res.json().catch(() => ({}));
   const result = document.getElementById('result');
-  result.classList.remove('d-none', 'alert-info', 'alert-danger');
-  result.classList.add(res.ok ? 'alert-info' : 'alert-danger');
+  result.classList.remove('d-none', 'alert-success', 'alert-danger');
+  result.classList.add(res.ok ? 'alert-success' : 'alert-danger');
   result.innerHTML = res.ok
     ? '<strong>Batch #' + data.batchId + ' staged.</strong><br>' + esc(data.message) + '<br>Rows received: ' + esc(data.rowCount)
     : esc(data.error || data.message || 'Unable to stage file.');
+}
+document.getElementById('dropZone').addEventListener('click', () => document.getElementById('file').click());
+document.getElementById('dropZone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('dragging'); });
+document.getElementById('dropZone').addEventListener('dragleave', e => e.currentTarget.classList.remove('dragging'));
+document.getElementById('dropZone').addEventListener('drop', e => {
+  e.preventDefault();
+  e.currentTarget.classList.remove('dragging');
+  handleFile(e.dataTransfer.files[0]);
 });
+document.getElementById('file').addEventListener('change', e => handleFile(e.target.files[0]));
+document.getElementById('stageBtn').addEventListener('click', stageFile);
+document.addEventListener('DOMContentLoaded', renderSelected);
 </script>
 </body>
 </html>
