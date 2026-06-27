@@ -9,9 +9,15 @@
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .import-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 1rem; }
-    .dataset-card { border: 1px solid var(--border,#e2e8f0); border-radius: 8px; padding: .9rem; cursor: pointer; background: var(--surface,#fff); transition: border-color .15s, box-shadow .15s; }
+    .import-layout { display: block; }
+    .dataset-strip { margin-bottom: 1rem; }
+    #datasetCards { display: flex; gap: .6rem; overflow-x: auto; overflow-y: hidden; padding: .1rem .1rem .35rem; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+    #datasetCards::-webkit-scrollbar { height: 8px; }
+    #datasetCards::-webkit-scrollbar-thumb { background: rgba(100,116,139,.45); border-radius: 999px; }
+    .dataset-card { flex: 0 0 210px; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; padding: .65rem .75rem; cursor: pointer; background: var(--surface,#fff); transition: border-color .15s, box-shadow .15s; min-height: 70px; scroll-snap-align: start; }
     .dataset-card.active { border-color: var(--primary,#0d6efd); box-shadow: 0 0 0 3px rgba(13,110,253,.12); }
+    .dataset-card .fw-semibold { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dataset-card .dataset-desc { font-size: .76rem; line-height: 1.2; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
     .drop-zone { border: 2px dashed var(--border,#cbd5e1); border-radius: 8px; padding: 1.25rem; background: var(--surface-2,#f8fafc); text-align: center; cursor: pointer; }
     .drop-zone.dragging { border-color: var(--primary,#0d6efd); background: rgba(13,110,253,.06); }
     .spec-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: .5rem; }
@@ -41,8 +47,7 @@
     .lookup-note strong { color: var(--text,#0f172a); }
     .lookup-detail-body { white-space: pre-wrap; }
     [data-theme="dark"] .lookup-note strong { color: var(--text,#e2e8f0); }
-    @media (max-width: 992px) { .import-layout { grid-template-columns: 1fr; } }
-    @media (max-width: 768px) { .statement-grid, .review-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 768px) { .dataset-card { flex-basis: 170px; } .statement-grid, .review-grid { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -59,22 +64,25 @@
     </nav>
 
     <div class="container-fluid px-4">
-      <div class="d-flex flex-wrap gap-2 mb-3">
-        <span class="step-pill active"><i class="fas fa-table"></i>Template</span>
-        <span class="step-pill active"><i class="fas fa-search"></i>Preview</span>
-        <span class="step-pill"><i class="fas fa-archive"></i>Stage Only</span>
-        <span class="step-pill"><i class="fas fa-user-check"></i>Future Review</span>
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div class="d-flex flex-wrap gap-2">
+          <span class="step-pill active"><i class="fas fa-table"></i>Template</span>
+          <span class="step-pill active"><i class="fas fa-search"></i>Preview</span>
+          <span class="step-pill"><i class="fas fa-archive"></i>Stage Only</span>
+          <span class="step-pill"><i class="fas fa-user-check"></i>Future Review</span>
+        </div>
+        <button class="btn btn-outline-secondary btn-sm" type="button" id="datasetToggleBtn" aria-controls="datasetPanel" aria-expanded="true"><i class="fas fa-eye-slash me-1"></i>Hide Datasets</button>
       </div>
 
-      <div class="import-layout">
-        <aside class="glass-card p-3">
-          <div class="d-flex justify-content-between align-items-center mb-2">
+      <section class="glass-card p-3 dataset-strip" id="datasetPanel">
+          <div class="d-flex justify-content-between align-items-center mb-3">
             <h6 class="fw-bold mb-0">Accounting Datasets</h6>
             <span class="badge bg-primary">2026</span>
           </div>
-          <div id="datasetCards" class="d-grid gap-2"></div>
-        </aside>
+          <div id="datasetCards"></div>
+      </section>
 
+      <div class="import-layout">
         <main class="d-grid gap-3">
           <section class="glass-card p-4">
             <div class="d-flex justify-content-between flex-wrap gap-3 mb-3">
@@ -507,9 +515,23 @@ function renderDatasets() {
   document.getElementById('datasetCards').innerHTML = Object.keys(DATASETS).map(key => {
     const d = DATASETS[key];
     return '<div class="dataset-card ' + (key === selectedDataset ? 'active' : '') + '" onclick="selectDataset(\'' + key + '\')">' +
-      '<div class="d-flex align-items-start gap-2"><i class="fas ' + d.icon + ' text-primary mt-1"></i><div><div class="fw-semibold">' + esc(d.title) + '</div><div class="text-muted small">' + esc(d.description) + '</div></div></div>' +
+      '<div class="d-flex align-items-start gap-2"><i class="fas ' + d.icon + ' text-primary mt-1"></i><div class="min-w-0"><div class="fw-semibold">' + esc(d.title) + '</div><div class="text-muted dataset-desc">' + esc(d.description) + '</div></div></div>' +
       '</div>';
   }).join('');
+}
+function setDatasetPanelVisible(visible) {
+  const panel = document.getElementById('datasetPanel');
+  const button = document.getElementById('datasetToggleBtn');
+  if (!panel || !button) return;
+  panel.classList.toggle('d-none', !visible);
+  button.innerHTML = visible
+    ? '<i class="fas fa-eye-slash me-1"></i>Hide Datasets'
+    : '<i class="fas fa-eye me-1"></i>Show Datasets';
+  button.setAttribute('aria-expanded', visible ? 'true' : 'false');
+  try { localStorage.setItem('haImportDatasetsVisible', visible ? '1' : '0'); } catch (err) {}
+}
+function toggleDatasetPanel() {
+  setDatasetPanelVisible(document.getElementById('datasetPanel').classList.contains('d-none'));
 }
 function renderSelected() {
   const d = DATASETS[selectedDataset];
@@ -1327,6 +1349,7 @@ document.getElementById('learnRulesBtn').addEventListener('click', learnSelected
 document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 document.getElementById('postRowsBtn').addEventListener('click', postSelectedRows);
 document.getElementById('reloadReviewBtn').addEventListener('click', () => openBatch(selectedBatchId));
+document.getElementById('datasetToggleBtn').addEventListener('click', toggleDatasetPanel);
 document.getElementById('reviewSearchFilter').addEventListener('input', applyReviewFilters);
 document.getElementById('reviewStatusFilter').addEventListener('change', applyReviewFilters);
 document.getElementById('reviewCategoryFilter').addEventListener('change', applyReviewFilters);
@@ -1354,7 +1377,14 @@ document.getElementById('selectAllReview').addEventListener('change', event => {
     if (input && !input.disabled) input.checked = event.target.checked;
   });
 });
-document.addEventListener('DOMContentLoaded', function() { renderSelected(); loadStatementSetup(); loadBatches(); });
+document.addEventListener('DOMContentLoaded', function() {
+  let datasetsVisible = true;
+  try { datasetsVisible = localStorage.getItem('haImportDatasetsVisible') !== '0'; } catch (err) {}
+  setDatasetPanelVisible(datasetsVisible);
+  renderSelected();
+  loadStatementSetup();
+  loadBatches();
+});
 </script>
 </body>
 </html>
