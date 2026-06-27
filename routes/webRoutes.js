@@ -14,6 +14,10 @@ router.get('/dashboard', (req, res) => {
   res.render('dashboard', { title: 'Dashboard', activePage: 'dashboard' });
 });
 
+router.get('/finance', (req, res) => {
+  res.render('finance', { title: 'Financial Workspace', activePage: 'finance' });
+});
+
 router.get('/accounts', (req, res) => {
   res.render('crud', { title: 'Chart of Accounts', module: 'accounts', apiEndpoint: '/api/accounts', activePage: 'accounts' });
 });
@@ -40,6 +44,30 @@ router.get('/reconciliations', (req, res) => {
 
 router.get('/proofs', (req, res) => {
   res.render('crud', { title: 'Proofs & Documents', module: 'proof-documents', apiEndpoint: '/api/proof-documents', activePage: 'proofs' });
+});
+
+router.get('/budgets', (req, res) => {
+  res.render('crud', { title: 'Budgets', module: 'budgets', apiEndpoint: '/api/budgets', activePage: 'budgets' });
+});
+
+router.get('/recurring', (req, res) => {
+  res.render('crud', { title: 'Recurring Transactions', module: 'recurring', apiEndpoint: '/api/recurring-transactions', activePage: 'recurring' });
+});
+
+router.get('/financial-goals', (req, res) => {
+  res.render('crud', { title: 'Financial Goals', module: 'financial-goals', apiEndpoint: '/api/financial-goals', activePage: 'financial-goals' });
+});
+
+router.get('/investments', (req, res) => {
+  res.render('crud', { title: 'Investment Holdings', module: 'investment-holdings', apiEndpoint: '/api/investment-holdings', activePage: 'investments' });
+});
+
+router.get('/currency-rates', (req, res) => {
+  res.render('crud', { title: 'Currency Rates', module: 'currency-rates', apiEndpoint: '/api/currency-rates', activePage: 'currency-rates' });
+});
+
+router.get('/balance-snapshots', (req, res) => {
+  res.render('crud', { title: 'Balance Snapshots', module: 'balance-snapshots', apiEndpoint: '/api/account-balance-snapshots', activePage: 'balance-snapshots' });
 });
 
 router.get('/reports', (req, res) => {

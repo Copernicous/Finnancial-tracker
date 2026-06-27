@@ -103,10 +103,10 @@ if "!PORT_IN_USE!"=="1" (
 if not exist "%APP_DIR%\logs" mkdir "%APP_DIR%\logs"
 if exist "%APP_DIR%\server.exe" (
     echo  [Mode] Running as compiled server.exe
-    start "PatientRX-Server" /MIN cmd /c "cd /d "%APP_DIR%" && server.exe >> "%APP_DIR%\logs\server.log" 2>&1"
+    start "HomeAccounting-Server" /MIN cmd /c "cd /d "%APP_DIR%" && server.exe >> "%APP_DIR%\logs\server.log" 2>&1"
 ) else (
     echo  [Mode] Running with node app.js
-    start "PatientRX-Server" /MIN cmd /c "cd /d "%APP_DIR%" && node app.js >> "%APP_DIR%\logs\server.log" 2>&1"
+    start "HomeAccounting-Server" /MIN cmd /c "cd /d "%APP_DIR%" && node app.js >> "%APP_DIR%\logs\server.log" 2>&1"
 )
 echo  Waiting for server to start...
 timeout /t 4 /nobreak >nul
@@ -127,7 +127,7 @@ goto :MainMenu
 cls
 echo.
 echo  Stopping server...
-taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
+taskkill /FI "WINDOWTITLE eq HomeAccounting-Server" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq node.exe" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
 echo  [OK] Server stopped.
@@ -140,7 +140,7 @@ goto :MainMenu
 cls
 echo.
 echo  Restarting server...
-taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
+taskkill /FI "WINDOWTITLE eq HomeAccounting-Server" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq node.exe" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
 timeout /t 2 /nobreak >nul
@@ -265,7 +265,7 @@ echo  [2] Auto-generate a random secret (recommended)
 echo.
 set /p "JC=  Select: "
 if "%JC%"=="2" (
-    set "NEW_JWT=RXSystem_%RANDOM%%RANDOM%_SecureKey%RANDOM%_%RANDOM%"
+    set "NEW_JWT=HomeAccounting_%RANDOM%%RANDOM%_SecureKey%RANDOM%_%RANDOM%"
     echo  Generated: !NEW_JWT!
 ) else (
     set /p "NEW_JWT=  Enter new JWT secret (min 20 characters): "
@@ -391,7 +391,7 @@ if /i NOT "%CONF%"=="YES" (
 
 echo.
 echo  Stopping server...
-taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
+taskkill /FI "WINDOWTITLE eq HomeAccounting-Server" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq node.exe" /F >nul 2>&1
 timeout /t 2 /nobreak >nul
 
@@ -472,11 +472,11 @@ echo  (Application code + Database dump as one ZIP file)
 echo  This may take 30-60 seconds...
 echo.
 
-if not exist "C:\RX-SiteBackups" mkdir "C:\RX-SiteBackups"
+if not exist "C:\HomeAccounting-SiteBackups" mkdir "C:\HomeAccounting-SiteBackups"
 for /f "tokens=2 delims==" %%I in ('wmic os get localdatetime /value') do set "DT=%%I"
 set "STAMP=%DT:~0,4%-%DT:~4,2%-%DT:~6,2%_%DT:~8,2%-%DT:~10,2%"
-set "TMPFILE=C:\RX-SiteBackups\_temp_%STAMP%.dump"
-set "ZIPFILE=C:\RX-SiteBackups\RX_SiteBackup_%STAMP%.zip"
+set "TMPFILE=C:\HomeAccounting-SiteBackups\_temp_%STAMP%.dump"
+set "ZIPFILE=C:\HomeAccounting-SiteBackups\HomeAccounting_SiteBackup_%STAMP%.zip"
 
 echo  Step 1/2 - Saving database...
 set "PGPASSWORD=%DB_PASS%"
@@ -589,7 +589,7 @@ echo  Paths
 echo  ----------
 echo  App folder:     %APP_DIR%
 echo  DB Backups:     %APP_DIR%\backups\
-echo  Site Backups:   C:\RX-SiteBackups\
+echo  Site Backups:   C:\HomeAccounting-SiteBackups\
 echo  Server Log:     %APP_DIR%\logs\server.log
 echo.
 echo  Backoffice URL: %APP_ORIGIN%/backoffice
@@ -679,7 +679,7 @@ set /p "CONF=  Deploy now? This will overwrite server.exe and .env in the app ro
 if /i NOT "%CONF%"=="Y" goto :MainMenu
 echo.
 echo  Stopping server first...
-taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
+taskkill /FI "WINDOWTITLE eq HomeAccounting-Server" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
 timeout /t 2 /nobreak >nul
 copy /Y "%APP_DIR%\dist\server.exe" "%APP_DIR%\server.exe" >nul
@@ -709,7 +709,7 @@ echo  your current installation).
 echo.
 
 :: Determine site backup dir (default or env override)
-set "SITE_BACKUP_DIR=C:\RX-SiteBackups"
+set "SITE_BACKUP_DIR=C:\HomeAccounting-SiteBackups"
 if exist "%ENV_FILE%" (
     for /f "usebackq tokens=1,* delims==" %%A in ("%ENV_FILE%") do (
         if "%%A"=="SITE_BACKUP_DIR" set "SITE_BACKUP_DIR=%%B"
@@ -800,7 +800,7 @@ echo  [OK] Extracted to temp file.
 echo.
 
 echo  Stopping server...
-taskkill /FI "WINDOWTITLE eq PatientRX-Server" /F >nul 2>&1
+taskkill /FI "WINDOWTITLE eq HomeAccounting-Server" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq node.exe" /F >nul 2>&1
 taskkill /FI "IMAGENAME eq server.exe" /F >nul 2>&1
 timeout /t 2 /nobreak >nul
@@ -907,7 +907,7 @@ echo   QA SMOKE TEST SUITE
 echo  ================================================
 echo.
 echo  Launches the standalone QA smoke test menu.
-echo  Tests run against a SEPARATE QA database (patient_rx_qa).
+echo  Tests run against a SEPARATE QA database (home_accounting_qa).
 echo  The production database is NOT touched.
 echo.
 echo  First time? Choose option [1] in the QA menu to

@@ -1,12 +1,12 @@
-﻿# ============================================================
+# ============================================================
 # Home Accounting -- Windows Service Installer
 #
 # Run from the folder that contains server.exe:
 #   powershell -ExecutionPolicy Bypass -File .\install-service.ps1
 #
 # Expected layout:
-#   C:\RX-Tracker\
-#     RX-APP\
+#   C:\HomeAccounting\
+#     APP\
 #       server.exe
 #       .env
 #       install-service.ps1
@@ -15,7 +15,7 @@
 #     nssm\
 # ============================================================
 
-$ServiceName = "PatientRXSystem"
+$ServiceName = "HomeAccountingSystem"
 $DisplayName = "Home Accounting"
 $Description = "Home Accounting Management System -- Web Server"
 $AppDir = $PSScriptRoot

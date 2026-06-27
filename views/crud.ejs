@@ -87,44 +87,59 @@ const CONFIG = {
     disable: { field: 'isActive', value: false }
   },
   accounts: {
-    columns: ['name', 'accountCode', 'accountType', 'currency', 'financialInstitutionId', 'openingBalance', 'status'],
+    columns: ['name', 'accountClass', 'accountSubtype', 'currency', 'financialInstitutionId', 'currentBalance', 'creditLimit', 'status'],
     fields: [
       { key: 'name', label: 'Account Name', required: true },
       { key: 'accountCode', label: 'Account Code' },
       { key: 'accountType', label: 'Account Type', type: 'select', options: ['asset', 'liability', 'equity', 'income', 'expense'] },
+      { key: 'accountClass', label: 'Account Class', type: 'select', options: ['checking', 'savings', 'credit_card', 'investment', 'retirement', 'loan', 'cash', 'foreign_currency', 'other'] },
+      { key: 'accountSubtype', label: 'Subtype' },
       { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
       { key: 'financialInstitutionId', label: 'Financial Institution', type: 'lookup', source: 'institutions' },
       { key: 'openingBalance', label: 'Opening Balance', type: 'number', step: '0.01' },
       { key: 'openingBalanceDate', label: 'Opening Date', type: 'date' },
+      { key: 'currentBalance', label: 'Current Balance', type: 'number', step: '0.01' },
+      { key: 'creditLimit', label: 'Credit Limit', type: 'number', step: '0.01' },
+      { key: 'interestRate', label: 'Interest Rate %', type: 'number', step: '0.0001' },
+      { key: 'includeInNetWorth', label: 'Include in Net Worth', type: 'checkbox' },
       { key: 'status', label: 'Status', type: 'select', options: ['active', 'inactive', 'closed'] },
       { key: 'notes', label: 'Notes', type: 'textarea' }
     ],
     disable: { field: 'status', value: 'inactive' }
   },
   categories: {
-    columns: ['name', 'categoryType', 'parentId', 'taxRelevant', 'isActive'],
+    columns: ['name', 'categoryType', 'groupName', 'budgetBehavior', 'parentId', 'isActive'],
     fields: [
       { key: 'name', label: 'Category Name', required: true },
       { key: 'categoryType', label: 'Type', type: 'select', options: ['income', 'expense', 'transfer', 'adjustment'] },
+      { key: 'groupName', label: 'Group' },
+      { key: 'budgetBehavior', label: 'Budget Behavior', type: 'select', options: ['fixed', 'variable', 'planned', 'ignore'] },
       { key: 'parentId', label: 'Parent Category', type: 'lookup', source: 'categories', optional: true },
-      { key: 'taxRelevant', label: 'Tax Relevant', type: 'checkbox' },
+      { key: 'taxRelevant', label: 'Tax Relevant', type: 'checkbox', checked: false },
       { key: 'isActive', label: 'Active', type: 'checkbox' }
     ],
     disable: { field: 'isActive', value: false }
   },
   transactions: {
-    columns: ['transactionDate', 'accountId', 'categoryId', 'description', 'transactionType', 'amount', 'status', 'sourceType'],
+    columns: ['transactionDate', 'accountId', 'categoryId', 'merchant', 'description', 'transactionType', 'amount', 'currency', 'status'],
     fields: [
       { key: 'transactionDate', label: 'Date', type: 'date', required: true },
       { key: 'accountId', label: 'Account', type: 'lookup', source: 'accounts', required: true },
       { key: 'categoryId', label: 'Category', type: 'lookup', source: 'categories', optional: true },
       { key: 'relatedAccountId', label: 'Related Account', type: 'lookup', source: 'accounts', optional: true },
       { key: 'description', label: 'Description', required: true },
+      { key: 'merchant', label: 'Merchant / Payee' },
       { key: 'transactionType', label: 'Type', type: 'select', options: ['income', 'expense', 'transfer', 'adjustment'] },
       { key: 'amount', label: 'Amount', type: 'number', step: '0.01', required: true },
       { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'originalAmount', label: 'Original Amount', type: 'number', step: '0.01' },
+      { key: 'originalCurrency', label: 'Original Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'exchangeRate', label: 'Exchange Rate', type: 'number', step: '0.000001' },
       { key: 'status', label: 'Status', type: 'select', options: ['draft', 'reviewed', 'reconciled', 'void'] },
       { key: 'referenceNumber', label: 'Reference' },
+      { key: 'tags', label: 'Tags' },
+      { key: 'clearedDate', label: 'Cleared Date', type: 'date' },
+      { key: 'isRecurring', label: 'Recurring', type: 'checkbox', checked: false },
       { key: 'memo', label: 'Memo', type: 'textarea' }
     ],
     remove: true
@@ -139,6 +154,96 @@ const CONFIG = {
       { key: 'bookBalance', label: 'Book Balance', type: 'number', step: '0.01' },
       { key: 'difference', label: 'Difference', type: 'number', step: '0.01' },
       { key: 'status', label: 'Status', type: 'select', options: ['open', 'reviewed', 'closed'] },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+    remove: true
+  },
+  budgets: {
+    columns: ['name', 'year', 'month', 'categoryId', 'budgetType', 'plannedAmount', 'currency', 'alertThresholdPct', 'isActive'],
+    fields: [
+      { key: 'name', label: 'Budget Name', required: true },
+      { key: 'year', label: 'Year', type: 'number', required: true },
+      { key: 'month', label: 'Month', type: 'number' },
+      { key: 'categoryId', label: 'Category', type: 'lookup', source: 'categories', optional: true },
+      { key: 'budgetType', label: 'Budget Type', type: 'select', options: ['monthly', 'annual', 'one_time'] },
+      { key: 'plannedAmount', label: 'Planned Amount', type: 'number', step: '0.01', required: true },
+      { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'alertThresholdPct', label: 'Alert Threshold %', type: 'number' },
+      { key: 'isActive', label: 'Active', type: 'checkbox' },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+    disable: { field: 'isActive', value: false }
+  },
+  recurring: {
+    columns: ['name', 'accountId', 'categoryId', 'transactionType', 'amount', 'currency', 'frequency', 'nextDate', 'isActive'],
+    fields: [
+      { key: 'name', label: 'Name', required: true },
+      { key: 'accountId', label: 'Account', type: 'lookup', source: 'accounts', required: true },
+      { key: 'categoryId', label: 'Category', type: 'lookup', source: 'categories', optional: true },
+      { key: 'transactionType', label: 'Type', type: 'select', options: ['income', 'expense', 'transfer', 'adjustment'] },
+      { key: 'amount', label: 'Amount', type: 'number', step: '0.01', required: true },
+      { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'frequency', label: 'Frequency', type: 'select', options: ['weekly', 'biweekly', 'monthly', 'quarterly', 'annual'] },
+      { key: 'nextDate', label: 'Next Date', type: 'date', required: true },
+      { key: 'endDate', label: 'End Date', type: 'date' },
+      { key: 'merchant', label: 'Merchant / Payee' },
+      { key: 'isActive', label: 'Active', type: 'checkbox' },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+    disable: { field: 'isActive', value: false }
+  },
+  'financial-goals': {
+    columns: ['name', 'goalType', 'accountId', 'targetAmount', 'currentAmount', 'currency', 'targetDate', 'priority', 'status'],
+    fields: [
+      { key: 'name', label: 'Goal Name', required: true },
+      { key: 'goalType', label: 'Goal Type', type: 'select', options: ['savings', 'debt_payoff', 'sinking_fund', 'investment', 'other'] },
+      { key: 'accountId', label: 'Linked Account', type: 'lookup', source: 'accounts', optional: true },
+      { key: 'targetAmount', label: 'Target Amount', type: 'number', step: '0.01', required: true },
+      { key: 'currentAmount', label: 'Current Amount', type: 'number', step: '0.01' },
+      { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'targetDate', label: 'Target Date', type: 'date' },
+      { key: 'priority', label: 'Priority', type: 'number' },
+      { key: 'status', label: 'Status', type: 'select', options: ['active', 'paused', 'complete', 'archived'] },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+    disable: { field: 'status', value: 'archived' }
+  },
+  'investment-holdings': {
+    columns: ['accountId', 'symbol', 'name', 'assetClass', 'quantity', 'costBasis', 'marketValue', 'currency', 'priceDate'],
+    fields: [
+      { key: 'accountId', label: 'Investment Account', type: 'lookup', source: 'accounts', required: true },
+      { key: 'symbol', label: 'Symbol', required: true },
+      { key: 'name', label: 'Holding Name' },
+      { key: 'assetClass', label: 'Asset Class', type: 'select', options: ['cash', 'equity', 'fixed_income', 'fund', 'retirement', 'crypto', 'other'] },
+      { key: 'quantity', label: 'Quantity', type: 'number', step: '0.000001' },
+      { key: 'costBasis', label: 'Cost Basis', type: 'number', step: '0.01' },
+      { key: 'marketValue', label: 'Market Value', type: 'number', step: '0.01' },
+      { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'priceDate', label: 'Price Date', type: 'date' },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+    remove: true
+  },
+  'currency-rates': {
+    columns: ['rateDate', 'fromCurrency', 'toCurrency', 'rate', 'source'],
+    fields: [
+      { key: 'rateDate', label: 'Rate Date', type: 'date', required: true },
+      { key: 'fromCurrency', label: 'From Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'toCurrency', label: 'To Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'rate', label: 'Rate', type: 'number', step: '0.000001', required: true },
+      { key: 'source', label: 'Source', type: 'select', options: ['manual', 'bank', 'statement', 'simulation'] },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+    remove: true
+  },
+  'balance-snapshots': {
+    columns: ['accountId', 'snapshotDate', 'balance', 'currency', 'source'],
+    fields: [
+      { key: 'accountId', label: 'Account', type: 'lookup', source: 'accounts', required: true },
+      { key: 'snapshotDate', label: 'Snapshot Date', type: 'date', required: true },
+      { key: 'balance', label: 'Balance', type: 'number', step: '0.01', required: true },
+      { key: 'currency', label: 'Currency', type: 'select', options: ['USD', 'COP', 'EUR'] },
+      { key: 'source', label: 'Source', type: 'select', options: ['manual', 'statement', 'bank', 'simulation'] },
       { key: 'notes', label: 'Notes', type: 'textarea' }
     ],
     remove: true
@@ -200,7 +305,7 @@ function fieldHtml(field) {
     return `<div><div>${label}<textarea class="form-control" id="f_${field.key}" rows="2"></textarea></div></div>`;
   }
   if (field.type === 'checkbox') {
-    return `<div class="d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="f_${field.key}" checked><label class="form-check-label" for="f_${field.key}">${esc(field.label)}</label></div></div>`;
+    return `<div class="d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="f_${field.key}" ${field.checked === false ? '' : 'checked'}><label class="form-check-label" for="f_${field.key}">${esc(field.label)}</label></div></div>`;
   }
   if (field.type === 'select') {
     return `<div>${label}<select class="form-select" id="f_${field.key}">${field.options.map(opt => `<option value="${esc(opt)}">${esc(opt)}</option>`).join('')}</select></div>`;
@@ -244,7 +349,7 @@ function resetForm() {
   CONFIG[MODULE].fields.forEach(field => {
     if (field.type === 'checkbox') {
       const el = document.getElementById('f_' + field.key);
-      if (el) el.checked = field.key !== 'isDeleted';
+      if (el) el.checked = field.checked === false ? false : field.key !== 'isDeleted';
     }
   });
 }

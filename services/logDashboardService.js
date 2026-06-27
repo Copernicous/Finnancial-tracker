@@ -29,7 +29,7 @@ const STATUS_GUIDE = {
 
 function statusInfo(statusCode) {
     const code = Number(statusCode || 0);
-    const guide = STATUS_GUIDE[code] || ['HTTP ' + (code || '?'), 'HTTP response status from the RX application.', 'Use the page, user, and time context to decide the next action.'];
+    const guide = STATUS_GUIDE[code] || ['HTTP ' + (code || '?'), 'HTTP response status from the Home Accounting application.', 'Use the page, user, and time context to decide the next action.'];
     return {
         code,
         label: guide[0],
@@ -640,7 +640,7 @@ async function readErrorSummary(since, filters) {
 
 function configuredLogPaths() {
     const paths = [];
-    const configured = process.env.LOG_DASHBOARD_PATHS || process.env.RX_LOG_DASHBOARD_PATHS || '';
+    const configured = process.env.LOG_DASHBOARD_PATHS || process.env.HA_LOG_DASHBOARD_PATHS || '';
     if (configured) {
         configured.split(';').forEach(item => {
             if (item && item.trim()) paths.push(item.trim());
@@ -653,8 +653,8 @@ function configuredLogPaths() {
         path.join(runDir, 'logs'),
         path.join(appRoot, 'logs'),
         path.join(path.dirname(runDir), 'logs'),
-        'C:\\RX-Tracker\\logs',
-        'C:\\RX-Tracker\\RX-APP\\logs'
+        'C:\\HomeAccounting\\logs',
+        'C:\\HomeAccounting\\APP\\logs'
     ];
 
     candidates.forEach(candidate => paths.push(candidate));

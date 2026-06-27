@@ -1,13 +1,13 @@
-﻿// base.js â€” Proxy-aware base path detection.
+// base.js — Proxy-aware base path detection.
 // FortiGate Agentless VPN Portal rewrites href attributes on <a> elements,
 // so a hidden <a id="xa-base" href="/login"> becomes the full proxy URL
-// e.g. https://rx.camperos.net:10443/proxy/513c244a/http/192.168.15.87:3000/login
+// e.g. https://accounting.example.com:10443/proxy/513c244a/http/192.168.15.87:3000/login
 // We strip the trailing "/login" to get the base path prefix for ALL navigation.
 //
 // Usage (available globally after this script loads):
-//   window.RX_BASE      â€” e.g. "https://rx.camperos.net:10443/proxy/513c244a/http/192.168.15.87:3000"
-//   window.appUrl(path)  â€” returns the full proxy-aware URL for any app path
-//   window.rxNav(path)  â€” navigates to a proxy-aware URL (replaces window.location.href)
+//   window.HA_BASE      — e.g. "https://accounting.example.com:10443/proxy/513c244a/http/192.168.15.87:3000"
+//   window.appUrl(path)  — returns the full proxy-aware URL for any app path
+//   window.appNav(path)  — navigates to a proxy-aware URL (replaces window.location.href)
 
 (function () {
     var base = '';
@@ -17,7 +17,7 @@
     var el = document.getElementById('xa-base');
     if (el && el.href) {
         // el.href is the FULLY-RESOLVED URL (browsers always resolve href to absolute)
-        // e.g. "https://rx.camperos.net:10443/proxy/513c244a/http/192.168.15.87:3000/login"
+        // e.g. "https://accounting.example.com:10443/proxy/513c244a/http/192.168.15.87:3000/login"
         var full = el.href;
         // Strip the "/login" suffix (and any trailing slash) to get base
         base = full.replace(/\/login\/?$/, '').replace(/\/$/, '');
@@ -28,7 +28,7 @@
         base = window.location.origin;
     }
 
-    window.RX_BASE = base;
+    window.HA_BASE = base;
 
     /**
      * Returns the absolute, proxy-aware URL for an app-root-relative path.
@@ -41,15 +41,15 @@
     /**
      * Navigates to a proxy-aware URL (hard navigation).
      */
-    window.rxNav = function (path) {
+    window.appNav = function (path) {
         window.location.href = base + path;
     };
 })();
 
-// â”€â”€â”€ Security Utilities (globally available) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Security Utilities (globally available) ─────────────────────────────────
 
 /**
- * escHtml â€” sanitize a string before inserting into innerHTML.
+ * escHtml — sanitize a string before inserting into innerHTML.
  * Converts <, >, &, " to safe HTML entities so user-supplied content
  * cannot execute as HTML/JS (prevents XSS via audit log, names, etc.)
  * Usage: element.innerHTML = escHtml(untrustedString);
@@ -64,7 +64,7 @@ function escHtml(s) {
 }
 
 /**
- * sanitizeCsvCell â€” prevent CSV/spreadsheet formula injection.
+ * sanitizeCsvCell — prevent CSV/spreadsheet formula injection.
  * If a cell value starts with =, +, -, @, tab, or carriage return,
  * Excel/LibreOffice would execute it as a formula. Prefix with ' to neutralize.
  * Usage: replace all cell values with sanitizeCsvCell(value) before building CSV.
@@ -77,14 +77,14 @@ function sanitizeCsvCell(val) {
     return '"' + s.replace(/"/g, '""') + '"';
 }
 
-// â”€â”€â”€ Active Session Heartbeat â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Active Session Heartbeat ─────────────────────────────────────────────────
 // Sends the current page title + URL to the server every 30s so the
 // "Who's Online" dashboard (active-users page) can track logged-in users.
 // Uses the appUrl() helper from base.js for FortiGate proxy compatibility.
 (function () {
-    function _rxHeartbeat() {
+    function _haHeartbeat() {
         var token = localStorage.getItem('haToken') || localStorage.getItem('token');
-        if (!token) return; // not logged in â€” skip silently
+        if (!token) return; // not logged in — skip silently
         var url = typeof window.appUrl === 'function' ? window.appUrl('/api/heartbeat') : '/api/heartbeat';
         fetch(url, {
             method: 'POST',
@@ -98,17 +98,17 @@ function sanitizeCsvCell(val) {
                 currentUrl:  window.location.pathname
             }),
             keepalive: true
-        }).catch(function () {}); // fail silently â€” non-critical
+        }).catch(function () {}); // fail silently — non-critical
     }
 
     // Fire immediately, then every 30 seconds
-    _rxHeartbeat();
-    setInterval(_rxHeartbeat, 30000);
+    _haHeartbeat();
+    setInterval(_haHeartbeat, 30000);
 })();
 
-// â”€â”€â”€ Client-Side Error Logger â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Client-Side Error Logger ─────────────────────────────────────────────────
 // Logs frontend errors to POST /api/errors so developers can review them
-// from the Audit Log â†’ Error Log tab without needing to reproduce the issue.
+// from the Audit Log → Error Log tab without needing to reproduce the issue.
 //
 // Usage anywhere in the app:
 //   window.logClientError('Network error.', e.message + '\n' + e.stack, 'error');
@@ -118,7 +118,7 @@ function sanitizeCsvCell(val) {
 window.logClientError = function (message, detail, severity) {
     try {
         var token = localStorage.getItem('haToken') || localStorage.getItem('token');
-        if (!token) return; // not authenticated â€” skip
+        if (!token) return; // not authenticated — skip
         var url = typeof window.appUrl === 'function' ? window.appUrl('/api/errors') : '/api/errors';
         var stack = detail || '';
         // Append page context to make the log actionable
@@ -140,9 +140,9 @@ window.logClientError = function (message, detail, severity) {
     } catch (e) { /* never let logging itself crash the app */ }
 };
 
-// â”€â”€â”€ Auto-catch ALL unhandled JS errors + Promise rejections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Auto-catch ALL unhandled JS errors + Promise rejections ─────────────────
 // Any crash or unhandled rejection anywhere in the app is now automatically
-// saved to the ErrorLog DB table â€” no manual try/catch needed.
+// saved to the ErrorLog DB table — no manual try/catch needed.
 (function () {
     // Uncaught JS errors (syntax errors, null references, etc.)
     window.addEventListener('error', function (evt) {

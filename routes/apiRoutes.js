@@ -10,6 +10,7 @@ const roleController = require('../controllers/roleController');
 const auditLogController = require('../controllers/auditLogController');
 const settingsController = require('../controllers/settingsController');
 const apiKeyController = require('../controllers/apiKeyController');
+const financeController = require('../controllers/financeController');
 const backupService = require('../services/backupService');
 
 router.get('/version', (req, res) => {
@@ -69,15 +70,19 @@ crud('/financial-institutions', 'FinancialInstitution', 'financial_institutions'
 ]);
 crud('/accounts', 'Account', 'accounts', [
   'name', 'accountCode', 'accountType', 'currency', 'financialInstitutionId',
-  'openingBalance', 'openingBalanceDate', 'status', 'notes', 'isSimulation'
+  'accountClass', 'accountSubtype', 'openingBalance', 'openingBalanceDate',
+  'currentBalance', 'creditLimit', 'interestRate', 'includeInNetWorth',
+  'status', 'notes', 'isSimulation'
 ]);
 crud('/categories', 'Category', 'categories', [
-  'name', 'categoryType', 'parentId', 'taxRelevant', 'isActive'
+  'name', 'categoryType', 'groupName', 'budgetBehavior', 'parentId', 'taxRelevant', 'isActive'
 ]);
 crud('/transactions', 'Transaction', 'transactions', [
   'transactionDate', 'accountId', 'categoryId', 'relatedAccountId', 'description',
-  'transactionType', 'amount', 'currency', 'status', 'sourceType', 'referenceNumber',
-  'memo', 'reviewedByUserId', 'reviewedAt', 'isSimulation'
+  'merchant', 'normalizedMerchant', 'transactionType', 'amount', 'currency',
+  'originalAmount', 'originalCurrency', 'exchangeRate', 'status', 'sourceType',
+  'referenceNumber', 'tags', 'clearedDate', 'isRecurring', 'memo',
+  'reviewedByUserId', 'reviewedAt', 'isSimulation'
 ], { order: [['transactionDate', 'DESC'], ['id', 'DESC']] });
 crud('/reconciliations', 'Reconciliation', 'reconciliations', [
   'accountId', 'periodStart', 'periodEnd', 'statementBalance', 'bookBalance',
@@ -89,55 +94,372 @@ crud('/proof-documents', 'ProofDocument', 'proofs', [
   'isDeleted', 'deletedAt'
 ], { order: [['id', 'DESC']] });
 
+crud('/budgets', 'Budget', 'budgets', [
+  'name', 'year', 'month', 'categoryId', 'budgetType', 'plannedAmount',
+  'currency', 'alertThresholdPct', 'isActive', 'notes', 'isSimulation'
+], { order: [['year', 'DESC'], ['month', 'ASC'], ['name', 'ASC']] });
+crud('/recurring-transactions', 'RecurringTransaction', 'recurring', [
+  'name', 'accountId', 'categoryId', 'transactionType', 'amount', 'currency',
+  'frequency', 'nextDate', 'endDate', 'merchant', 'notes', 'isActive', 'isSimulation'
+], { order: [['nextDate', 'ASC'], ['name', 'ASC']] });
+crud('/currency-rates', 'CurrencyRate', 'currency_rates', [
+  'rateDate', 'fromCurrency', 'toCurrency', 'rate', 'source', 'notes', 'isSimulation'
+], { order: [['rateDate', 'DESC'], ['fromCurrency', 'ASC']] });
+crud('/financial-goals', 'FinancialGoal', 'goals', [
+  'name', 'goalType', 'accountId', 'targetAmount', 'currentAmount', 'currency',
+  'targetDate', 'priority', 'status', 'notes', 'isSimulation'
+], { order: [['priority', 'ASC'], ['targetDate', 'ASC']] });
+crud('/investment-holdings', 'InvestmentHolding', 'investments', [
+  'accountId', 'symbol', 'name', 'assetClass', 'quantity', 'costBasis',
+  'marketValue', 'currency', 'priceDate', 'notes', 'isSimulation'
+], { order: [['assetClass', 'ASC'], ['symbol', 'ASC']] });
+crud('/account-balance-snapshots', 'AccountBalanceSnapshot', 'balance_snapshots', [
+  'accountId', 'snapshotDate', 'balance', 'currency', 'source', 'notes', 'isSimulation'
+], { order: [['snapshotDate', 'DESC'], ['accountId', 'ASC']] });
+
+router.get('/finance/overview', rbac.requirePermission('reports', 'read'), financeController.overview);
+router.get('/finance/search', rbac.requirePermission('transactions', 'read'), financeController.search);
+
+async function clearSimulationData() {
+  const deletedBalanceSnapshots = await db.AccountBalanceSnapshot.destroy({ where: { isSimulation: true } });
+  const deletedInvestmentHoldings = await db.InvestmentHolding.destroy({ where: { isSimulation: true } });
+  const deletedFinancialGoals = await db.FinancialGoal.destroy({ where: { isSimulation: true } });
+  const deletedRecurringTransactions = await db.RecurringTransaction.destroy({ where: { isSimulation: true } });
+  const deletedBudgets = await db.Budget.destroy({ where: { isSimulation: true } });
+  const deletedCurrencyRates = await db.CurrencyRate.destroy({ where: { isSimulation: true } });
+  const deletedTransactions = await db.Transaction.destroy({ where: { isSimulation: true } });
+  const deletedAccounts = await db.Account.destroy({ where: { isSimulation: true } });
+  return {
+    deletedTransactions,
+    deletedAccounts,
+    deletedBudgets,
+    deletedRecurringTransactions,
+    deletedFinancialGoals,
+    deletedInvestmentHoldings,
+    deletedBalanceSnapshots,
+    deletedCurrencyRates
+  };
+}
+
 router.post('/simulation/seed', rbac.requirePermission('simulation', 'add'), async (req, res) => {
-  await db.Transaction.destroy({ where: { isSimulation: true } });
-  const institution = await db.FinancialInstitution.findOrCreate({
-    where: { name: 'Demo Banco Popular' },
-    defaults: { institutionType: 'bank', notes: 'Simulation only', isActive: true }
-  });
-  const account = await db.Account.findOrCreate({
-    where: { name: 'Demo Checking 2026' },
-    defaults: {
-      accountCode: 'SIM-CHK-2026',
+  await clearSimulationData();
+  const now = new Date();
+
+  async function institution(name, institutionType, notes) {
+    const [row] = await db.FinancialInstitution.findOrCreate({
+      where: { name },
+      defaults: { institutionType, notes, isActive: true }
+    });
+    return row;
+  }
+  async function category(name, categoryType, groupName, budgetBehavior) {
+    const [row] = await db.Category.findOrCreate({
+      where: { name },
+      defaults: { categoryType, groupName, budgetBehavior, isActive: true }
+    });
+    await row.update({ categoryType, groupName, budgetBehavior, isActive: true });
+    return row;
+  }
+  async function account(data) {
+    const row = await db.Account.create({
       accountType: 'asset',
       currency: 'USD',
-      financialInstitutionId: institution[0].id,
+      openingBalanceDate: '2026-01-01',
+      status: 'active',
+      includeInNetWorth: true,
+      isSimulation: true,
+      ...data
+    });
+    return row;
+  }
+
+  const popular = await institution('Banco Popular', 'bank', 'Financial institution structure reference.');
+  const adv = await institution('ADV / Advantage', 'credit_card', 'Financial institution structure reference.');
+  const fidelity = await institution('Fidelity Demo', 'investment', 'Simulation brokerage for 2026 visualization.');
+
+  const cats = {
+    salary: await category('Salary', 'income', 'Income', 'fixed'),
+    interest: await category('Interest Income', 'income', 'Income', 'variable'),
+    otherIncome: await category('Other Income', 'income', 'Income', 'variable'),
+    housing: await category('Housing', 'expense', 'Home', 'fixed'),
+    utilities: await category('Utilities', 'expense', 'Home', 'fixed'),
+    groceries: await category('Groceries', 'expense', 'Living', 'variable'),
+    transportation: await category('Transportation', 'expense', 'Living', 'variable'),
+    insurance: await category('Insurance', 'expense', 'Protection', 'fixed'),
+    dining: await category('Dining & Entertainment', 'expense', 'Lifestyle', 'variable'),
+    fees: await category('Bank Fees', 'expense', 'Finance', 'variable'),
+    savings: await category('Savings Transfer', 'transfer', 'Transfers', 'planned'),
+    investing: await category('Investment Transfer', 'transfer', 'Transfers', 'planned'),
+    cardPayment: await category('Credit Card Payment', 'transfer', 'Transfers', 'planned')
+  };
+
+  const accounts = {
+    checking: await account({
+      name: 'Popular Checking 2026',
+      accountCode: 'CHK-2026',
+      accountClass: 'checking',
+      accountSubtype: 'primary checking',
+      openingBalance: 4200,
+      currentBalance: 9600,
+      financialInstitutionId: popular.id,
+      notes: 'Simulation checking account for data visualization.'
+    }),
+    savings: await account({
+      name: 'Popular Savings 2026',
+      accountCode: 'SVG-2026',
+      accountClass: 'savings',
+      accountSubtype: 'emergency fund',
+      openingBalance: 14500,
+      currentBalance: 21500,
+      interestRate: 4.1,
+      financialInstitutionId: popular.id
+    }),
+    card: await account({
+      name: 'ADV Credit Card 2026',
+      accountCode: 'CARD-ADV-2026',
+      accountType: 'liability',
+      accountClass: 'credit_card',
+      accountSubtype: 'rewards card',
+      openingBalance: -1800,
+      currentBalance: -2480,
+      creditLimit: 15000,
+      interestRate: 19.99,
+      financialInstitutionId: adv.id
+    }),
+    investment: await account({
+      name: 'Fidelity Investment 2026',
+      accountCode: 'INV-2026',
+      accountClass: 'investment',
+      accountSubtype: 'brokerage',
+      openingBalance: 43000,
+      currentBalance: 48500,
+      financialInstitutionId: fidelity.id
+    }),
+    copSavings: await account({
+      name: 'COP Savings 2026',
+      accountCode: 'COP-SVG-2026',
+      accountClass: 'savings',
+      accountSubtype: 'foreign currency',
+      currency: 'COP',
+      openingBalance: 7200000,
+      currentBalance: 8200000,
+      financialInstitutionId: popular.id
+    })
+  };
+
+  const txRows = [];
+  const addTx = (month, day, accountRow, categoryRow, description, type, amount, extra = {}) => {
+    txRows.push({
+      transactionDate: `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+      accountId: accountRow.id,
+      categoryId: categoryRow ? categoryRow.id : null,
+      relatedAccountId: extra.relatedAccountId || null,
+      description,
+      merchant: extra.merchant || null,
+      normalizedMerchant: extra.normalizedMerchant || extra.merchant || null,
+      transactionType: type,
+      amount,
+      currency: extra.currency || accountRow.currency || 'USD',
+      originalAmount: extra.originalAmount,
+      originalCurrency: extra.originalCurrency,
+      exchangeRate: extra.exchangeRate,
+      status: extra.status || 'reviewed',
+      sourceType: 'simulation',
+      referenceNumber: extra.referenceNumber || `SIM-${month}-${txRows.length + 1}`,
+      tags: extra.tags || null,
+      clearedDate: extra.clearedDate || null,
+      isRecurring: !!extra.isRecurring,
+      memo: extra.memo || null,
+      reviewedAt: now,
+      reviewedByUserId: req.user && req.user.id,
+      isSimulation: true
+    });
+  };
+
+  for (let month = 1; month <= 12; month++) {
+    const utilityBump = [1, 2, 7, 8].includes(month) ? 80 : 0;
+    addTx(month, 1, accounts.checking, cats.salary, 'Payroll deposit', 'income', 8500, { merchant: 'Employer Payroll', tags: 'salary,income', isRecurring: true });
+    addTx(month, 3, accounts.savings, cats.interest, 'Savings interest', 'income', 62 + month * 1.75, { merchant: 'Banco Popular', tags: 'interest,savings', isRecurring: true });
+    addTx(month, 5, accounts.checking, cats.housing, 'Mortgage or rent payment', 'expense', -2300, { merchant: 'Housing Payment', tags: 'housing,fixed', isRecurring: true });
+    addTx(month, 9, accounts.checking, cats.utilities, 'Electric, water, internet utilities', 'expense', -(335 + utilityBump), { merchant: 'Utility Providers', tags: 'utilities,fixed', isRecurring: true });
+    addTx(month, 12, accounts.checking, cats.groceries, 'Household groceries', 'expense', -(920 + month * 18), { merchant: 'Grocery Market', tags: 'groceries,household' });
+    addTx(month, 15, accounts.checking, cats.transportation, 'Fuel, parking, rideshare', 'expense', -(410 + month * 8), { merchant: 'Transportation', tags: 'transportation' });
+    addTx(month, 17, accounts.checking, cats.insurance, 'Insurance premium', 'expense', -375, { merchant: 'Insurance Carrier', tags: 'insurance,fixed', isRecurring: true });
+    addTx(month, 19, accounts.card, cats.dining, 'Dining and family entertainment', 'expense', -(460 + month * 12), { merchant: 'Restaurants', tags: 'dining,card' });
+    addTx(month, 22, accounts.checking, cats.cardPayment, 'Credit card payment', 'transfer', -1250, { relatedAccountId: accounts.card.id, merchant: 'ADV / Advantage', tags: 'card-payment,transfer', isRecurring: true });
+    addTx(month, 24, accounts.checking, cats.savings, 'Emergency fund transfer', 'transfer', -750, { relatedAccountId: accounts.savings.id, merchant: 'Banco Popular', tags: 'savings,transfer', isRecurring: true });
+    addTx(month, 25, accounts.checking, cats.investing, 'Investment contribution', 'transfer', -650, { relatedAccountId: accounts.investment.id, merchant: 'Fidelity Demo', tags: 'investment,transfer', isRecurring: true });
+    if ([3, 6, 9, 12].includes(month)) {
+      addTx(month, 26, accounts.checking, cats.otherIncome, 'Quarterly other income', 'income', 1200, { merchant: 'Consulting Income', tags: 'other-income' });
+    }
+    if ([4, 8, 12].includes(month)) {
+      addTx(month, 27, accounts.copSavings, cats.fees, 'Foreign currency bank fee', 'expense', -48000, { currency: 'COP', merchant: 'Banco Popular', tags: 'cop,fees' });
+    }
+  }
+
+  const transactions = await db.Transaction.bulkCreate(txRows);
+
+  await db.Budget.bulkCreate([
+    ['Housing', cats.housing.id, 2300, 90],
+    ['Utilities', cats.utilities.id, 430, 90],
+    ['Groceries', cats.groceries.id, 1150, 85],
+    ['Transportation', cats.transportation.id, 550, 90],
+    ['Insurance', cats.insurance.id, 400, 95],
+    ['Dining & Entertainment', cats.dining.id, 700, 85]
+  ].map(([name, categoryId, plannedAmount, alertThresholdPct]) => ({
+    name: `${name} 2026`,
+    year: 2026,
+    month: null,
+    categoryId,
+    budgetType: 'monthly',
+    plannedAmount,
+    currency: 'USD',
+    alertThresholdPct,
+    isActive: true,
+    notes: 'Simulation monthly budget.',
+    isSimulation: true
+  })));
+
+  await db.RecurringTransaction.bulkCreate([
+    ['Payroll deposit', accounts.checking.id, cats.salary.id, 'income', 8500, 'monthly', '2026-07-01', 'Employer Payroll'],
+    ['Mortgage or rent payment', accounts.checking.id, cats.housing.id, 'expense', -2300, 'monthly', '2026-07-05', 'Housing Payment'],
+    ['Utilities bundle', accounts.checking.id, cats.utilities.id, 'expense', -385, 'monthly', '2026-07-09', 'Utility Providers'],
+    ['Insurance premium', accounts.checking.id, cats.insurance.id, 'expense', -375, 'monthly', '2026-07-17', 'Insurance Carrier'],
+    ['Emergency savings transfer', accounts.checking.id, cats.savings.id, 'transfer', -750, 'monthly', '2026-07-24', 'Banco Popular'],
+    ['Investment contribution', accounts.checking.id, cats.investing.id, 'transfer', -650, 'monthly', '2026-07-25', 'Fidelity Demo']
+  ].map(([name, accountId, categoryId, transactionType, amount, frequency, nextDate, merchant]) => ({
+    name,
+    accountId,
+    categoryId,
+    transactionType,
+    amount,
+    currency: 'USD',
+    frequency,
+    nextDate,
+    merchant,
+    notes: 'Simulation recurring item.',
+    isActive: true,
+    isSimulation: true
+  })));
+
+  await db.FinancialGoal.bulkCreate([
+    {
+      name: 'Emergency Fund',
+      goalType: 'savings',
+      accountId: accounts.savings.id,
+      targetAmount: 40000,
+      currentAmount: 21500,
+      currency: 'USD',
+      targetDate: '2026-12-31',
+      priority: 1,
+      status: 'active',
+      notes: 'Six-month household reserve.',
+      isSimulation: true
+    },
+    {
+      name: 'Credit Card Payoff',
+      goalType: 'debt_payoff',
+      accountId: accounts.card.id,
+      targetAmount: 3500,
+      currentAmount: 1250,
+      currency: 'USD',
+      targetDate: '2026-10-31',
+      priority: 2,
+      status: 'active',
+      notes: 'Pay down statement balance before higher-rate purchases.',
+      isSimulation: true
+    },
+    {
+      name: 'Vacation Reserve',
+      goalType: 'sinking_fund',
+      accountId: accounts.savings.id,
+      targetAmount: 8000,
+      currentAmount: 3100,
+      currency: 'USD',
+      targetDate: '2026-08-15',
+      priority: 3,
+      status: 'active',
+      notes: 'Planned family trip reserve.',
       isSimulation: true
     }
-  });
-  const rows = [];
+  ]);
+
+  await db.InvestmentHolding.bulkCreate([
+    { accountId: accounts.investment.id, symbol: 'VTI', name: 'Total US Market ETF', assetClass: 'equity', quantity: 92.45, costBasis: 22000, marketValue: 25200, currency: 'USD', priceDate: '2026-06-30', notes: 'Simulation holding.', isSimulation: true },
+    { accountId: accounts.investment.id, symbol: 'VXUS', name: 'International Equity ETF', assetClass: 'equity', quantity: 140.2, costBasis: 9300, marketValue: 10150, currency: 'USD', priceDate: '2026-06-30', notes: 'Simulation holding.', isSimulation: true },
+    { accountId: accounts.investment.id, symbol: 'BND', name: 'Bond Market ETF', assetClass: 'fixed_income', quantity: 156.4, costBasis: 12400, marketValue: 13150, currency: 'USD', priceDate: '2026-06-30', notes: 'Simulation holding.', isSimulation: true }
+  ]);
+
+  const snapshotRows = [];
   for (let month = 1; month <= 12; month++) {
-    rows.push({
-      transactionDate: `2026-${String(month).padStart(2, '0')}-01`,
-      accountId: account[0].id,
-      description: 'Simulation income',
-      transactionType: 'income',
-      amount: 7200,
-      currency: 'USD',
-      status: 'reviewed',
-      sourceType: 'simulation',
-      isSimulation: true
-    });
-    rows.push({
-      transactionDate: `2026-${String(month).padStart(2, '0')}-05`,
-      accountId: account[0].id,
-      description: 'Simulation household expenses',
-      transactionType: 'expense',
-      amount: -3100 - (month * 25),
-      currency: 'USD',
-      status: 'reviewed',
-      sourceType: 'simulation',
-      isSimulation: true
-    });
+    const suffix = `2026-${String(month).padStart(2, '0')}-28`;
+    snapshotRows.push(
+      { accountId: accounts.checking.id, snapshotDate: suffix, balance: 4200 + month * 450, currency: 'USD', source: 'simulation', notes: 'Monthly simulation snapshot.', isSimulation: true },
+      { accountId: accounts.savings.id, snapshotDate: suffix, balance: 14500 + month * 585, currency: 'USD', source: 'simulation', notes: 'Monthly simulation snapshot.', isSimulation: true },
+      { accountId: accounts.card.id, snapshotDate: suffix, balance: -(1800 + month * 55), currency: 'USD', source: 'simulation', notes: 'Monthly simulation snapshot.', isSimulation: true },
+      { accountId: accounts.investment.id, snapshotDate: suffix, balance: 43000 + month * 460, currency: 'USD', source: 'simulation', notes: 'Monthly simulation snapshot.', isSimulation: true },
+      { accountId: accounts.copSavings.id, snapshotDate: suffix, balance: 7200000 + month * 80000, currency: 'COP', source: 'simulation', notes: 'Monthly simulation snapshot.', isSimulation: true }
+    );
   }
-  await db.Transaction.bulkCreate(rows);
-  res.json({ ok: true, created: rows.length, replacedExistingSimulation: true });
+  await db.AccountBalanceSnapshot.bulkCreate(snapshotRows);
+
+  await db.CurrencyRate.bulkCreate(Array.from({ length: 12 }, (_, idx) => ({
+    rateDate: `2026-${String(idx + 1).padStart(2, '0')}-28`,
+    fromCurrency: 'COP',
+    toCurrency: 'USD',
+    rate: 0.00024 + idx * 0.000001,
+    source: 'simulation',
+    notes: 'Simulation FX rate for dashboards.',
+    isSimulation: true
+  })).concat(Array.from({ length: 12 }, (_, idx) => ({
+    rateDate: `2026-${String(idx + 1).padStart(2, '0')}-28`,
+    fromCurrency: 'EUR',
+    toCurrency: 'USD',
+    rate: 1.08 + idx * 0.002,
+    source: 'simulation',
+    notes: 'Simulation FX rate for dashboards.',
+    isSimulation: true
+  }))));
+
+  res.json({
+    ok: true,
+    created: transactions.length,
+    details: {
+      accounts: Object.keys(accounts).length,
+      categories: Object.keys(cats).length,
+      transactions: transactions.length,
+      budgets: 6,
+      recurring: 6,
+      goals: 3,
+      holdings: 3,
+      snapshots: snapshotRows.length,
+      currencyRates: 24
+    },
+    replacedExistingSimulation: true
+  });
 });
 
 router.delete('/simulation', rbac.requirePermission('simulation', 'delete'), async (req, res) => {
-  const deletedTransactions = await db.Transaction.destroy({ where: { isSimulation: true } });
-  const deletedAccounts = await db.Account.destroy({ where: { isSimulation: true } });
-  res.json({ ok: true, deletedTransactions, deletedAccounts });
+  const deleted = await clearSimulationData();
+  res.json({ ok: true, ...deleted });
+});
+
+router.post('/heartbeat', async (req, res) => {
+  const user = req.user || {};
+  await db.UserActivityLog.create({
+    userId: user.id || null,
+    usernameSnapshot: user.username || null,
+    roleSnapshot: user.role || null,
+    pageUrl: req.body.currentUrl || req.body.pageUrl || '/',
+    pagePath: req.body.currentUrl || req.body.pagePath || '/',
+    pageTitle: req.body.currentPage || req.body.pageTitle || 'Accounting workspace',
+    visitedAt: new Date(),
+    ipAddress: req.ip || req.socket?.remoteAddress || '',
+    userAgent: req.headers['user-agent'] || '',
+    referrer: req.headers.referer || req.headers.referrer || null,
+    statusCode: 204
+  });
+  res.status(204).end();
 });
 
 router.get('/active-sessions', rbac.requirePermission('active_users', 'read'), async (req, res) => {

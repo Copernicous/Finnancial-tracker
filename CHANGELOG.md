@@ -5,5 +5,8 @@
 - Rebuilt the application domain as Home Accounting.
 - Added accounting tables for financial institutions, accounts, categories, transactions, reconciliations, proof records, import batches, audit, roles, and users.
 - Added manual accounting entry screens, editable accounting setup tables, user management, active-user tracking, reporting, and 2026 sample simulation data.
-- Replaced inherited operational pages with accounting-focused pages and removed obsolete patient/RX browser bundles, QA scripts, and route manifests.
+- Added financial planning tables for budgets, recurring transactions, goals, investments, currency rates, import rows, and balance snapshots.
+- Added the Financial Workspace with selectors, KPIs, cash-flow graphs, category graphs, budget watch, goals, recurring items, investments, searchable transactions, CSV export, and print support.
+- Replaced inherited operational pages with accounting-focused pages and removed obsolete inherited browser bundles, QA scripts, and route manifests.
+- Added financial DB reset and smoke-test commands for development and staging.
 - Preserved raw Excel files outside the import pipeline for future manual curation.

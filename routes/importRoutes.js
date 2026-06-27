@@ -25,6 +25,10 @@ router.use(auth);
 // Template downloads
 router.get('/template/:dataset', importController.getTemplate);
 
+// Staged import history
+router.get('/batches', rbac.requirePermission('import', 'read'), importController.getBatches);
+router.get('/batches/:id/rows', rbac.requirePermission('import', 'read'), importController.getBatchRows);
+
 // Import execution
 router.post('/:dataset', rbac.requirePermission('import', 'write'), upload.single('file'), importController.importDataset);
 

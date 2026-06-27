@@ -1,9 +1,9 @@
 # Home Accounting Deferred Items
 
-DEFERRED-01: Complete deep accounting-domain rename of inherited internal RX model names.
+DEFERRED-01: Continue deep accounting-domain cleanup of inherited generic helper names.
 Status: Open
 Reason: The current milestone preserves the proven web shell first, then converts domain models safely.
 
-DEFERRED-02: Replace medical workflow pages with accounting ledger, reconciliation, and proof workflows.
+DEFERRED-02: Build curated posting workflow from staged import rows into reviewed ledger entries.
 Status: Open
-Reason: Requires accountant-specific model and UI migration after the baseline compiles and deploys.
+Reason: Requires accountant-specific mapping, duplicate checks, review approvals, and reversal controls.

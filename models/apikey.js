@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
             allowNull: false
         },
         // First 12 chars of the key, shown in the list so admins can identify which key is which
-        // Format: "rxk_XXXXXXXX"
+        // Format: "hak_XXXXXXXX"
         keyPrefix: {
             type: DataTypes.STRING,
             allowNull: false

@@ -300,7 +300,7 @@ function readSettings() {
 }
 function getSiteBackupDir() {
     const s = readSettings();
-    return s.siteBackupPath || process.env.SITE_BACKUP_DIR || 'C:\\RX-SiteBackups';
+    return s.siteBackupPath || process.env.SITE_BACKUP_DIR || 'C:\\HomeAccounting-SiteBackups';
 }
 function setSiteBackupDir(newDir) {
     ensureDir(path.dirname(SETTINGS_PATH));
@@ -326,7 +326,7 @@ function appendSiteLog(entry) {
 function pruneOldSiteBackups() {
     try {
         const files = fs.readdirSync(getSiteBackupDir())
-            .filter(f => f.startsWith('RX_SiteBackup_') && f.endsWith('.zip'))
+            .filter(f => f.startsWith('HomeAccounting_SiteBackup_') && f.endsWith('.zip'))
             .map(f => ({ name: f, mtime: fs.statSync(path.join(getSiteBackupDir(), f)).mtimeMs }))
             .sort((a, b) => b.mtime - a.mtime);
         files.slice(MAX_SITE_BACKUPS).forEach(f => {
@@ -346,7 +346,7 @@ function syncSiteLogWithDisk() {
     return synced;
 }
 function deleteSiteBackup(filename) {
-    if (!filename || !/^RX_SiteBackup_[\w\-]+\.zip$/.test(filename)) {
+    if (!filename || !/^HomeAccounting_SiteBackup_[\w\-]+\.zip$/.test(filename)) {
         throw new Error('Invalid site backup filename');
     }
     const filepath = path.join(getSiteBackupDir(), filename);
@@ -362,7 +362,7 @@ function runFullSiteBackup(triggeredBy = 'Manual') {
         ensureDir(siteDir);
 
         const ts       = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const zipName  = 'RX_SiteBackup_' + ts + '.zip';
+        const zipName  = 'HomeAccounting_SiteBackup_' + ts + '.zip';
         const zipPath  = path.join(siteDir, zipName);
         const dbDump   = path.join(siteDir, '_temp_db_' + ts + '.dump');
 

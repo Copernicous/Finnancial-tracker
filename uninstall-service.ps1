@@ -1,11 +1,11 @@
-﻿# ============================================================
+# ============================================================
 # Home Accounting -- Windows Service Uninstaller
 #
 # Run from the folder that contains server.exe:
 #   powershell -ExecutionPolicy Bypass -File .\uninstall-service.ps1
 # ============================================================
 
-$ServiceName = "PatientRXSystem"
+$ServiceName = "HomeAccountingSystem"
 $AppDir = $PSScriptRoot
 $ParentDir = Split-Path $AppDir -Parent
 $NssmExe = Join-Path $ParentDir "nssm\win64\nssm.exe"

@@ -1,4 +1,4 @@
-﻿// CLI flags -- must be first, before any other require
+// CLI flags -- must be first, before any other require
 // Usage:  server.exe --v   OR   server.exe --version
 // Prints version info and exits without starting the server.
 // Usage:  server.exe --reset-password <username> <newpassword>
@@ -6,7 +6,7 @@
 (function checkCliFlags() {
     var args = process.argv.slice(2);
 
-    // â”€â”€ --version / --v / -v â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── --version / --v / -v ──────────────────────────────────────────────────
     if (args.indexOf('--v') !== -1 || args.indexOf('--version') !== -1 || args.indexOf('-v') !== -1) {
         var pkg2   = require('./package.json');
         var IS_PKG = typeof process.pkg !== 'undefined';
@@ -25,7 +25,7 @@
         process.exit(0);
     }
 
-    // â”€â”€ --reset-password <username> <newpassword> â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── --reset-password <username> <newpassword> ─────────────────────────────
     var rpIdx = args.indexOf('--reset-password');
     if (rpIdx !== -1) {
         var rpUser = args[rpIdx + 1];
@@ -46,7 +46,7 @@
             }
             var hash = await bcryptRp.hash(rpPass, 12);
             await user.update({ passwordHash: hash, failedLoginCount: 0, lockedUntil: null });
-            console.log('\n  âœ“ Password for "' + rpUser + '" has been reset successfully.\n');
+            console.log('\n  ✓ Password for "' + rpUser + '" has been reset successfully.\n');
             process.exit(0);
         }).catch(function(err) {
             console.error('\n  ERROR: ' + err.message + '\n');
@@ -194,12 +194,28 @@ const loginLimiter = rateLimit({
 // Trust FortiGate SSL VPN and reverse proxy chain -- allows Express to correctly read
 // X-Forwarded-For (real client IP) and X-Forwarded-Proto (https) headers.
 
-// SEC-01: CORS â€” locked to explicit origin allowlist.
+// SEC-01: CORS — locked to explicit origin allowlist.
 // APP_ORIGIN supports comma-separated values for multi-origin setups.
-// FortiGate origin: https://rx.camperos.net:10443
+// FortiGate origin: https://accounting.example.com:10443
 // Dev origin:       http://localhost:3000
-// Example .env:     APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000,http://localhost:3000
+// Example .env:     APP_ORIGIN=https://accounting.example.com:10443,http://192.168.60.21:3000,http://localhost:3000
 (function() {
+    function isDevelopmentLanOrigin(origin) {
+        if (process.env.NODE_ENV === 'production') return false;
+        try {
+            const parsed = new URL(origin);
+            if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return false;
+            const host = parsed.hostname;
+            if (host === 'localhost' || host === '127.0.0.1') return true;
+            if (/^10\./.test(host)) return true;
+            if (/^192\.168\./.test(host)) return true;
+            const parts = host.split('.').map(Number);
+            return parts.length === 4 && parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31;
+        } catch (_e) {
+            return false;
+        }
+    }
+
     const rawOrigin = process.env.APP_ORIGIN || '';
     let corsOrigin;
     if (rawOrigin.trim()) {
@@ -209,22 +225,23 @@ const loginLimiter = rateLimit({
             // Allow same-origin / server-to-server requests (no Origin header)
             if (!origin) return callback(null, true);
             if (allowed.indexOf(origin) !== -1) return callback(null, true);
-            callback(new Error('CORS: origin not allowed â€” ' + origin));
+            if (isDevelopmentLanOrigin(origin)) return callback(null, true);
+            callback(new Error('CORS: origin not allowed — ' + origin));
         };
     } else if (process.env.NODE_ENV === 'production') {
-        // SEC-04: Fail CLOSED in production â€” never open credentialed CORS without explicit origin.
+        // SEC-04: Fail CLOSED in production — never open credentialed CORS without explicit origin.
         console.error('');
-        console.error('â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
+        console.error('═══════════════════════════════════════════════════════════');
         console.error('  FATAL: APP_ORIGIN is not set in production mode.');
         console.error('  Refusing to start with open CORS (origin: true).');
         console.error('  Set APP_ORIGIN in .env, e.g.:');
-        console.error('    APP_ORIGIN=https://rx.camperos.net:10443,http://192.168.60.21:3000');
-        console.error('â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•');
+        console.error('    APP_ORIGIN=https://accounting.example.com:10443,http://192.168.60.21:3000');
+        console.error('═══════════════════════════════════════════════════════════');
         console.error('');
         process.exit(1);
     } else {
-        // Development / test â€” warn but allow open (local dev convenience)
-        console.warn('[WARN] APP_ORIGIN not set â€” CORS is open (development mode only).');
+        // Development / test — warn but allow open (local dev convenience)
+        console.warn('[WARN] APP_ORIGIN not set — CORS is open (development mode only).');
         corsOrigin = true;
     }
     app.use(cors({ origin: corsOrigin, credentials: true }));
@@ -249,7 +266,7 @@ const APP_BUILD = Date.now();
 // IMPORTANT: use app.engine() with an explicit static require() so @yao-pkg/pkg
 // can see 'ejs' as a string literal at compile time and bundle it into server.exe.
 // app.set('view engine','ejs') alone causes a dynamic require(ext) which pkg
-// cannot analyze â€” resulting in "Cannot find module 'ejs'" at runtime.
+// cannot analyze — resulting in "Cannot find module 'ejs'" at runtime.
 const ejs = require('ejs');
 app.engine('ejs', ejs.renderFile);
 app.set('view engine', 'ejs');
@@ -362,7 +379,7 @@ const settingsLimiter = rateLimit({
 app.use('/api/auth/login',          loginLimiter);
 app.use('/api/auth/2fa/setup',      twoFaSetupLimiter);
 app.use('/api/auth/2fa/enable',     twoFaSetupLimiter);
-app.use('/api/api-keys',            apiKeyLimiter);  // SEC-05: was '/api/keys' (wrong path â€” routes are at /api/api-keys)
+app.use('/api/api-keys',            apiKeyLimiter);  // SEC-05: was '/api/keys' (wrong path — routes are at /api/api-keys)
 app.use('/api/settings',            settingsLimiter);
 
 app.use('/api/auth',    authRoutes);

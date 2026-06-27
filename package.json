@@ -11,6 +11,10 @@
     "drive:auth": "node scripts/setup-google-drive-oauth.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
+    "db:reset:financial": "node scripts/reset-financial-db.js",
+    "db:reset:financial:staging": "node scripts/reset-financial-db.js --staging",
+    "smoke:local": "node scripts/smoke-home-accounting.js",
+    "smoke:local:seed": "node scripts/smoke-home-accounting.js --seed",
     "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip && node scripts/post-build.js"
   },
   "nodemonConfig": {

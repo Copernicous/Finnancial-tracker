@@ -1,5 +1,5 @@
-﻿<%#
-  Shared sidebar partial â€” server-side permission-aware.
+<%#
+  Shared sidebar partial — server-side permission-aware.
   Uses res.locals.userPerms set by middleware/webAuth.js from the haToken cookie.
   If userPerms is null (no cookie yet), all items are shown and client JS handles auth redirect.
 %>
@@ -9,9 +9,9 @@
   const isAdmin = locals.isAdmin || (locals.currentUser && locals.currentUser.role === 'Administrator');
 
   // Returns true if visible:
-  //   â€¢ No UP (no token)     â†’ permissive (JS redirect handles auth)
-  //   â€¢ Administrator role   â†’ always visible (bypasses permission checks)
-  //   â€¢ Otherwise            â†’ check the module's visible flag
+  //   • No UP (no token)     → permissive (JS redirect handles auth)
+  //   • Administrator role   → always visible (bypasses permission checks)
+  //   • Otherwise            → check the module's visible flag
   function sv(key) {
     if (!UP) return true;
     if (isAdmin) return true;
@@ -21,26 +21,28 @@
 
   const ap = locals.activePage || '';
   const refActive   = ['financial-institutions','categories','reconciliations','proofs'].includes(ap);
+  const planningActive = ['finance','budgets','recurring','financial-goals','investments','currency-rates','balance-snapshots'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
   const adminActive = ['roles','users','system-settings','backups','import','active-users'].includes(ap);
 
   const refVisible   = sv('financial_institutions') || sv('categories') || sv('reconciliations') || sv('proofs');
+  const planningVisible = sv('reports') || sv('budgets') || sv('recurring') || sv('goals') || sv('investments') || sv('currency_rates') || sv('balance_snapshots');
   const rptVisible   = sv('reports') || sv('audit_log');
   const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users');
 %>
-<!-- xa-base: FortiGate rewrites <a href> â€” used by base.js to compute proxy path prefix -->
+<!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
 <% if (locals.isStaging) { %>
 <script>
-    document.documentElement.classList.add('rx-staging-env');
-    if (document.body) document.body.classList.add('rx-staging-env');
+    document.documentElement.classList.add('ha-staging-env');
+    if (document.body) document.body.classList.add('ha-staging-env');
 </script>
 <% } %>
-<nav id="sidebar" class="<%= locals.isStaging ? 'rx-staging-sidebar' : '' %>">
+<nav id="sidebar" class="<%= locals.isStaging ? 'ha-staging-sidebar' : '' %>">
     <div class="sidebar-header">
         <span><i class="fas fa-calculator me-2"></i>Home Accounting</span>
         <% if (locals.isStaging) { %>
-            <span class="rx-staging-sidebar-badge">STAGING</span>
+            <span class="ha-staging-sidebar-badge">STAGING</span>
         <% } %>
     </div>
     <ul class="list-unstyled components">
@@ -61,6 +63,53 @@
         </li>
         <li class="<%= ap === 'transactions' ? 'active' : '' %>">
             <a href="/transactions"><i class="fas fa-receipt me-2"></i>Transactions</a>
+        </li>
+        <% } %>
+
+        <% if (!UP || planningVisible) { %>
+        <li>
+            <a href="#planningSubmenu" data-bs-toggle="collapse"
+               aria-expanded="<%= planningActive ? 'true' : 'false' %>"
+               class="dropdown-toggle">
+                <i class="fas fa-chart-line me-2"></i>Financial Planning
+            </a>
+            <ul class="collapse <%= planningActive ? 'show' : '' %> list-unstyled ps-3" id="planningSubmenu">
+                <% if (!UP || sv('reports')) { %>
+                <li class="<%= ap === 'finance' ? 'active' : '' %>">
+                    <a href="/finance"><i class="fas fa-gauge-high me-2"></i>Financial Workspace</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('budgets')) { %>
+                <li class="<%= ap === 'budgets' ? 'active' : '' %>">
+                    <a href="/budgets"><i class="fas fa-scale-balanced me-2"></i>Budgets</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('recurring')) { %>
+                <li class="<%= ap === 'recurring' ? 'active' : '' %>">
+                    <a href="/recurring"><i class="fas fa-calendar-check me-2"></i>Recurring</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('goals')) { %>
+                <li class="<%= ap === 'financial-goals' ? 'active' : '' %>">
+                    <a href="/financial-goals"><i class="fas fa-bullseye me-2"></i>Goals</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('investments')) { %>
+                <li class="<%= ap === 'investments' ? 'active' : '' %>">
+                    <a href="/investments"><i class="fas fa-chart-area me-2"></i>Investments</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('currency_rates')) { %>
+                <li class="<%= ap === 'currency-rates' ? 'active' : '' %>">
+                    <a href="/currency-rates"><i class="fas fa-coins me-2"></i>Currency Rates</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('balance_snapshots')) { %>
+                <li class="<%= ap === 'balance-snapshots' ? 'active' : '' %>">
+                    <a href="/balance-snapshots"><i class="fas fa-camera-retro me-2"></i>Balance Snapshots</a>
+                </li>
+                <% } %>
+            </ul>
         </li>
         <% } %>
 
@@ -172,7 +221,7 @@
         display: flex; align-items: center; justify-content: space-between;
         font-size: 0.7rem; color: rgba(255,255,255,0.35);
     ">
-        <span><i class="fas fa-code-branch me-1"></i>v<span id="sidebarVer">â€”</span></span>
+        <span><i class="fas fa-code-branch me-1"></i>v<span id="sidebarVer">—</span></span>
         <a href="/changelog" title="View Changelog"
            style="color:rgba(255,255,255,0.3); text-decoration:none; font-size:0.65rem;"
            onmouseover="this.style.color='rgba(255,255,255,0.7)'"
@@ -183,18 +232,18 @@
 </nav>
 
 <script>
-// Fetch and display version in sidebar â€” non-blocking, fails silently
+// Fetch and display version in sidebar — non-blocking, fails silently
 (function() {
     fetch(window.appUrl ? window.appUrl('/api/version') : '/api/version')
         .then(function(r) { return r.json(); })
         .then(function(d) {
             var el = document.getElementById('sidebarVer');
-            if (el) el.textContent = d.version || 'â€”';
+            if (el) el.textContent = d.version || '—';
         })
         .catch(function() {});
 })();
 
-// Who's Online badge â€” polls active sessions count every 30s
+// Who's Online badge — polls active sessions count every 30s
 // Hidden automatically for roles without active_users permission (API returns 403)
 (function() {
     function _loadOnlineBadge() {

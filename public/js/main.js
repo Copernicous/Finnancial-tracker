@@ -1,4 +1,4 @@
-﻿// Ensure same-origin fetch requests send cookies, so FortiGate proxy users can authenticate with haToken cookie fallback.
+// Ensure same-origin fetch requests send cookies, so FortiGate proxy users can authenticate with haToken cookie fallback.
 (function() {
     if (window.fetch) {
         var originalFetch = window.fetch.bind(window);
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     localStorage.setItem('token', data.token);
                     localStorage.setItem('haToken', data.token);
                     localStorage.setItem('user', JSON.stringify(data.user));
-                    window.rxNav('/dashboard');
+                    window.appNav('/dashboard');
                 } else {
                     showToast(data.message || 'Login failed', 'danger');
                 }
@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (!loginForm) {
         var token = localStorage.getItem('haToken') || localStorage.getItem('token');
         if (!token) {
-            window.rxNav('/login');
+            window.appNav('/login');
         } else {
             var user = JSON.parse(localStorage.getItem('user'));
             var userGreeting = document.getElementById('userGreeting');
@@ -96,7 +96,7 @@ document.addEventListener('DOMContentLoaded', function() {
             localStorage.removeItem('token');
             localStorage.removeItem('haToken');
             localStorage.removeItem('user');
-            window.rxNav('/login');
+            window.appNav('/login');
         });
     }
 });
@@ -119,7 +119,7 @@ async function fetchWithAuth(url, options) {
         localStorage.removeItem('token');
         localStorage.removeItem('haToken');
         localStorage.removeItem('user');
-        window.rxNav('/login');
+        window.appNav('/login');
         throw new Error('Unauthorized');
     }
     // 403 = authenticated but forbidden

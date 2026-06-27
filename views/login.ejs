@@ -1,5 +1,5 @@
-﻿<!DOCTYPE html>
-<html lang="en" data-theme="light" class="<%= locals.isStaging ? 'rx-staging-env' : '' %>">
+<!DOCTYPE html>
+<html lang="en" data-theme="light" class="<%= locals.isStaging ? 'ha-staging-env' : '' %>">
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -10,7 +10,7 @@
     <link href="/assets/inter.css" rel="stylesheet">
     <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
     <link rel="stylesheet" href="/css/style.css">
-    <!-- xa-base: FortiGate rewrites <a href> â€” used by base.js to derive proxy path prefix -->
+    <!-- xa-base: FortiGate rewrites <a href> — used by base.js to derive proxy path prefix -->
     <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
     <script src="/js/base.js"></script>
     <style>
@@ -22,10 +22,10 @@
             justify-content: center;
             font-family: 'Inter', sans-serif;
         }
-        body.rx-staging-env {
+        body.ha-staging-env {
             background: linear-gradient(135deg, #3b0a45, #86198f 48%, #7c2d12);
         }
-        .rx-staging-login-banner {
+        .ha-staging-login-banner {
             position: fixed;
             top: 0;
             left: 0;
@@ -43,12 +43,12 @@
             text-transform: uppercase;
             box-shadow: 0 8px 22px rgba(0,0,0,0.24);
         }
-        body.rx-staging-env .login-card {
+        body.ha-staging-env .login-card {
             border-color: rgba(251,146,60,0.48);
             box-shadow: 0 25px 55px rgba(59,10,69,0.44), 0 0 0 1px rgba(251,146,60,0.22);
         }
-        body.rx-staging-env .login-card .brand-icon,
-        body.rx-staging-env .btn-login {
+        body.ha-staging-env .login-card .brand-icon,
+        body.ha-staging-env .btn-login {
             background: linear-gradient(135deg, #f59e0b, #c026d3);
         }
         .login-card {
@@ -165,9 +165,9 @@
         }
     </style>
 </head>
-<body class="<%= locals.isStaging ? 'rx-staging-env' : '' %>">
+<body class="<%= locals.isStaging ? 'ha-staging-env' : '' %>">
     <% if (locals.isStaging) { %>
-    <div class="rx-staging-login-banner">Staging Environment</div>
+    <div class="ha-staging-login-banner">Staging Environment</div>
     <% } %>
     <div class="login-card">
         <div class="text-center mb-4">
@@ -296,7 +296,7 @@
                 const data = await res.json();
 
                 if (res.ok && data.requires2FA) {
-                    // 2FA required â€” show second step
+                    // 2FA required — show second step
                     window._2faTempToken = data.tempToken;
                     document.getElementById('loginForm').classList.add('d-none');
                     document.getElementById('twoFAStep').classList.remove('d-none');
@@ -375,8 +375,8 @@
             const secure = window.location.protocol === 'https:' ? '; Secure' : '';
             // Use proxy-aware base path as cookie path so the cookie is sent
             // with all requests through the FortiGate VPN proxy prefix.
-            var cookiePath = window.RX_BASE
-                ? window.RX_BASE.replace(/^https?:\/\/[^/]+/, '') || '/'
+            var cookiePath = window.HA_BASE
+                ? window.HA_BASE.replace(/^https?:\/\/[^/]+/, '') || '/'
                 : '/';
             document.cookie = 'haToken=' + encodeURIComponent(token) +
                 '; path=' + cookiePath + '; max-age=' + maxAge +
@@ -388,7 +388,7 @@
             localStorage.setItem('user', JSON.stringify(data.user));
             const maxAge = 86400;
             sethaTokenCookie(data.token, maxAge);
-            window.rxNav('/dashboard');
+            window.appNav('/dashboard');
         }
 
         function showLoginError(el, msg) {

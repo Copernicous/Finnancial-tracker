@@ -8,6 +8,12 @@ Home Accounting is a private household accounting web application based on the m
 - Historical Excel workbooks stay local in `data-source/raw-excel/`.
 - Old workbooks may inform structure such as account names and aliases.
 - Historical transactions, balances, and workbook totals are not imported into the clean app.
+- The main operating page is `/finance`, with selectors, KPIs, graphs, budgets, goals, investments, recurring items, and searchable transactions.
+
+See:
+
+- `docs/FEATURE_BLUEPRINT.md`
+- `docs/DEVELOPMENT_WORKFLOW.md`
 
 ## Development
 
@@ -23,23 +29,22 @@ Home Accounting is a private household accounting web application based on the m
    Copy-Item .env.example .env
    ```
 
-3. Create the development database in PostgreSQL:
+3. Recreate the development database, run migrations, and seed the first admin:
 
    ```powershell
-   createdb home_accounting_dev
+   npm run db:reset:financial
    ```
 
-4. Run migrations and seeders:
-
-   ```powershell
-   npm run db:migrate
-   npm run db:seed
-   ```
-
-5. Start development:
+4. Start development:
 
    ```powershell
    npm run dev
+   ```
+
+5. Run smoke checks:
+
+   ```powershell
+   npm run smoke:local
    ```
 
 ## Staging
@@ -50,6 +55,7 @@ Home Accounting is a private household accounting web application based on the m
 
    ```powershell
    npm run staging:check
+   npm run db:reset:financial:staging
    npm run staging:start
    ```
 

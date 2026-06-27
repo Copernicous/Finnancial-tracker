@@ -4,6 +4,7 @@ const db = require('../models');
 
 const PAGE_TITLES = [
     [/^\/dashboard\/?$/, 'Dashboard'],
+    [/^\/finance\/?$/, 'Financial Workspace'],
     [/^\/accounts\/?$/, 'Accounts'],
     [/^\/transactions\/?$/, 'Transactions'],
     [/^\/entry\/?$/, 'New Accounting Entry'],
@@ -11,6 +12,12 @@ const PAGE_TITLES = [
     [/^\/categories\/?$/, 'Categories'],
     [/^\/reconciliations\/?$/, 'Reconciliations'],
     [/^\/proofs\/?$/, 'Proofs'],
+    [/^\/budgets\/?$/, 'Budgets'],
+    [/^\/recurring\/?$/, 'Recurring Transactions'],
+    [/^\/financial-goals\/?$/, 'Financial Goals'],
+    [/^\/investments\/?$/, 'Investments'],
+    [/^\/currency-rates\/?$/, 'Currency Rates'],
+    [/^\/balance-snapshots\/?$/, 'Balance Snapshots'],
     [/^\/users\/?$/, 'User Management'],
     [/^\/roles\/?$/, 'Roles Management'],
     [/^\/reports\/?$/, 'Reports'],

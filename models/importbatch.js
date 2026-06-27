@@ -5,6 +5,7 @@ module.exports = (sequelize, DataTypes) => {
   class ImportBatch extends Model {
     static associate(models) {
       ImportBatch.belongsTo(models.User, { foreignKey: 'createdByUserId', as: 'CreatedBy' });
+      ImportBatch.hasMany(models.ImportRow, { foreignKey: 'importBatchId' });
     }
   }
   ImportBatch.init({

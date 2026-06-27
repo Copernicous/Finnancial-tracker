@@ -9,6 +9,12 @@ var MODULE_DEFS = [
     { key: 'financial_institutions', label: 'Financial Institutions', group: 'Core', hasUndo: false },
     { key: 'reconciliations',    label: 'Reconciliations',       group: 'Core',      hasUndo: false },
     { key: 'proofs',             label: 'Proofs',                group: 'Core',      hasUndo: false },
+    { key: 'budgets',            label: 'Budgets',               group: 'Planning',  hasUndo: false },
+    { key: 'recurring',          label: 'Recurring Items',       group: 'Planning',  hasUndo: false },
+    { key: 'goals',              label: 'Financial Goals',       group: 'Planning',  hasUndo: false },
+    { key: 'investments',        label: 'Investments',           group: 'Planning',  hasUndo: false },
+    { key: 'currency_rates',     label: 'Currency Rates',        group: 'Planning',  hasUndo: false },
+    { key: 'balance_snapshots',  label: 'Balance Snapshots',     group: 'Planning',  hasUndo: false },
     { key: 'simulation',         label: 'Sample Simulation',     group: 'Core',      hasUndo: false },
     { key: 'reports',            label: 'Reports',               group: 'Core',      hasUndo: false },
     { key: 'audit_log',          label: 'Audit Log',             group: 'Admin',     hasUndo: false, visibleOnly: true },
@@ -19,7 +25,7 @@ var MODULE_DEFS = [
     { key: 'active_users',       label: 'Who\'s Online',         group: 'Admin-Only', hasUndo: false, visibleOnly: true }
 ];
 
-var GROUP_COLORS = { Core: '#0d6efd', Admin: '#fd7e14', Settings: '#6c757d', 'Admin-Only': '#dc3545' };
+var GROUP_COLORS = { Core: '#0d6efd', Planning: '#20c997', Admin: '#fd7e14', Settings: '#6c757d', 'Admin-Only': '#dc3545' };
 
 // ── State ─────────────────────────────────────────────────────────────────────
 var allRoles    = [];
@@ -250,7 +256,7 @@ function buildPermEditor(perms) {
             continue;
         }
         if (m.notesOnly) {
-            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Per-patient</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
+            _mHtml += groupRow + '<tr data-module="' + m.key + '" style="background:rgba(255,193,7,.04)"><td class="ps-3 fw-semibold">' + m.label + ' <span class="badge bg-warning text-dark ms-1" style="font-size:.6rem">Scoped</span></td><td class="text-center"><span class="text-muted" title="Always visible">\u2014</span></td><td class="text-center" title="Can add new notes"><input type="checkbox" class="form-check-input perm-canadd" ' + (p.canAdd ? 'checked' : '') + '></td><td class="text-center" title="Cannot edit existing notes (immutable)"><span class="text-muted">\u2014</span></td><td class="text-center" title="Can delete notes"><input type="checkbox" class="form-check-input perm-candelete" ' + (p.canDelete ? 'checked' : '') + '></td>' + dashCell + dashCell + dashCell + dashCell + dashCell + '</tr>';
             continue;
         }
 

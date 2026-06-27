@@ -9,7 +9,7 @@ function getAppRoot() {
 }
 
 function getWritableRoot() {
-    const configured = process.env.APP_WRITABLE_ROOT || process.env.RX_WRITABLE_ROOT;
+    const configured = process.env.APP_WRITABLE_ROOT || process.env.HA_WRITABLE_ROOT;
     if (!configured) return getAppRoot();
     return path.isAbsolute(configured)
         ? configured

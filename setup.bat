@@ -1,6 +1,6 @@
-﻿@echo off
+@echo off
 :: ============================================================
-::  Home Accounting â€” New Server Setup Script
+::  Home Accounting — New Server Setup Script
 ::  Run this ONCE on a fresh server to create the database
 ::  and restore from a backup.
 ::
@@ -14,14 +14,14 @@
 ::    setup.bat restore backup.dump      (creates DB + restores from dump file)
 :: ============================================================
 
-title Home Accounting â€” Setup
+title Home Accounting — Setup
 
-:: â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+:: ── Config ─────────────────────────────────────────────────
 set DB_NAME=home_accounting_dev
 set DB_USER=postgres
 set DB_HOST=127.0.0.1
 
-:: â”€â”€ Read password from .env if it exists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+:: ── Read password from .env if it exists ────────────────────
 if exist ".env" (
     for /f "tokens=2 delims==" %%A in ('findstr /i "^DB_PASS=" .env') do set DB_PASS=%%A
 ) else (
@@ -39,7 +39,7 @@ echo   User     : %DB_USER%
 echo ============================================================
 echo.
 
-:: â”€â”€ Step 1: Check PostgreSQL â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+:: ── Step 1: Check PostgreSQL ─────────────────────────────────
 echo [1/5] Checking PostgreSQL...
 set PGPASSWORD=%DB_PASS%
 psql -U %DB_USER% -h %DB_HOST% -c "\conninfo" >nul 2>&1
@@ -55,16 +55,16 @@ if %ERRORLEVEL% NEQ 0 (
 echo   PostgreSQL connected OK.
 echo.
 
-:: â”€â”€ Step 2: Create database â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+:: ── Step 2: Create database ──────────────────────────────────
 echo [2/5] Creating database "%DB_NAME%"...
 psql -U %DB_USER% -h %DB_HOST% -c "CREATE DATABASE %DB_NAME%;" 2>nul
 if %ERRORLEVEL% NEQ 0 (
-    echo   Database may already exist â€” continuing...
+    echo   Database may already exist — continuing...
 )
 echo   Database ready.
 echo.
 
-:: â”€â”€ Step 3: Check for restore or run migrations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+:: ── Step 3: Check for restore or run migrations ──────────────
 if "%1"=="restore" (
     if "%2"=="" (
         echo [ERROR] Restore mode requires a .dump file path.
@@ -86,7 +86,7 @@ if "%1"=="restore" (
     echo.
     echo ============================================================
     echo   RESTORE COMPLETE!
-    echo   Your database has been restored with all patient data.
+    echo   Your database has been restored with all accounting data.
     echo   Start the server: npm start
     echo   Then open: http://localhost:3000
     echo ============================================================

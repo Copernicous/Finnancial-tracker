@@ -100,6 +100,22 @@
             </div>
             <div class="alert mt-3 d-none" id="result"></div>
           </section>
+
+          <section class="glass-card p-4">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+              <div>
+                <h5 class="mb-1">Staged Import Batches</h5>
+                <div class="text-muted small">Uploaded rows waiting for future curated mapping and review.</div>
+              </div>
+              <button class="btn btn-outline-primary btn-sm" id="refreshHistoryBtn"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle">
+                <thead><tr><th>Batch</th><th>Dataset</th><th>File</th><th>Rows</th><th>Status</th><th>Created</th><th>User</th></tr></thead>
+                <tbody id="historyRows"><tr><td colspan="7" class="text-muted">Loading...</td></tr></tbody>
+              </table>
+            </div>
+          </section>
         </main>
       </div>
     </div>
@@ -117,28 +133,70 @@ const DATASETS = {
     title: 'Accounts',
     description: 'Chart of accounts, opening balances, and institution references.',
     required: ['name', 'accountType', 'currency'],
-    headers: ['name', 'accountCode', 'accountType', 'currency', 'financialInstitutionName', 'openingBalance', 'openingBalanceDate', 'notes']
+    headers: ['name', 'accountCode', 'accountType', 'accountClass', 'accountSubtype', 'currency', 'financialInstitutionName', 'openingBalance', 'openingBalanceDate', 'currentBalance', 'creditLimit', 'interestRate', 'includeInNetWorth', 'status', 'notes']
   },
   transactions: {
     icon: 'fa-receipt',
     title: 'Transactions',
     description: 'Curated 2026 ledger activity ready for accounting review.',
     required: ['transactionDate', 'accountName', 'description', 'transactionType', 'amount'],
-    headers: ['transactionDate', 'accountName', 'categoryName', 'description', 'transactionType', 'amount', 'currency', 'status', 'referenceNumber', 'memo']
+    headers: ['transactionDate', 'accountName', 'categoryName', 'relatedAccountName', 'description', 'merchant', 'transactionType', 'amount', 'currency', 'originalAmount', 'originalCurrency', 'exchangeRate', 'status', 'referenceNumber', 'tags', 'clearedDate', 'memo']
   },
   categories: {
     icon: 'fa-tags',
     title: 'Categories',
     description: 'Income, expense, transfer, and adjustment categories.',
     required: ['name', 'categoryType'],
-    headers: ['name', 'categoryType', 'parentName', 'taxRelevant']
+    headers: ['name', 'categoryType', 'groupName', 'budgetBehavior', 'parentName', 'taxRelevant', 'isActive']
+  },
+  budgets: {
+    icon: 'fa-scale-balanced',
+    title: 'Budgets',
+    description: 'Monthly, annual, and one-time plans by category.',
+    required: ['name', 'year', 'plannedAmount'],
+    headers: ['name', 'year', 'month', 'categoryName', 'budgetType', 'plannedAmount', 'currency', 'alertThresholdPct', 'isActive', 'notes']
+  },
+  recurring: {
+    icon: 'fa-calendar-check',
+    title: 'Recurring Items',
+    description: 'Salary, utilities, transfers, and repeating household obligations.',
+    required: ['name', 'accountName', 'transactionType', 'amount', 'nextDate'],
+    headers: ['name', 'accountName', 'categoryName', 'transactionType', 'amount', 'currency', 'frequency', 'nextDate', 'endDate', 'merchant', 'isActive', 'notes']
+  },
+  goals: {
+    icon: 'fa-bullseye',
+    title: 'Financial Goals',
+    description: 'Savings targets, debt payoff plans, and sinking funds.',
+    required: ['name', 'goalType', 'targetAmount'],
+    headers: ['name', 'goalType', 'accountName', 'targetAmount', 'currentAmount', 'currency', 'targetDate', 'priority', 'status', 'notes']
+  },
+  investments: {
+    icon: 'fa-chart-area',
+    title: 'Investments',
+    description: 'Holdings, balances, and market values by account.',
+    required: ['accountName', 'symbol', 'marketValue'],
+    headers: ['accountName', 'symbol', 'name', 'assetClass', 'quantity', 'costBasis', 'marketValue', 'currency', 'priceDate', 'notes']
+  },
+  currency_rates: {
+    icon: 'fa-coins',
+    title: 'Currency Rates',
+    description: 'Manual FX rates used for multi-currency review.',
+    required: ['rateDate', 'fromCurrency', 'toCurrency', 'rate'],
+    headers: ['rateDate', 'fromCurrency', 'toCurrency', 'rate', 'source', 'notes']
+  },
+  balance_snapshots: {
+    icon: 'fa-camera-retro',
+    title: 'Balance Snapshots',
+    description: 'Statement or manual balance checkpoints by account.',
+    required: ['accountName', 'snapshotDate', 'balance'],
+    headers: ['accountName', 'snapshotDate', 'balance', 'currency', 'source', 'notes']
   },
   proofs: {
     icon: 'fa-paperclip',
     title: 'Proofs',
     description: 'Document references tied to accounting records.',
     required: ['ownerType', 'originalName'],
-    headers: ['ownerType', 'ownerExternalRef', 'originalName', 'notes']
+    headers: ['ownerType', 'ownerExternalRef', 'originalName', 'provider', 'driveWebViewLink', 'localPath', 'notes']
   }
 };
 let selectedDataset = 'transactions';
@@ -247,6 +305,22 @@ async function stageFile() {
   result.innerHTML = res.ok
     ? '<strong>Batch #' + data.batchId + ' staged.</strong><br>' + esc(data.message) + '<br>Rows received: ' + esc(data.rowCount)
     : esc(data.error || data.message || 'Unable to stage file.');
+  if (res.ok) loadBatches();
+}
+async function loadBatches() {
+  const res = await fetch('/api/import/batches', { headers: authHeaders() });
+  const rows = res.ok ? await res.json() : [];
+  document.getElementById('historyRows').innerHTML = rows.length ? rows.map(row =>
+    '<tr>' +
+      '<td>#' + esc(row.id) + '</td>' +
+      '<td>' + esc(row.importType) + '</td>' +
+      '<td>' + esc(row.fileName || '') + '</td>' +
+      '<td>' + esc(row.rowCount) + '</td>' +
+      '<td><span class="badge bg-secondary">' + esc(row.status) + '</span></td>' +
+      '<td>' + esc(row.createdAt ? String(row.createdAt).slice(0, 19).replace('T', ' ') : '') + '</td>' +
+      '<td>' + esc(row.createdBy || '') + '</td>' +
+    '</tr>'
+  ).join('') : '<tr><td colspan="7" class="text-muted">No staged batches yet.</td></tr>';
 }
 document.getElementById('dropZone').addEventListener('click', () => document.getElementById('file').click());
 document.getElementById('dropZone').addEventListener('dragover', e => { e.preventDefault(); e.currentTarget.classList.add('dragging'); });
@@ -258,7 +332,8 @@ document.getElementById('dropZone').addEventListener('drop', e => {
 });
 document.getElementById('file').addEventListener('change', e => handleFile(e.target.files[0]));
 document.getElementById('stageBtn').addEventListener('click', stageFile);
-document.addEventListener('DOMContentLoaded', renderSelected);
+document.getElementById('refreshHistoryBtn').addEventListener('click', loadBatches);
+document.addEventListener('DOMContentLoaded', function() { renderSelected(); loadBatches(); });
 </script>
 </body>
 </html>

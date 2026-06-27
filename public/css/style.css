@@ -1,8 +1,8 @@
-﻿/* ============================================
+/* ============================================
    Home Accounting - Premium Admin CSS
    ============================================ */
 
-/* Inter font â€” self-hosted, no external requests required (FortiGate compatible) */
+/* Inter font — self-hosted, no external requests required (FortiGate compatible) */
 @import url('/assets/inter.css');
 
 /* ---------- CSS Variables ---------- */
@@ -57,7 +57,7 @@ body {
     transition: background var(--transition), color var(--transition);
 }
 
-@keyframes rxShake {
+@keyframes haShake {
     0%, 100% { transform: translate3d(0,0,0); }
     15%      { transform: translate3d(-8px,0,0); }
     30%      { transform: translate3d(7px,0,0); }
@@ -68,7 +68,7 @@ body {
 }
 
 .shake-feedback {
-    animation: rxShake 0.55s cubic-bezier(.36,.07,.19,.97) both;
+    animation: haShake 0.55s cubic-bezier(.36,.07,.19,.97) both;
     will-change: transform;
 }
 
@@ -110,7 +110,7 @@ body {
     gap: 0.75rem;
 }
 
-.rx-staging-env {
+.ha-staging-env {
     --primary: #c026d3;
     --primary-dark: #86198f;
     --secondary: #fb923c;
@@ -120,17 +120,17 @@ body {
     --sidebar-active: #fb923c;
 }
 
-#sidebar.rx-staging-sidebar {
+#sidebar.ha-staging-sidebar {
     background: linear-gradient(180deg, #3b0a45 0%, #581c87 52%, #7c2d12 100%);
     box-shadow: 5px 0 22px rgba(124,45,18,0.28);
 }
 
-.rx-staging-sidebar .sidebar-header {
+.ha-staging-sidebar .sidebar-header {
     background: linear-gradient(135deg, rgba(251,146,60,0.32), rgba(192,38,211,0.2));
     border-bottom-color: rgba(251,146,60,0.28);
 }
 
-.rx-staging-sidebar-badge {
+.ha-staging-sidebar-badge {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
@@ -147,12 +147,12 @@ body {
     box-shadow: 0 0 0 1px rgba(255,255,255,0.16), 0 6px 18px rgba(245,158,11,0.28);
 }
 
-body.rx-staging-env .navbar {
+body.ha-staging-env .navbar {
     border-top: 4px solid #fb923c;
     box-shadow: 0 4px 16px rgba(124,45,18,0.12);
 }
 
-body.rx-staging-env .navbar::after {
+body.ha-staging-env .navbar::after {
     content: 'STAGING';
     margin-left: 0.75rem;
     padding: 3px 8px;
@@ -288,7 +288,7 @@ body.rx-staging-env .navbar::after {
     opacity: 1 !important;
 }
 
-/* Modal wrapper â€” smooth spring entrance */
+/* Modal wrapper — smooth spring entrance */
 .modal.fade .modal-dialog {
     transform: translateY(-20px) scale(0.97);
     transition: transform 0.28s cubic-bezier(0.34,1.36,0.64,1), opacity 0.22s ease;
@@ -406,7 +406,7 @@ body.rx-staging-env .navbar::after {
     box-shadow: 0 6px 16px rgba(231,76,60,0.45) !important;
 }
 
-/* Delete modals â€” red gradient header */
+/* Delete modals — red gradient header */
 [id*="delete"] .modal-header,
 [id*="Delete"] .modal-header {
     background: linear-gradient(135deg, #5c1a1a 0%, #3b0f0f 100%) !important;
@@ -509,7 +509,7 @@ body.rx-staging-env .navbar::after {
 .btn-success { background: var(--success); border-color: var(--success); }
 .btn-danger { background: var(--danger); border-color: var(--danger); }
 
-/* â”€â”€ Filter row button alignment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── Filter row button alignment ──────────────────────────────────────────
    Problem:  The global .form-control { padding: 0.5rem 0.9rem } rule
              inflates inputs to ~39px. Columns containing ONLY buttons (no
              label above them) are shorter, so buttons appear misaligned.
@@ -519,7 +519,7 @@ body.rx-staging-env .navbar::after {
              (reports.ejs, forms, setup pages, etc.)
    Scope:    Tightly scoped to .row.g-2 / .row.align-items-end children only.
              Does NOT affect navbar, modal footer, or card buttons.
-   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+   ────────────────────────────────────────────────────────────────────────── */
 .row.g-2.align-items-end .d-flex,
 .row.align-items-end .d-flex {
     min-height: 39px;
@@ -544,17 +544,17 @@ body.rx-staging-env .navbar::after {
     padding-top: 0.38rem;
     padding-bottom: 0.38rem;
 }
-/* Search / primary button â€” bolder look */
+/* Search / primary button — bolder look */
 .row.g-2.align-items-end .d-flex > .btn-primary,
 .row.align-items-end .d-flex > .btn-primary {
     font-weight: 600;
     letter-spacing: 0.3px;
 }
 
-/* â”€â”€ .btn-search â€” uniform square search button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-   Fixed 38px Ã— 38px (matches input height) so the ðŸ” icon button looks
+/* ── .btn-search — uniform square search button ───────────────────────────
+   Fixed 38px × 38px (matches input height) so the 🔍 icon button looks
    identical on every filter bar regardless of column width or flex context.
-   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+   ────────────────────────────────────────────────────────────────────────── */
 .btn-search {
     width: 38px !important;
     min-width: 38px !important;
@@ -806,7 +806,7 @@ body.sidebar-mobile-open::before {
 
     .glass-card > .d-flex.justify-content-between,
     .glass-card > div > .d-flex.justify-content-between,
-    #rxPagBar {
+    #pageBar {
         flex-wrap: wrap;
         gap: 0.75rem;
         align-items: flex-start !important;
@@ -814,7 +814,7 @@ body.sidebar-mobile-open::before {
 
     .glass-card > .d-flex.justify-content-between > .d-flex,
     .glass-card > div > .d-flex.justify-content-between > .d-flex,
-    #rxPagBar > .d-flex {
+    #pageBar > .d-flex {
         flex-wrap: wrap;
     }
 
@@ -931,32 +931,32 @@ body.sidebar-mobile-open::before {
         min-width: 680px;
     }
 
-    #patientDocUploadWrap,
-    #rxDocUploadWrap {
+    #documentUploadWrap,
+    #accountingDocUploadWrap {
         display: flex;
         flex-direction: column;
         align-items: stretch;
         gap: 0.5rem;
     }
 
-    #patientDocUploadWrap > .form-control,
-    #patientDocUploadWrap > .btn,
-    #rxDocUploadWrap > .form-control,
-    #rxDocUploadWrap > .btn {
+    #documentUploadWrap > .form-control,
+    #documentUploadWrap > .btn,
+    #accountingDocUploadWrap > .form-control,
+    #accountingDocUploadWrap > .btn {
         width: 100%;
         border-radius: var(--radius-sm) !important;
     }
 
-    :where(#patientDocumentsList, #rxDocumentsList) .list-group-item {
+    :where(#documentsList, #accountingDocumentsList) .list-group-item {
         align-items: flex-start !important;
         flex-wrap: wrap;
     }
 
-    :where(#patientDocumentsList, #rxDocumentsList) .list-group-item .flex-grow-1 {
+    :where(#documentsList, #accountingDocumentsList) .list-group-item .flex-grow-1 {
         flex-basis: calc(100% - 32px);
     }
 
-    :where(#patientDocumentsList, #rxDocumentsList) .list-group-item > .btn {
+    :where(#documentsList, #accountingDocumentsList) .list-group-item > .btn {
         flex: 1 1 calc(33.333% - 0.5rem);
     }
 
@@ -1196,13 +1196,13 @@ body.sidebar-mobile-open::before {
    white/light backgrounds in dark theme.
    ============================================ */
 
-/* â”€â”€ Body & base â”€â”€ */
+/* ── Body & base ── */
 [data-theme="dark"] body {
     background-color: var(--bg) !important;
     color: var(--text) !important;
 }
 
-/* â”€â”€ Utility class overrides â”€â”€ */
+/* ── Utility class overrides ── */
 /* .bg-white dark-mode utility override */
 [data-theme="dark"] .bg-white {
     background-color: var(--surface-2) !important;
@@ -1219,14 +1219,14 @@ body.sidebar-mobile-open::before {
     color: var(--text-muted) !important;
 }
 
-/* â”€â”€ Input group addon (search icons, @, currency symbols etc.) â”€â”€ */
+/* ── Input group addon (search icons, @, currency symbols etc.) ── */
 [data-theme="dark"] .input-group-text {
     background-color: var(--surface-2) !important;
     border-color: var(--border) !important;
     color: var(--text-muted) !important;
 }
 
-/* â”€â”€ Readonly / disabled inputs (display-only fields) â”€â”€ */
+/* ── Readonly / disabled inputs (display-only fields) ── */
 [data-theme="dark"] .form-control[readonly],
 [data-theme="dark"] .form-control:disabled,
 [data-theme="dark"] input[readonly],
@@ -1237,14 +1237,14 @@ body.sidebar-mobile-open::before {
     opacity: 1 !important;
 }
 
-/* â”€â”€ DK-DATE: Date / time input native picker icon fix â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+/* ── DK-DATE: Date / time input native picker icon fix ───────────────────────
    Problem: input[type=date] uses browser-native chrome (calendar icon, spinner).
    The browser renders that chrome using the OS/page color-scheme.
    In dark mode our CSS sets a dark background, but the native icon is also
-   dark â†’ invisible.  Telling the browser color-scheme:dark makes it render
+   dark → invisible.  Telling the browser color-scheme:dark makes it render
    the icon in white so it's visible on our dark background.
    In light mode we explicitly set light so it's also correct on any OS.
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+─────────────────────────────────────────────────────────────────────────── */
 input[type="date"],
 input[type="time"],
 input[type="datetime-local"] {
@@ -1257,7 +1257,7 @@ input[type="datetime-local"] {
     color-scheme: dark;
 }
 
-/* â”€â”€ Dropdown menus â”€â”€ */
+/* ── Dropdown menus ── */
 [data-theme="dark"] .dropdown-menu {
     background-color: var(--surface) !important;
     border-color: var(--border) !important;
@@ -1275,7 +1275,7 @@ input[type="datetime-local"] {
     border-color: var(--border) !important;
 }
 
-/* â”€â”€ Global search dropdown (app.js) â”€â”€ */
+/* ── Global search dropdown (app.js) ── */
 [data-theme="dark"] #globalSearchDropdown {
     background: var(--surface) !important;
     border-color: var(--border) !important;
@@ -1287,7 +1287,7 @@ input[type="datetime-local"] {
     background: rgba(74,144,226,0.12) !important;
 }
 
-/* â”€â”€ List group â”€â”€ */
+/* ── List group ── */
 [data-theme="dark"] .list-group-item {
     background-color: var(--surface) !important;
     border-color: var(--border) !important;
@@ -1309,7 +1309,7 @@ input[type="datetime-local"] {
     color: #f98989 !important;
 }
 
-/* â”€â”€ Nav pills â”€â”€ */
+/* ── Nav pills ── */
 [data-theme="dark"] .nav-pills .nav-link {
     color: var(--text-muted) !important;
 }
@@ -1322,25 +1322,25 @@ input[type="datetime-local"] {
     color: var(--text) !important;
 }
 
-/* â”€â”€ Toast notifications â”€â”€ */
+/* ── Toast notifications ── */
 [data-theme="dark"] .toast {
     background-color: var(--surface) !important;
     border-color: var(--border) !important;
     color: var(--text) !important;
 }
 
-/* â”€â”€ Badge overrides â”€â”€ */
+/* ── Badge overrides ── */
 /* bg-white badge contrast in dark mode */
 [data-theme="dark"] .badge.bg-white {
     background-color: var(--surface-2) !important;
     color: var(--text) !important;
 }
-/* bg-warning text-dark badges â€” keep warning color but fix text */
+/* bg-warning text-dark badges — keep warning color but fix text */
 [data-theme="dark"] .badge.bg-warning {
     color: #1a1a1a !important; /* keep dark text on yellow for contrast */
 }
 
-/* â”€â”€ Table striping & borders â”€â”€ */
+/* ── Table striping & borders ── */
 [data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) > * {
     background-color: rgba(255,255,255,0.02) !important;
     color: var(--text) !important;
@@ -1353,7 +1353,7 @@ input[type="datetime-local"] {
     color: var(--text);
 }
 
-/* â”€â”€ Pagination â”€â”€ */
+/* ── Pagination ── */
 [data-theme="dark"] .page-link {
     background-color: var(--surface) !important;
     border-color: var(--border) !important;
@@ -1369,18 +1369,18 @@ input[type="datetime-local"] {
     color: var(--text-muted) !important;
 }
 
-/* â”€â”€ Select2 / chosen if present â”€â”€ */
+/* ── Select2 / chosen if present ── */
 [data-theme="dark"] select option {
     background-color: var(--surface) !important;
     color: var(--text) !important;
 }
 
-/* â”€â”€ Checkbox and radio â”€â”€ */
+/* ── Checkbox and radio ── */
 [data-theme="dark"] .form-check-label {
     color: var(--text) !important;
 }
 
-/* â”€â”€ Filter panels and glass cards â”€â”€ */
+/* ── Filter panels and glass cards ── */
 [data-theme="dark"] .filter-panel {
     background-color: var(--surface) !important;
     border-color: var(--border) !important;
@@ -1390,42 +1390,42 @@ input[type="datetime-local"] {
     border-color: var(--border) !important;
 }
 
-/* â”€â”€ Navbar â”€â”€ */
+/* ── Navbar ── */
 [data-theme="dark"] .navbar {
     background-color: var(--surface) !important;
     border-bottom-color: var(--border) !important;
 }
 
-/* â”€â”€ Code / pre â”€â”€ */
+/* ── Code / pre ── */
 [data-theme="dark"] code,
 [data-theme="dark"] pre {
     background-color: var(--surface-2) !important;
     color: #79c0ff !important;
 }
 
-/* â”€â”€ HR dividers â”€â”€ */
+/* ── HR dividers ── */
 [data-theme="dark"] hr {
     border-color: var(--border) !important;
     opacity: 1;
 }
 
-/* â”€â”€ Small text legibility â”€â”€ */
+/* ── Small text legibility ── */
 [data-theme="dark"] small,
 [data-theme="dark"] .small {
     color: var(--text-muted) !important;
 }
 
-/* â”€â”€ Spinner / loading â”€â”€ */
+/* ── Spinner / loading ── */
 [data-theme="dark"] .spinner-border {
     color: var(--primary) !important;
 }
 
-/* â”€â”€ Progress bars â”€â”€ */
+/* ── Progress bars ── */
 [data-theme="dark"] .progress {
     background-color: var(--surface-2) !important;
 }
 
-/* â”€â”€ bg-info contrast fix (clinic/info badges) â”€â”€
+/* ── bg-info contrast fix (finance/info badges) ──
    Bootstrap bg-info uses cyan (#0dcaf0) which has
    poor contrast with both text-dark (dark mode) and white.
    Override to a deeper teal that works universally. */
@@ -1439,12 +1439,12 @@ input[type="datetime-local"] {
     background-color: #0891b2 !important;
     color: #ffffff !important;
 }
-/* text-info icon color â€” keep visible in dark mode */
+/* text-info icon color — keep visible in dark mode */
 [data-theme="dark"] .text-info {
     color: #67e8f9 !important;
 }
 
-/* â”€â”€ Global --bg-subtle and --border-color alias for ALL pages â”€â”€
+/* ── Global --bg-subtle and --border-color alias for ALL pages ──
    Several views use background:var(--bg-subtle,#f8fafc) inline.
    Without this, dark mode falls back to the near-white #f8fafc. */
 :root {

@@ -29,7 +29,10 @@
           <div class="glass-card p-4 h-100">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h5 class="mb-0">Recent Transactions</h5>
-              <a href="/entry" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>New Entry</a>
+              <div class="d-flex gap-2">
+                <a href="/finance" class="btn btn-outline-primary btn-sm"><i class="fas fa-chart-line me-1"></i>Workspace</a>
+                <a href="/entry" class="btn btn-primary btn-sm"><i class="fas fa-plus me-1"></i>New Entry</a>
+              </div>
             </div>
             <div class="table-responsive"><table class="table table-hover"><tbody id="recentRows"><tr><td class="text-muted">Loading...</td></tr></tbody></table></div>
           </div>
@@ -37,7 +40,7 @@
         <div class="col-lg-4">
           <div class="glass-card p-4 h-100">
             <h5 class="mb-3">2026 Sample Simulation</h5>
-            <p class="text-muted small">Load sample income and expenses to test reports and graphs. Clearing simulation removes only records marked as simulation.</p>
+            <p class="text-muted small">Load a full household accounting scenario for dashboard testing. Clearing simulation removes only records marked as simulation.</p>
             <div class="d-grid gap-2">
               <button class="btn btn-outline-primary" onclick="seedSimulation()"><i class="fas fa-chart-line me-1"></i>Load Sample Data</button>
               <button class="btn btn-outline-danger" onclick="clearSimulation()"><i class="fas fa-trash-alt me-1"></i>Clear Simulation</button>
@@ -65,7 +68,7 @@ async function loadDashboard(){
     ['Accounts','/api/accounts','fa-wallet'],
     ['Transactions','/api/transactions','fa-receipt'],
     ['Categories','/api/categories','fa-tags'],
-    ['Proofs','/api/proof-documents','fa-paperclip']
+    ['Budgets','/api/budgets','fa-scale-balanced']
   ];
   const values=await Promise.all(items.map(i=>count(i[1])));
   document.getElementById('cards').innerHTML=items.map((i,idx)=>`<div class="col-md-3"><div class="glass-card p-4"><div class="text-muted small">${i[0]}</div><div class="display-6 fw-bold"><i class="fas ${i[2]} me-2"></i>${values[idx]}</div></div></div>`).join('');
@@ -76,16 +79,16 @@ async function seedSimulation(){
   const res=await fetch('/api/simulation/seed',{method:'POST',headers:authHeaders(true)});
   const data=await res.json().catch(()=>({}));
   if(!res.ok) return toast(data.message || data.error || 'Unable to load simulation.', 'danger');
-  document.getElementById('simulationResult').textContent='Created ' + data.created + ' sample transactions.';
+  document.getElementById('simulationResult').textContent='Created ' + data.created + ' transactions plus accounts, budgets, goals, investments, snapshots, and FX rates.';
   toast('Simulation loaded.');
   loadDashboard();
 }
 async function clearSimulation(){
-  if(!confirm('Clear all simulation transactions and simulation accounts?')) return;
+  if(!confirm('Clear all sample simulation accounting data?')) return;
   const res=await fetch('/api/simulation',{method:'DELETE',headers:authHeaders()});
   const data=await res.json().catch(()=>({}));
   if(!res.ok) return toast(data.message || data.error || 'Unable to clear simulation.', 'danger');
-  document.getElementById('simulationResult').textContent='Removed ' + data.deletedTransactions + ' transactions and ' + data.deletedAccounts + ' accounts.';
+  document.getElementById('simulationResult').textContent='Removed sample transactions, accounts, budgets, goals, investments, snapshots, and FX rates.';
   toast('Simulation cleared.');
   loadDashboard();
 }

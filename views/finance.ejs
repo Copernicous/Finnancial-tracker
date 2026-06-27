@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Financial Workspace - Home Accounting</title>
+  <link href="/assets/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/inter.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .finance-shell { display: grid; gap: 1rem; }
+    .filter-grid { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: .75rem; align-items: end; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
+    .kpi-card { border: 1px solid var(--border,#e5e7eb); border-radius: 8px; background: var(--surface,#fff); padding: 1rem; min-height: 116px; }
+    .kpi-card .kpi-icon { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--surface-2,#f1f5f9); color: var(--primary,#0d6efd); }
+    .kpi-value { font-size: clamp(1.25rem, 2vw, 1.85rem); font-weight: 800; letter-spacing: 0; line-height: 1.15; }
+    .finance-panel { border: 1px solid var(--border,#e5e7eb); border-radius: 8px; background: var(--surface,#fff); padding: 1rem; }
+    .bar-track { height: 10px; border-radius: 999px; background: var(--surface-2,#eef2f7); overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; }
+    .bar-income { background: #198754; }
+    .bar-expense { background: #dc3545; }
+    .bar-net { background: #0d6efd; }
+    .bar-warning { background: #f59e0b; }
+    .bar-row { display: grid; grid-template-columns: 72px minmax(160px, 1fr) 96px; gap: .65rem; align-items: center; margin-bottom: .65rem; }
+    .stack-row { display: grid; grid-template-columns: minmax(140px, 1fr) 110px 82px; gap: .65rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--border,#e5e7eb); }
+    .stack-row:last-child { border-bottom: 0; }
+    .compact-table th { cursor: pointer; user-select: none; }
+    .ledger-wrap { max-height: 460px; overflow: auto; }
+    .status-dot { width: 8px; height: 8px; border-radius: 999px; display: inline-block; margin-right: .35rem; background: #94a3b8; }
+    .status-dot.reviewed, .status-dot.reconciled { background: #198754; }
+    .status-dot.draft { background: #f59e0b; }
+    .status-dot.void { background: #dc3545; }
+    .split-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .9fr); gap: 1rem; }
+    .three-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+    .small-muted { color: var(--text-muted,#64748b); font-size: .78rem; }
+    @media (max-width: 1200px) {
+      .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .split-layout, .three-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .filter-grid, .kpi-grid { grid-template-columns: 1fr; }
+      .bar-row, .stack-row { grid-template-columns: 1fr; gap: .25rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <%- include('partials/sidebar') %>
+  <div id="content">
+    <nav class="navbar navbar-expand-lg px-4 mb-4">
+      <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+      <span class="ms-3 fw-bold fs-5">Financial Workspace</span>
+      <div class="ms-auto d-flex align-items-center gap-2">
+        <button id="themeToggle" class="btn btn-outline-secondary btn-sm" title="Toggle theme"><i class="fas fa-moon"></i></button>
+        <span id="userGreeting" class="text-muted small"></span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
+
+    <div class="container-fluid px-4 finance-shell">
+      <section class="finance-panel">
+        <div class="d-flex justify-content-between flex-wrap gap-3 mb-3">
+          <div>
+            <h5 class="mb-1">2026 Accounting Console</h5>
+            <div class="small-muted">Account, currency, period, budget, and ledger selectors.</div>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-outline-primary btn-sm" id="seedBtn"><i class="fas fa-chart-line me-1"></i>Load Sample</button>
+            <button class="btn btn-outline-danger btn-sm" id="clearBtn"><i class="fas fa-trash-alt me-1"></i>Clear Sample</button>
+            <button class="btn btn-outline-success btn-sm" id="exportBtn"><i class="fas fa-file-csv me-1"></i>Export</button>
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="fas fa-print me-1"></i>Print</button>
+          </div>
+        </div>
+        <div class="filter-grid">
+          <div>
+            <label class="form-label">Year</label>
+            <select id="yearFilter" class="form-select"><option value="2026">2026</option></select>
+          </div>
+          <div>
+            <label class="form-label">Month</label>
+            <select id="monthFilter" class="form-select">
+              <option value="">All</option>
+              <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+              <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+              <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+              <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Account</label>
+            <select id="accountFilter" class="form-select"><option value="">All accounts</option></select>
+          </div>
+          <div>
+            <label class="form-label">Currency</label>
+            <select id="currencyFilter" class="form-select"><option value="USD">USD</option><option value="ALL">All</option><option value="COP">COP</option><option value="EUR">EUR</option></select>
+          </div>
+          <div>
+            <label class="form-label">Search</label>
+            <input id="searchFilter" class="form-control" placeholder="merchant, tag, memo">
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-primary flex-fill" id="runBtn"><i class="fas fa-search me-1"></i>Run</button>
+            <button class="btn btn-outline-secondary" id="resetBtn" title="Reset filters"><i class="fas fa-undo"></i></button>
+          </div>
+        </div>
+      </section>
+
+      <section class="kpi-grid" id="kpiGrid"></section>
+
+      <section class="split-layout">
+        <div class="finance-panel">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Monthly Cash Flow</h5>
+            <span class="small-muted" id="periodLabel">2026</span>
+          </div>
+          <div id="monthlyChart"></div>
+        </div>
+        <div class="finance-panel">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Spending by Category</h5>
+            <span class="small-muted">Top categories</span>
+          </div>
+          <div id="categoryChart"></div>
+        </div>
+      </section>
+
+      <section class="three-layout">
+        <div class="finance-panel">
+          <h5 class="mb-3">Accounts</h5>
+          <div id="accountStack"></div>
+        </div>
+        <div class="finance-panel">
+          <h5 class="mb-3">Budget Watch</h5>
+          <div id="budgetWatch"></div>
+        </div>
+        <div class="finance-panel">
+          <h5 class="mb-3">Goals</h5>
+          <div id="goalList"></div>
+        </div>
+      </section>
+
+      <section class="split-layout">
+        <div class="finance-panel">
+          <h5 class="mb-3">Recurring Calendar</h5>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle">
+              <thead><tr><th>Date</th><th>Name</th><th>Account</th><th>Type</th><th class="text-end">Amount</th></tr></thead>
+              <tbody id="recurringRows"><tr><td colspan="5" class="text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="finance-panel">
+          <h5 class="mb-3">Investments</h5>
+          <div id="investmentList"></div>
+        </div>
+      </section>
+
+      <section class="finance-panel">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="mb-1">Transaction Search</h5>
+            <div class="small-muted" id="searchCount">0 records</div>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            <select id="typeFilter" class="form-select form-select-sm" style="width:150px">
+              <option value="">All types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+              <option value="transfer">Transfer</option>
+              <option value="adjustment">Adjustment</option>
+            </select>
+            <select id="statusFilter" class="form-select form-select-sm" style="width:150px">
+              <option value="">All status</option>
+              <option value="draft">Draft</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="reconciled">Reconciled</option>
+              <option value="void">Void</option>
+            </select>
+            <input id="fromFilter" class="form-control form-control-sm" type="date" style="width:155px">
+            <input id="toFilter" class="form-control form-control-sm" type="date" style="width:155px">
+          </div>
+        </div>
+        <div class="ledger-wrap table-responsive">
+          <table class="table table-hover align-middle compact-table">
+            <thead>
+              <tr>
+                <th data-sort="transactionDate">Date</th>
+                <th data-sort="accountName">Account</th>
+                <th data-sort="categoryName">Category</th>
+                <th data-sort="merchant">Merchant</th>
+                <th data-sort="description">Description</th>
+                <th data-sort="transactionType">Type</th>
+                <th data-sort="amount" class="text-end">Amount</th>
+                <th data-sort="status">Status</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerRows"><tr><td colspan="8" class="text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
+<script src="/js/main.js"></script>
+<script>
+let accounts = [];
+let categories = [];
+let overview = null;
+let searchRows = [];
+let sortState = { key: 'transactionDate', dir: 'desc' };
+
+function authHeaders(json) {
+  const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
+  const headers = token ? { Authorization: 'Bearer ' + token } : {};
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+function esc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function money(value, currency) {
+  const code = currency && currency !== 'ALL' ? currency : (document.getElementById('currencyFilter').value !== 'ALL' ? document.getElementById('currencyFilter').value : 'USD');
+  return Number(value || 0).toLocaleString(undefined, { style: 'currency', currency: code, maximumFractionDigits: code === 'COP' ? 0 : 2 });
+}
+function numberFmt(value) {
+  return Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 1 });
+}
+function toast(message, type) {
+  if (typeof showToast === 'function') showToast(message, type || 'success');
+}
+function qs(params) {
+  return Object.keys(params).filter(key => params[key] !== '' && params[key] != null).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key])).join('&');
+}
+function percentBar(value, colorClass) {
+  const width = Math.max(0, Math.min(100, Number(value || 0)));
+  return '<div class="bar-track"><div class="bar-fill ' + (colorClass || 'bar-net') + '" style="width:' + width + '%"></div></div>';
+}
+function maxAbs(rows, keys) {
+  return Math.max(1, ...rows.flatMap(row => keys.map(key => Math.abs(Number(row[key] || 0)))));
+}
+
+async function loadLookups() {
+  const [accountRows, categoryRows] = await Promise.all([
+    fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
+    fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : [])
+  ]);
+  accounts = accountRows;
+  categories = categoryRows;
+  document.getElementById('accountFilter').innerHTML = '<option value="">All accounts</option>' + accounts.map(account => '<option value="' + account.id + '">' + esc(account.name) + '</option>').join('');
+}
+
+function filters() {
+  const year = document.getElementById('yearFilter').value || '2026';
+  const month = document.getElementById('monthFilter').value;
+  return {
+    year,
+    month,
+    accountId: document.getElementById('accountFilter').value,
+    currency: document.getElementById('currencyFilter').value || 'USD'
+  };
+}
+
+async function loadOverview() {
+  const response = await fetch('/api/finance/overview?' + qs(filters()), { headers: authHeaders() });
+  if (!response.ok) throw new Error('Overview failed');
+  overview = await response.json();
+  if (overview.filters && overview.filters.currencies) {
+    const selected = document.getElementById('currencyFilter').value || 'ALL';
+    document.getElementById('currencyFilter').innerHTML = '<option value="USD">USD</option><option value="ALL">All</option>' + overview.filters.currencies.filter(currency => currency !== 'USD').map(currency => '<option value="' + esc(currency) + '">' + esc(currency) + '</option>').join('');
+    document.getElementById('currencyFilter').value = selected;
+  }
+  renderOverview();
+}
+
+async function loadSearch() {
+  const f = filters();
+  const params = {
+    q: document.getElementById('searchFilter').value.trim(),
+    accountId: f.accountId,
+    currency: f.currency,
+    type: document.getElementById('typeFilter').value,
+    status: document.getElementById('statusFilter').value,
+    from: document.getElementById('fromFilter').value,
+    to: document.getElementById('toFilter').value,
+    limit: 500
+  };
+  const response = await fetch('/api/finance/search?' + qs(params), { headers: authHeaders() });
+  if (!response.ok) throw new Error('Search failed');
+  const data = await response.json();
+  searchRows = data.rows || [];
+  renderLedger();
+}
+
+function renderKpis(summary) {
+  const cards = [
+    ['Net Worth', summary.netWorth, 'fa-wallet', 'Includes eligible accounts and holdings'],
+    ['Cash Flow', summary.cashFlow, 'fa-scale-balanced', 'Income less expenses'],
+    ['Income', summary.income, 'fa-arrow-trend-up', 'Reviewed activity'],
+    ['Expenses', summary.expenses, 'fa-arrow-trend-down', 'Spend categories'],
+    ['Savings Rate', summary.savingsRatePct + '%', 'fa-piggy-bank', 'Cash flow over income', true],
+    ['Credit Utilization', summary.creditUtilizationPct + '%', 'fa-credit-card', 'Current card use', true],
+    ['Investments', summary.investmentValue, 'fa-chart-area', 'Market value'],
+    ['Budget Used', summary.budgetUsagePct + '%', 'fa-clipboard-check', 'Actual over plan', true]
+  ];
+  document.getElementById('kpiGrid').innerHTML = cards.map(card => (
+    '<div class="kpi-card">' +
+      '<div class="d-flex justify-content-between align-items-start mb-3">' +
+        '<div class="small-muted">' + esc(card[0]) + '</div>' +
+        '<span class="kpi-icon"><i class="fas ' + card[2] + '"></i></span>' +
+      '</div>' +
+      '<div class="kpi-value">' + (card[4] ? esc(card[1]) : money(card[1])) + '</div>' +
+      '<div class="small-muted mt-2">' + esc(card[3]) + '</div>' +
+    '</div>'
+  )).join('');
+}
+
+function renderMonthly() {
+  const rows = overview.monthly || [];
+  const max = maxAbs(rows, ['income', 'expenses', 'net']);
+  document.getElementById('periodLabel').textContent = overview.filters.year + (overview.filters.month ? '-' + String(overview.filters.month).padStart(2, '0') : '');
+  document.getElementById('monthlyChart').innerHTML = rows.map(row => {
+    const incomeWidth = Math.round((row.income / max) * 100);
+    const expenseWidth = Math.round((row.expenses / max) * 100);
+    const netWidth = Math.round((Math.abs(row.net) / max) * 100);
+    return '<div class="mb-3">' +
+      '<div class="bar-row"><div class="fw-semibold">' + esc(row.label) + '</div><div>' + percentBar(incomeWidth, 'bar-income') + '</div><div class="text-end text-success">' + money(row.income) + '</div></div>' +
+      '<div class="bar-row"><div class="small-muted">Expense</div><div>' + percentBar(expenseWidth, 'bar-expense') + '</div><div class="text-end text-danger">' + money(row.expenses) + '</div></div>' +
+      '<div class="bar-row"><div class="small-muted">Net</div><div>' + percentBar(netWidth, row.net >= 0 ? 'bar-net' : 'bar-warning') + '</div><div class="text-end">' + money(row.net) + '</div></div>' +
+    '</div>';
+  }).join('');
+}
+
+function renderCategories() {
+  const rows = overview.categoryTotals || [];
+  const max = Math.max(1, ...rows.map(row => Number(row.amount || 0)));
+  document.getElementById('categoryChart').innerHTML = rows.length ? rows.map(row => {
+    const width = Math.round((row.amount / max) * 100);
+    return '<div class="mb-3">' +
+      '<div class="d-flex justify-content-between gap-2 mb-1"><span class="fw-semibold">' + esc(row.name) + '</span><span>' + money(row.amount) + '</span></div>' +
+      percentBar(width, 'bar-expense') +
+      '<div class="small-muted mt-1">' + esc(row.groupName || '') + ' - ' + esc(row.count) + ' tx</div>' +
+    '</div>';
+  }).join('') : '<div class="text-muted">No category spending for this filter.</div>';
+}
+
+function renderAccounts() {
+  const rows = overview.accountTotals || [];
+  document.getElementById('accountStack').innerHTML = rows.length ? rows.map(account => (
+    '<div class="stack-row">' +
+      '<div><div class="fw-semibold">' + esc(account.name) + '</div><div class="small-muted">' + esc(account.accountClass || '') + (account.accountSubtype ? ' - ' + esc(account.accountSubtype) : '') + '</div></div>' +
+      '<div class="text-end fw-semibold">' + money(account.balance, account.currency) + '</div>' +
+      '<div class="text-end small-muted">' + esc(account.status || '') + '</div>' +
+    '</div>'
+  )).join('') : '<div class="text-muted">No accounts match the filter.</div>';
+}
+
+function renderBudgets() {
+  const rows = overview.budgets || [];
+  document.getElementById('budgetWatch').innerHTML = rows.length ? rows.map(row => {
+    const warn = row.usagePct >= row.alertThresholdPct;
+    return '<div class="mb-3">' +
+      '<div class="d-flex justify-content-between gap-2 mb-1"><span class="fw-semibold">' + esc(row.name) + '</span><span class="' + (warn ? 'text-danger' : '') + '">' + esc(row.usagePct) + '%</span></div>' +
+      percentBar(row.usagePct, warn ? 'bar-expense' : 'bar-net') +
+      '<div class="small-muted mt-1">' + money(row.actualAmount, row.currency) + ' of ' + money(row.plannedAmount, row.currency) + '</div>' +
+    '</div>';
+  }).join('') : '<div class="text-muted">No active budgets for this filter.</div>';
+}
+
+function renderGoals() {
+  const rows = overview.goals || [];
+  document.getElementById('goalList').innerHTML = rows.length ? rows.map(goal => (
+    '<div class="mb-3">' +
+      '<div class="d-flex justify-content-between gap-2 mb-1"><span class="fw-semibold">' + esc(goal.name) + '</span><span>' + esc(goal.progressPct) + '%</span></div>' +
+      percentBar(goal.progressPct, goal.progressPct >= 100 ? 'bar-income' : 'bar-net') +
+      '<div class="small-muted mt-1">' + money(goal.currentAmount, goal.currency) + ' of ' + money(goal.targetAmount, goal.currency) + (goal.targetDate ? ' by ' + esc(goal.targetDate) : '') + '</div>' +
+    '</div>'
+  )).join('') : '<div class="text-muted">No goals for this filter.</div>';
+}
+
+function renderRecurring() {
+  const rows = overview.recurring || [];
+  document.getElementById('recurringRows').innerHTML = rows.length ? rows.slice(0, 12).map(row => (
+    '<tr><td>' + esc(row.nextDate) + '</td><td>' + esc(row.name) + '</td><td>' + esc(row.accountName) + '</td><td>' + esc(row.transactionType) + '</td><td class="text-end">' + money(row.amount, row.currency) + '</td></tr>'
+  )).join('') : '<tr><td colspan="5" class="text-muted">No recurring items.</td></tr>';
+}
+
+function renderInvestments() {
+  const rows = overview.holdings || [];
+  document.getElementById('investmentList').innerHTML = rows.length ? rows.map(row => (
+    '<div class="stack-row">' +
+      '<div><div class="fw-semibold">' + esc(row.symbol) + ' ' + esc(row.name || '') + '</div><div class="small-muted">' + esc(row.assetClass) + ' - ' + esc(row.accountName) + '</div></div>' +
+      '<div class="text-end fw-semibold">' + money(row.marketValue, row.currency) + '</div>' +
+      '<div class="text-end ' + (row.unrealizedGain >= 0 ? 'text-success' : 'text-danger') + '">' + money(row.unrealizedGain, row.currency) + '</div>' +
+    '</div>'
+  )).join('') : '<div class="text-muted">No investment holdings.</div>';
+}
+
+function renderOverview() {
+  renderKpis(overview.summary || {});
+  renderMonthly();
+  renderCategories();
+  renderAccounts();
+  renderBudgets();
+  renderGoals();
+  renderRecurring();
+  renderInvestments();
+}
+
+function renderLedger() {
+  const key = sortState.key;
+  const dir = sortState.dir === 'asc' ? 1 : -1;
+  const sorted = searchRows.slice().sort((a, b) => {
+    const av = a[key];
+    const bv = b[key];
+    if (key === 'amount') return (Number(av || 0) - Number(bv || 0)) * dir;
+    return String(av || '').localeCompare(String(bv || '')) * dir;
+  });
+  document.getElementById('searchCount').textContent = sorted.length + ' records';
+  document.getElementById('ledgerRows').innerHTML = sorted.length ? sorted.map(row => (
+    '<tr>' +
+      '<td>' + esc(row.transactionDate) + '</td>' +
+      '<td>' + esc(row.accountName) + '</td>' +
+      '<td>' + esc(row.categoryName) + '</td>' +
+      '<td>' + esc(row.merchant || '') + '</td>' +
+      '<td>' + esc(row.description) + '<div class="small-muted">' + esc(row.tags || '') + '</div></td>' +
+      '<td>' + esc(row.transactionType) + '</td>' +
+      '<td class="text-end fw-semibold">' + money(row.amount, row.currency) + '</td>' +
+      '<td><span class="status-dot ' + esc(row.status) + '"></span>' + esc(row.status) + '</td>' +
+    '</tr>'
+  )).join('') : '<tr><td colspan="8" class="text-muted">No transactions match this search.</td></tr>';
+}
+
+async function loadAll() {
+  try {
+    await loadOverview();
+    await loadSearch();
+  } catch (err) {
+    toast('Unable to load financial workspace.', 'danger');
+  }
+}
+
+async function seedSimulation() {
+  const res = await fetch('/api/simulation/seed', { method: 'POST', headers: authHeaders(true) });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast(data.message || data.error || 'Unable to load sample data.', 'danger');
+  toast('Sample data loaded: ' + data.created + ' transactions.');
+  await loadLookups();
+  await loadAll();
+}
+
+async function clearSimulation() {
+  if (!confirm('Clear all sample simulation accounting data?')) return;
+  const res = await fetch('/api/simulation', { method: 'DELETE', headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast(data.message || data.error || 'Unable to clear sample data.', 'danger');
+  toast('Sample data cleared.');
+  await loadLookups();
+  await loadAll();
+}
+
+function exportCsv() {
+  const headers = ['Date', 'Account', 'Category', 'Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Tags'];
+  const lines = [headers].concat(searchRows.map(row => [
+    row.transactionDate, row.accountName, row.categoryName, row.merchant || '', row.description,
+    row.transactionType, row.amount, row.currency, row.status, row.tags || ''
+  ]));
+  const csv = lines.map(row => row.map(cell => typeof sanitizeCsvCell === 'function' ? sanitizeCsvCell(cell) : '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  a.download = 'home_accounting_financial_workspace_2026.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.getAttribute('data-sort');
+    sortState = { key, dir: sortState.key === key && sortState.dir === 'desc' ? 'asc' : 'desc' };
+    renderLedger();
+  });
+});
+document.getElementById('runBtn').addEventListener('click', loadAll);
+document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('monthFilter').value = '';
+  document.getElementById('accountFilter').value = '';
+  document.getElementById('currencyFilter').value = 'USD';
+  document.getElementById('searchFilter').value = '';
+  document.getElementById('typeFilter').value = '';
+  document.getElementById('statusFilter').value = '';
+  document.getElementById('fromFilter').value = '';
+  document.getElementById('toFilter').value = '';
+  loadAll();
+});
+['monthFilter', 'accountFilter', 'currencyFilter', 'typeFilter', 'statusFilter', 'fromFilter', 'toFilter'].forEach(id => {
+  document.getElementById(id).addEventListener('change', loadAll);
+});
+document.getElementById('searchFilter').addEventListener('keydown', event => {
+  if (event.key === 'Enter') loadAll();
+});
+document.getElementById('seedBtn').addEventListener('click', seedSimulation);
+document.getElementById('clearBtn').addEventListener('click', clearSimulation);
+document.getElementById('exportBtn').addEventListener('click', exportCsv);
+document.addEventListener('DOMContentLoaded', async function() {
+  await loadLookups();
+  await loadAll();
+});
+</script>
+</body>
+</html>
