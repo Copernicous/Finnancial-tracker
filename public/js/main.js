@@ -31,19 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Theme Toggle
-    var themeToggle = document.getElementById('themeToggle');
-    if (themeToggle) {
-        var currentTheme = localStorage.getItem('haTheme') || 'light';
-        document.documentElement.setAttribute('data-theme', currentTheme);
-        themeToggle.innerHTML = currentTheme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-
-        themeToggle.addEventListener('click', function() {
-            var theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-            document.documentElement.setAttribute('data-theme', theme);
-            localStorage.setItem('haTheme', theme);
-            themeToggle.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
-        });
-    }
+    if (window.haBindThemeToggles) window.haBindThemeToggles();
 
     // Login Handle
     var loginForm = document.getElementById('loginForm');

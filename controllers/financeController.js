@@ -2,6 +2,7 @@
 
 const db = require('../models');
 const { Op } = require('sequelize');
+const merchantCategorizer = require('../services/merchantCategorizer');
 
 function toNumber(value) {
   const n = Number(value);
@@ -20,6 +21,149 @@ function dateRange(year, month) {
     return [`${y}-${m}-01`, `${y}-${m}-${String(end).padStart(2, '0')}`];
   }
   return [`${y}-01-01`, `${y}-12-31`];
+}
+
+function cleanText(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function cleanId(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function parseJsonField(value, fallback) {
+  if (!value) return fallback;
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (err) {
+    return fallback;
+  }
+}
+
+async function getStoredMerchantRules() {
+  const row = await db.SystemSetting.findOne({ where: { key: 'merchant_category_rules' } });
+  const rules = parseJsonField(row && row.value, []);
+  return Array.isArray(rules) ? rules : [];
+}
+
+function pickDateWhere(query, defaultYear = 2026) {
+  const year = Number(query.year) || defaultYear;
+  const month = query.month ? Number(query.month) : null;
+  const where = {};
+  if (query.from || query.to) {
+    if (query.from) where[Op.gte] = query.from;
+    if (query.to) where[Op.lte] = query.to;
+    return Object.keys(where).length ? where : null;
+  }
+  const [from, to] = dateRange(year, month);
+  return { [Op.between]: [from, to] };
+}
+
+function transactionQueryParts(query, options = {}) {
+  const where = {};
+  const accountWhere = {};
+  const q = cleanText(query.q);
+
+  const dateWhere = pickDateWhere(query, options.defaultYear || 2026);
+  if (dateWhere) where.transactionDate = dateWhere;
+
+  if (query.accountId) where.accountId = Number(query.accountId);
+  if (query.categoryId === 'uncategorized' || query.categoryId === 'none') {
+    where.categoryId = { [Op.is]: null };
+  } else if (query.categoryId) {
+    where.categoryId = Number(query.categoryId);
+  }
+  if (query.type) where.transactionType = cleanText(query.type);
+  if (query.status) where.status = cleanText(query.status);
+  if (query.currency && query.currency !== 'ALL') where.currency = cleanText(query.currency).toUpperCase();
+  if (query.sourceType) where.sourceType = cleanText(query.sourceType);
+  if (query.onlyUncategorized === 'true' || query.onlyUncategorized === true) where.categoryId = { [Op.is]: null };
+  if (query.min || query.max) {
+    where.amount = {};
+    if (query.min) where.amount[Op.gte] = Number(query.min);
+    if (query.max) where.amount[Op.lte] = Number(query.max);
+  }
+  if (query.tag) where.tags = { [Op.iLike]: `%${cleanText(query.tag)}%` };
+  if (q) {
+    where[Op.or] = [
+      { description: { [Op.iLike]: `%${q}%` } },
+      { merchant: { [Op.iLike]: `%${q}%` } },
+      { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
+      { referenceNumber: { [Op.iLike]: `%${q}%` } },
+      { memo: { [Op.iLike]: `%${q}%` } },
+      { tags: { [Op.iLike]: `%${q}%` } }
+    ];
+  }
+
+  if (query.accountClass) accountWhere.accountClass = cleanText(query.accountClass);
+  if (query.accountType) accountWhere.accountType = cleanText(query.accountType);
+
+  return { where, accountWhere };
+}
+
+function accountInclude(accountWhere = {}) {
+  return {
+    model: db.Account,
+    attributes: ['id', 'name', 'accountClass', 'accountSubtype', 'accountType', 'currency'],
+    where: Object.keys(accountWhere).length ? accountWhere : undefined,
+    required: Object.keys(accountWhere).length > 0
+  };
+}
+
+function categoryInclude() {
+  return { model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'], required: false };
+}
+
+function sortOrder(sortKey, sortDir) {
+  const dir = String(sortDir || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+  const direct = {
+    transactionDate: ['transactionDate', dir],
+    merchant: ['merchant', dir],
+    description: ['description', dir],
+    transactionType: ['transactionType', dir],
+    amount: ['amount', dir],
+    currency: ['currency', dir],
+    status: ['status', dir],
+    sourceType: ['sourceType', dir],
+    id: ['id', dir]
+  };
+  if (sortKey === 'accountName') return [[db.Account, 'name', dir], ['transactionDate', 'DESC'], ['id', 'DESC']];
+  if (sortKey === 'categoryName') return [[db.Category, 'name', dir], ['transactionDate', 'DESC'], ['id', 'DESC']];
+  return [direct[sortKey] || ['transactionDate', 'DESC'], ['id', 'DESC']];
+}
+
+function transactionDto(row) {
+  return {
+    id: row.id,
+    transactionDate: row.transactionDate,
+    accountId: row.accountId,
+    accountName: row.Account ? row.Account.name : '',
+    accountClass: row.Account ? row.Account.accountClass : '',
+    accountType: row.Account ? row.Account.accountType : '',
+    categoryId: row.categoryId,
+    categoryName: row.Category ? row.Category.name : '',
+    categoryGroup: row.Category ? row.Category.groupName : '',
+    relatedAccountId: row.relatedAccountId,
+    description: row.description,
+    merchant: row.merchant,
+    normalizedMerchant: row.normalizedMerchant,
+    transactionType: row.transactionType,
+    amount: toNumber(row.amount),
+    currency: row.currency,
+    originalAmount: row.originalAmount == null ? null : toNumber(row.originalAmount),
+    originalCurrency: row.originalCurrency,
+    exchangeRate: row.exchangeRate == null ? null : toNumber(row.exchangeRate),
+    status: row.status,
+    sourceType: row.sourceType,
+    referenceNumber: row.referenceNumber,
+    tags: row.tags,
+    clearedDate: row.clearedDate,
+    isRecurring: !!row.isRecurring,
+    memo: row.memo,
+    isSimulation: !!row.isSimulation
+  };
 }
 
 function classifyTransaction(row) {
@@ -52,6 +196,7 @@ exports.overview = async (req, res, next) => {
     const year = Number(req.query.year) || 2026;
     const month = req.query.month ? Number(req.query.month) : null;
     const accountId = req.query.accountId ? Number(req.query.accountId) : null;
+    const accountClass = cleanText(req.query.accountClass);
     const currency = req.query.currency && req.query.currency !== 'ALL' ? String(req.query.currency) : null;
     const [from, to] = dateRange(year, month);
 
@@ -61,14 +206,26 @@ exports.overview = async (req, res, next) => {
     };
     if (accountId) txWhere.accountId = accountId;
     if (currency) txWhere.currency = currency;
+    const overviewAccountWhere = accountClass ? { accountClass } : {};
 
     const [accounts, categories, transactions, budgets, recurring, goals, holdings, snapshots, rates] = await Promise.all([
-      db.Account.findAll({ order: [['accountClass', 'ASC'], ['name', 'ASC']] }),
+      db.Account.findAll({
+        where: {
+          ...(accountClass ? { accountClass } : {}),
+          ...(currency ? { currency } : {})
+        },
+        order: [['accountClass', 'ASC'], ['name', 'ASC']]
+      }),
       db.Category.findAll({ order: [['groupName', 'ASC'], ['name', 'ASC']] }),
       db.Transaction.findAll({
         where: txWhere,
         include: [
-          { model: db.Account, attributes: ['id', 'name', 'accountClass', 'accountSubtype', 'currency'] },
+          {
+            model: db.Account,
+            attributes: ['id', 'name', 'accountClass', 'accountSubtype', 'accountType', 'currency'],
+            where: Object.keys(overviewAccountWhere).length ? overviewAccountWhere : undefined,
+            required: Object.keys(overviewAccountWhere).length > 0
+          },
           { model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'] }
         ],
         order: [['transactionDate', 'ASC'], ['id', 'ASC']]
@@ -241,6 +398,7 @@ exports.overview = async (req, res, next) => {
         year,
         month,
         accountId,
+        accountClass,
         currency: currency || 'ALL',
         currencies: Array.from(new Set([
           ...accounts.map((account) => account.currency).filter(Boolean),
@@ -331,74 +489,182 @@ exports.overview = async (req, res, next) => {
 
 exports.search = async (req, res, next) => {
   try {
-    const where = {};
-    const q = String(req.query.q || '').trim();
-    const limit = Math.min(Number(req.query.limit) || 250, 500);
+    const { where, accountWhere } = transactionQueryParts(req.query);
+    const exportAll = req.query.exportAll === 'true';
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = exportAll
+      ? Math.min(Math.max(Number(req.query.limit) || 5000, 1), 20000)
+      : Math.min(Math.max(Number(req.query.limit) || 50, 1), 500);
+    const offset = exportAll ? 0 : (page - 1) * limit;
+    const include = [accountInclude(accountWhere), categoryInclude()];
 
-    if (req.query.accountId) where.accountId = Number(req.query.accountId);
-    if (req.query.categoryId) where.categoryId = Number(req.query.categoryId);
-    if (req.query.type) where.transactionType = String(req.query.type);
-    if (req.query.status) where.status = String(req.query.status);
-    if (req.query.currency && req.query.currency !== 'ALL') where.currency = String(req.query.currency);
-    if (req.query.from || req.query.to) {
-      where.transactionDate = {};
-      if (req.query.from) where.transactionDate[Op.gte] = req.query.from;
-      if (req.query.to) where.transactionDate[Op.lte] = req.query.to;
-    }
-    if (req.query.min || req.query.max) {
-      where.amount = {};
-      if (req.query.min) where.amount[Op.gte] = Number(req.query.min);
-      if (req.query.max) where.amount[Op.lte] = Number(req.query.max);
-    }
-    if (req.query.tag) {
-      where.tags = { [Op.iLike]: `%${String(req.query.tag).trim()}%` };
-    }
-    if (q) {
-      where[Op.or] = [
-        { description: { [Op.iLike]: `%${q}%` } },
-        { merchant: { [Op.iLike]: `%${q}%` } },
-        { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
-        { referenceNumber: { [Op.iLike]: `%${q}%` } },
-        { memo: { [Op.iLike]: `%${q}%` } },
-        { tags: { [Op.iLike]: `%${q}%` } }
-      ];
-    }
+    const result = await db.Transaction.findAndCountAll({
+      where,
+      include,
+      distinct: true,
+      order: sortOrder(req.query.sort, req.query.dir),
+      limit,
+      offset
+    });
 
+    const summaryRows = await db.Transaction.findAll({
+      where,
+      include,
+      order: [['transactionDate', 'DESC'], ['id', 'DESC']],
+      limit: 10000
+    });
+    const categorySummary = new Map();
+    const merchantSummary = new Map();
+    summaryRows.forEach((row) => {
+      const amount = Math.abs(toNumber(row.amount));
+      const categoryKey = row.categoryId || 'uncategorized';
+      if (!categorySummary.has(categoryKey)) {
+        categorySummary.set(categoryKey, {
+          categoryId: row.categoryId,
+          name: row.Category ? row.Category.name : 'Uncategorized',
+          groupName: row.Category ? row.Category.groupName : 'Unassigned',
+          amount: 0,
+          count: 0
+        });
+      }
+      const category = categorySummary.get(categoryKey);
+      category.amount += amount;
+      category.count += 1;
+
+      const merchantName = cleanText(row.merchant || row.normalizedMerchant || row.description) || 'No merchant';
+      const merchantKey = merchantCategorizer.normalize(merchantName);
+      if (!merchantSummary.has(merchantKey)) {
+        merchantSummary.set(merchantKey, { name: merchantName, amount: 0, count: 0 });
+      }
+      const merchant = merchantSummary.get(merchantKey);
+      merchant.amount += amount;
+      merchant.count += 1;
+    });
+
+    const total = typeof result.count === 'number' ? result.count : result.count.length;
+    res.json({
+      count: result.rows.length,
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+      rows: result.rows.map(transactionDto),
+      categorySummary: Array.from(categorySummary.values()).sort((a, b) => b.count - a.count || b.amount - a.amount).slice(0, 60),
+      merchantSummary: Array.from(merchantSummary.values()).sort((a, b) => b.amount - a.amount).slice(0, 60)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.trends = async (req, res, next) => {
+  try {
+    const groupBy = req.query.groupBy === 'merchant' ? 'merchant' : 'category';
+    const measure = ['income', 'expense', 'transfer', 'net'].includes(req.query.measure) ? req.query.measure : 'expense';
+    const { where, accountWhere } = transactionQueryParts({
+      ...req.query,
+      status: req.query.status || ''
+    });
+    if (!req.query.status) where.status = { [Op.ne]: 'void' };
     const rows = await db.Transaction.findAll({
       where,
-      include: [
-        { model: db.Account, attributes: ['id', 'name', 'accountClass', 'currency'] },
-        { model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'] }
-      ],
-      order: [['transactionDate', 'DESC'], ['id', 'DESC']],
-      limit
+      include: [accountInclude(accountWhere), categoryInclude()],
+      order: [['transactionDate', 'ASC'], ['id', 'ASC']],
+      limit: 20000
     });
 
-    res.json({
-      count: rows.length,
-      rows: rows.map((row) => ({
-        id: row.id,
-        transactionDate: row.transactionDate,
-        accountId: row.accountId,
-        accountName: row.Account ? row.Account.name : '',
-        categoryId: row.categoryId,
-        categoryName: row.Category ? row.Category.name : '',
-        description: row.description,
-        merchant: row.merchant,
-        transactionType: row.transactionType,
-        amount: toNumber(row.amount),
-        currency: row.currency,
-        originalAmount: row.originalAmount == null ? null : toNumber(row.originalAmount),
-        originalCurrency: row.originalCurrency,
-        exchangeRate: row.exchangeRate == null ? null : toNumber(row.exchangeRate),
-        status: row.status,
-        sourceType: row.sourceType,
-        referenceNumber: row.referenceNumber,
-        tags: row.tags,
-        clearedDate: row.clearedDate,
-        memo: row.memo
-      }))
+    const labels = Array.from(new Set(rows.map((row) => String(row.transactionDate).slice(0, 7)))).sort();
+    const labelIndex = new Map(labels.map((label, index) => [label, index]));
+    const groups = new Map();
+    rows.forEach((row) => {
+      const kind = classifyTransaction(row);
+      if (measure !== 'net' && kind !== measure) return;
+      const label = String(row.transactionDate).slice(0, 7);
+      const amount = measure === 'net' ? toNumber(row.amount) : Math.abs(toNumber(row.amount));
+      const name = groupBy === 'merchant'
+        ? (cleanText(row.merchant || row.normalizedMerchant || row.description) || 'No merchant')
+        : (row.Category ? row.Category.name : 'Uncategorized');
+      const key = merchantCategorizer.normalize(name) || 'uncategorized';
+      if (!groups.has(key)) groups.set(key, { key, name, total: 0, values: Array(labels.length).fill(0) });
+      const group = groups.get(key);
+      group.values[labelIndex.get(label)] += amount;
+      group.total += Math.abs(amount);
     });
+
+    const series = Array.from(groups.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, Math.min(Math.max(Number(req.query.top) || 8, 1), 15));
+    res.json({ labels, groupBy, measure, series });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.bulkCategory = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map(cleanId).filter(Boolean) : [];
+    if (!ids.length) return res.status(400).json({ error: 'Select at least one transaction.' });
+    const categoryId = req.body.categoryId === null || req.body.categoryId === '' ? null : cleanId(req.body.categoryId);
+    if (categoryId) {
+      const category = await db.Category.findByPk(categoryId);
+      if (!category) return res.status(404).json({ error: 'Category not found.' });
+    }
+    const payload = { categoryId };
+    if (req.body.transactionType && ['income', 'expense', 'transfer', 'adjustment'].includes(req.body.transactionType)) {
+      payload.transactionType = req.body.transactionType;
+    }
+    const [updated] = await db.Transaction.update(payload, { where: { id: { [Op.in]: ids } } });
+    res.json({ ok: true, updated });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.autoCategorize = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body.ids) ? req.body.ids.map(cleanId).filter(Boolean) : [];
+    const onlyUncategorized = req.body.onlyUncategorized !== false;
+    const limit = Math.min(Math.max(Number(req.body.limit) || 500, 1), 2000);
+    const where = {};
+    if (ids.length) where.id = { [Op.in]: ids };
+    if (onlyUncategorized) where.categoryId = { [Op.is]: null };
+
+    const [categories, customRules, rows] = await Promise.all([
+      db.Category.findAll({ where: { isActive: { [Op.ne]: false } }, order: [['groupName', 'ASC'], ['name', 'ASC']] }),
+      getStoredMerchantRules(),
+      db.Transaction.findAll({ where, order: [['transactionDate', 'DESC'], ['id', 'DESC']], limit })
+    ]);
+
+    const result = { scanned: rows.length, applied: 0, skipped: 0, suggestions: [] };
+    await db.sequelize.transaction(async (transaction) => {
+      for (const row of rows) {
+        const suggestion = merchantCategorizer.suggestFromRules({
+          text: [row.merchant, row.description, row.normalizedMerchant, row.memo, row.tags].join(' '),
+          categories,
+          customRules,
+          transactionType: row.transactionType
+        });
+        if (!suggestion || !suggestion.categoryId) {
+          result.skipped += 1;
+          continue;
+        }
+        await row.update({
+          categoryId: suggestion.categoryId,
+          transactionType: suggestion.transactionType || row.transactionType
+        }, { transaction });
+        result.applied += 1;
+        result.suggestions.push({
+          id: row.id,
+          merchant: row.merchant || row.description,
+          categoryId: suggestion.categoryId,
+          categoryName: suggestion.categoryName,
+          confidence: suggestion.confidence,
+          source: suggestion.source,
+          matchedPattern: suggestion.matchedPattern
+        });
+      }
+    });
+    res.json({ ok: true, ...result });
   } catch (err) {
     next(err);
   }

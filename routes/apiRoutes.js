@@ -11,6 +11,7 @@ const auditLogController = require('../controllers/auditLogController');
 const settingsController = require('../controllers/settingsController');
 const apiKeyController = require('../controllers/apiKeyController');
 const financeController = require('../controllers/financeController');
+const importController = require('../controllers/importController');
 const adminController = require('../controllers/adminController');
 const backupService = require('../services/backupService');
 
@@ -120,6 +121,10 @@ crud('/account-balance-snapshots', 'AccountBalanceSnapshot', 'balance_snapshots'
 
 router.get('/finance/overview', rbac.requirePermission('reports', 'read'), financeController.overview);
 router.get('/finance/search', rbac.requirePermission('transactions', 'read'), financeController.search);
+router.get('/finance/trends', rbac.requirePermission('reports', 'read'), financeController.trends);
+router.post('/finance/transactions/bulk-category', rbac.requirePermission('transactions', 'edit'), financeController.bulkCategory);
+router.post('/finance/transactions/auto-categorize', rbac.requirePermission('transactions', 'edit'), financeController.autoCategorize);
+router.post('/finance/merchant-suggest', rbac.requirePermission('transactions', 'edit'), importController.suggestMerchantCategory);
 
 async function clearSimulationData() {
   const deletedBalanceSnapshots = await db.AccountBalanceSnapshot.destroy({ where: { isSimulation: true } });

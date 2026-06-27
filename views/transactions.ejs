@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title %> - Home Accounting</title>
+  <link href="/assets/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/inter.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .tx-shell { display: grid; grid-template-columns: minmax(0, 1fr); gap: .8rem; min-width: 0; }
+    .tx-panel {
+      min-width: 0;
+      max-width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow-sm);
+    }
+    .tx-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .75rem;
+      padding: .75rem .9rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface-2);
+    }
+    .tx-panel-body { padding: .85rem .9rem; }
+    .tx-title { font-size: 1rem; font-weight: 800; margin: 0; letter-spacing: 0; }
+    .tx-muted { color: var(--text-muted); font-size: .76rem; }
+    .tx-entry-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: .55rem .65rem;
+      align-items: end;
+    }
+    .tx-field { min-width: 0; }
+    .tx-field label {
+      display: block;
+      margin-bottom: .22rem;
+      font-size: .72rem;
+      font-weight: 750;
+      color: var(--text-muted);
+    }
+    .tx-field-main { grid-column: span 3; }
+    .tx-field-wide { grid-column: span 4; }
+    .tx-field-xwide { grid-column: span 5; }
+    .tx-field-mini { grid-column: span 2; }
+    .tx-entry-actions { grid-column: span 2; display: flex; gap: .4rem; align-items: end; }
+    .tx-advanced-grid {
+      display: grid;
+      grid-template-columns: repeat(12, minmax(0, 1fr));
+      gap: .55rem .65rem;
+      margin-top: .65rem;
+      padding-top: .65rem;
+      border-top: 1px dashed var(--border);
+    }
+    .tx-filter-grid {
+      display: grid;
+      grid-template-columns: 1.35fr .65fr .7fr 1fr 1fr 1fr .82fr .82fr .78fr .82fr .82fr .7fr;
+      gap: .45rem;
+      align-items: end;
+    }
+    .tx-filter-actions {
+      display: flex;
+      gap: .45rem;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+    .tx-category-strip {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      overflow-x: auto;
+      padding: .72rem .9rem;
+      border-bottom: 1px solid var(--border);
+      scrollbar-width: thin;
+    }
+    .tx-category-chip {
+      flex: 0 0 auto;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      padding: .42rem .55rem;
+      line-height: 1.12;
+      text-align: left;
+      min-width: 128px;
+      transition: border-color var(--transition), background var(--transition), transform var(--transition);
+    }
+    .tx-category-chip:hover,
+    .tx-category-chip.active {
+      border-color: rgba(74,144,226,.55);
+      background: rgba(74,144,226,.09);
+      transform: translateY(-1px);
+    }
+    .tx-category-chip strong { display: block; font-size: .78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-category-chip span { display: block; color: var(--text-muted); font-size: .69rem; margin-top: .16rem; }
+    .tx-ledger-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .6rem;
+      flex-wrap: wrap;
+      padding: .68rem .9rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .tx-table-wrap { max-height: 58vh; overflow: auto; }
+    .tx-table {
+      margin-bottom: 0;
+      font-size: .82rem;
+    }
+    .tx-table th:last-child,
+    .tx-table td:last-child {
+      position: sticky;
+      right: 0;
+      background: var(--surface);
+      z-index: 2;
+      box-shadow: -8px 0 14px rgba(0,0,0,.05);
+    }
+    .tx-table thead th:last-child {
+      background: var(--surface-2);
+      z-index: 3;
+    }
+    .tx-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+    .tx-table .form-select-sm { min-width: 164px; font-size: .76rem; padding-top: .22rem; padding-bottom: .22rem; }
+    .tx-row-note { color: var(--text-muted); font-size: .72rem; max-width: 340px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tx-amount { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .tx-amount.negative { color: #dc3545; }
+    .tx-amount.positive { color: #198754; }
+    .tx-status {
+      display: inline-flex;
+      align-items: center;
+      gap: .28rem;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: .13rem .42rem;
+      font-size: .72rem;
+      background: var(--surface-2);
+      white-space: nowrap;
+    }
+    .tx-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: .7rem;
+      flex-wrap: wrap;
+      padding: .7rem .9rem;
+      border-top: 1px solid var(--border);
+    }
+    .tx-chart-controls {
+      display: flex;
+      align-items: center;
+      gap: .45rem;
+      flex-wrap: wrap;
+    }
+    .tx-chart-frame {
+      height: 300px;
+      position: relative;
+    }
+    .tx-form-highlight {
+      border-left: 4px solid var(--primary);
+    }
+    [data-theme="dark"] .tx-category-chip.active,
+    [data-theme="dark"] .tx-category-chip:hover {
+      background: rgba(74,144,226,.16);
+    }
+    @media (max-width: 1500px) {
+      .tx-filter-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+      .tx-field-main, .tx-field-wide, .tx-field-xwide { grid-column: span 4; }
+      .tx-field-mini, .tx-entry-actions { grid-column: span 3; }
+    }
+    @media (max-width: 900px) {
+      .tx-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .tx-field-main, .tx-field-wide, .tx-field-xwide, .tx-field-mini, .tx-entry-actions { grid-column: span 12; }
+      .tx-entry-actions .btn { flex: 1 1 0; }
+    }
+    @media print {
+      #sidebar, .navbar, .no-print, .tx-entry-panel, .tx-category-strip, .tx-ledger-toolbar, .tx-pagination, .toast-container { display: none !important; }
+      #content { margin-left: 0 !important; padding: 0 !important; }
+      .container-fluid { padding: 0 !important; }
+      .tx-panel { box-shadow: none !important; border-color: #999 !important; }
+      .tx-table-wrap { max-height: none !important; overflow: visible !important; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <%- include('partials/sidebar') %>
+  <div id="content">
+    <nav class="navbar navbar-expand-lg px-4 mb-3">
+      <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+      <span class="ms-3 fw-bold fs-5"><%= title %></span>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span id="userGreeting" class="text-muted small"></span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
+
+    <div class="container-fluid px-4 tx-shell">
+      <section class="tx-panel tx-entry-panel tx-form-highlight" id="entryPanel">
+        <div class="tx-panel-header">
+          <div>
+            <h5 class="tx-title" id="entryTitle">New Transaction</h5>
+            <div class="tx-muted">2026 ledger entry, correction, transfer, and category review.</div>
+          </div>
+          <div class="d-flex gap-2 no-print">
+            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedEntry">
+              <i class="fas fa-sliders me-1"></i>Details
+            </button>
+            <button class="btn btn-outline-primary btn-sm" type="button" id="newEntryBtn">
+              <i class="fas fa-plus me-1"></i>New
+            </button>
+          </div>
+        </div>
+        <div class="tx-panel-body">
+          <form id="transactionForm">
+            <input type="hidden" id="txId">
+            <input type="hidden" id="accountId">
+            <input type="hidden" id="categoryId">
+            <input type="hidden" id="relatedAccountId">
+            <div class="tx-entry-grid">
+              <div class="tx-field tx-field-main">
+                <label for="transactionDate">Date</label>
+                <input class="form-control form-control-sm" type="date" id="transactionDate" required>
+              </div>
+              <div class="tx-field tx-field-wide">
+                <label for="accountCombo">Account</label>
+                <input class="form-control form-control-sm" id="accountCombo" list="accountOptions" autocomplete="off" required>
+                <datalist id="accountOptions"></datalist>
+              </div>
+              <div class="tx-field tx-field-mini">
+                <label for="transactionType">Type</label>
+                <select class="form-select form-select-sm" id="transactionType">
+                  <option value="expense">Expense</option>
+                  <option value="income">Income</option>
+                  <option value="transfer">Transfer</option>
+                  <option value="adjustment">Adjustment</option>
+                </select>
+              </div>
+              <div class="tx-field tx-field-mini">
+                <label for="amount">Amount</label>
+                <input class="form-control form-control-sm" type="number" id="amount" step="0.01" required>
+              </div>
+              <div class="tx-field tx-field-mini">
+                <label for="currency">Currency</label>
+                <select class="form-select form-select-sm" id="currency">
+                  <option value="USD">USD</option>
+                  <option value="COP">COP</option>
+                  <option value="EUR">EUR</option>
+                </select>
+              </div>
+              <div class="tx-field tx-field-wide">
+                <label for="categoryCombo">Category</label>
+                <input class="form-control form-control-sm" id="categoryCombo" list="categoryOptions" autocomplete="off">
+                <datalist id="categoryOptions"></datalist>
+              </div>
+              <div class="tx-field tx-field-main">
+                <label for="merchant">Merchant / Payee</label>
+                <input class="form-control form-control-sm" id="merchant" autocomplete="off">
+              </div>
+              <div class="tx-field tx-field-xwide">
+                <label for="description">Description</label>
+                <input class="form-control form-control-sm" id="description" required>
+              </div>
+              <div class="tx-field tx-field-mini">
+                <label for="status">Status</label>
+                <select class="form-select form-select-sm" id="status">
+                  <option value="draft">Draft</option>
+                  <option value="reviewed">Reviewed</option>
+                  <option value="reconciled">Reconciled</option>
+                  <option value="void">Void</option>
+                </select>
+              </div>
+              <div class="tx-entry-actions no-print">
+                <button class="btn btn-primary btn-sm" type="submit"><i class="fas fa-save me-1"></i>Save</button>
+                <button class="btn btn-outline-secondary btn-sm" type="button" id="clearEntryBtn"><i class="fas fa-eraser"></i></button>
+              </div>
+            </div>
+
+            <div class="collapse" id="advancedEntry">
+              <div class="tx-advanced-grid">
+                <div class="tx-field tx-field-main">
+                  <label for="relatedAccountCombo">Related Account</label>
+                  <input class="form-control form-control-sm" id="relatedAccountCombo" list="relatedAccountOptions" autocomplete="off">
+                  <datalist id="relatedAccountOptions"></datalist>
+                </div>
+                <div class="tx-field tx-field-main">
+                  <label for="referenceNumber">Reference</label>
+                  <input class="form-control form-control-sm" id="referenceNumber">
+                </div>
+                <div class="tx-field tx-field-mini">
+                  <label for="originalAmount">Original Amount</label>
+                  <input class="form-control form-control-sm" type="number" id="originalAmount" step="0.01">
+                </div>
+                <div class="tx-field tx-field-mini">
+                  <label for="originalCurrency">Original Currency</label>
+                  <select class="form-select form-select-sm" id="originalCurrency">
+                    <option value="">None</option>
+                    <option value="USD">USD</option>
+                    <option value="COP">COP</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+                <div class="tx-field tx-field-mini">
+                  <label for="exchangeRate">Exchange Rate</label>
+                  <input class="form-control form-control-sm" type="number" id="exchangeRate" step="0.000001">
+                </div>
+                <div class="tx-field tx-field-mini">
+                  <label for="clearedDate">Cleared</label>
+                  <input class="form-control form-control-sm" type="date" id="clearedDate">
+                </div>
+                <div class="tx-field tx-field-main">
+                  <label for="tags">Tags</label>
+                  <input class="form-control form-control-sm" id="tags">
+                </div>
+                <div class="tx-field tx-field-mini">
+                  <label for="isRecurring">Recurring</label>
+                  <select class="form-select form-select-sm" id="isRecurring">
+                    <option value="false">No</option>
+                    <option value="true">Yes</option>
+                  </select>
+                </div>
+                <div class="tx-field tx-field-xwide">
+                  <label for="memo">Memo</label>
+                  <input class="form-control form-control-sm" id="memo">
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="tx-panel no-print">
+        <div class="tx-panel-header">
+          <div>
+            <h5 class="tx-title">Filters</h5>
+            <div class="tx-muted" id="resultCount">Loading transactions...</div>
+          </div>
+          <div class="tx-filter-actions">
+            <button class="btn btn-primary btn-sm" type="button" id="searchBtn"><i class="fas fa-search me-1"></i>Search</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="resetFilterBtn"><i class="fas fa-rotate-left me-1"></i>Reset</button>
+            <button class="btn btn-outline-success btn-sm" type="button" id="exportBtn"><i class="fas fa-file-csv me-1"></i>Export</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="printBtn"><i class="fas fa-print me-1"></i>Print</button>
+          </div>
+        </div>
+        <div class="tx-panel-body">
+          <form id="filterForm" class="tx-filter-grid">
+            <div class="tx-field">
+              <label for="qFilter">Search</label>
+              <input class="form-control form-control-sm" id="qFilter" placeholder="merchant, memo, reference">
+            </div>
+            <div class="tx-field">
+              <label for="yearFilter">Year</label>
+              <select class="form-select form-select-sm" id="yearFilter"><option value="2026">2026</option></select>
+            </div>
+            <div class="tx-field">
+              <label for="monthFilter">Month</label>
+              <select class="form-select form-select-sm" id="monthFilter">
+                <option value="">All</option>
+                <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+                <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+                <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+                <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+              </select>
+            </div>
+            <div class="tx-field">
+              <label for="accountClassFilter">Account Type</label>
+              <select class="form-select form-select-sm" id="accountClassFilter">
+                <option value="">All</option>
+                <option value="checking">Checking</option>
+                <option value="savings">Savings</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="investment">Investment</option>
+                <option value="retirement">Retirement</option>
+                <option value="cash">Cash</option>
+                <option value="foreign_currency">Foreign Currency</option>
+              </select>
+            </div>
+            <div class="tx-field">
+              <label for="accountFilter">Account</label>
+              <select class="form-select form-select-sm" id="accountFilter"><option value="">All</option></select>
+            </div>
+            <div class="tx-field">
+              <label for="categoryFilter">Category</label>
+              <select class="form-select form-select-sm" id="categoryFilter"><option value="">All</option></select>
+            </div>
+            <div class="tx-field">
+              <label for="typeFilter">Type</label>
+              <select class="form-select form-select-sm" id="typeFilter">
+                <option value="">All</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+                <option value="transfer">Transfer</option>
+                <option value="adjustment">Adjustment</option>
+              </select>
+            </div>
+            <div class="tx-field">
+              <label for="statusFilter">Status</label>
+              <select class="form-select form-select-sm" id="statusFilter">
+                <option value="">All</option>
+                <option value="draft">Draft</option>
+                <option value="reviewed">Reviewed</option>
+                <option value="reconciled">Reconciled</option>
+                <option value="void">Void</option>
+              </select>
+            </div>
+            <div class="tx-field">
+              <label for="currencyFilter">Currency</label>
+              <select class="form-select form-select-sm" id="currencyFilter">
+                <option value="ALL">All</option>
+                <option value="USD">USD</option>
+                <option value="COP">COP</option>
+                <option value="EUR">EUR</option>
+              </select>
+            </div>
+            <div class="tx-field">
+              <label for="fromFilter">From</label>
+              <input class="form-control form-control-sm" type="date" id="fromFilter">
+            </div>
+            <div class="tx-field">
+              <label for="toFilter">To</label>
+              <input class="form-control form-control-sm" type="date" id="toFilter">
+            </div>
+            <div class="tx-field">
+              <label for="perPageFilter">View</label>
+              <select class="form-select form-select-sm" id="perPageFilter">
+                <option value="25">25</option>
+                <option value="50" selected>50</option>
+                <option value="100">100</option>
+                <option value="250">250</option>
+                <option value="500">500</option>
+              </select>
+            </div>
+          </form>
+        </div>
+      </section>
+
+      <section class="tx-panel">
+        <div class="tx-category-strip no-print" id="categoryStrip"></div>
+        <div class="tx-ledger-toolbar no-print">
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <div class="form-check m-0">
+              <input class="form-check-input" type="checkbox" id="selectAllRows">
+              <label class="form-check-label small" for="selectAllRows">Select</label>
+            </div>
+            <select class="form-select form-select-sm" id="bulkCategory" style="width:220px"><option value="">Choose category...</option></select>
+            <button class="btn btn-outline-primary btn-sm" type="button" id="bulkCategoryBtn"><i class="fas fa-tags me-1"></i>Apply</button>
+            <button class="btn btn-outline-success btn-sm" type="button" id="autoCategorizeBtn"><i class="fas fa-wand-magic-sparkles me-1"></i>Auto Match</button>
+            <button class="btn btn-outline-info btn-sm" type="button" id="onlineLookupBtn"><i class="fas fa-globe me-1"></i>Online Lookup</button>
+            <button class="btn btn-outline-warning btn-sm" type="button" id="uncategorizedBtn"><i class="fas fa-filter me-1"></i>Uncategorized</button>
+          </div>
+          <div class="tx-muted" id="selectedCount">0 selected</div>
+        </div>
+        <div class="tx-table-wrap table-responsive">
+          <table class="table table-hover align-middle tx-table">
+            <thead>
+              <tr>
+                <th class="no-print" style="width:34px"></th>
+                <th data-sort="transactionDate">Date</th>
+                <th data-sort="accountName">Account</th>
+                <th data-sort="categoryName">Category</th>
+                <th data-sort="merchant">Merchant</th>
+                <th data-sort="description">Description</th>
+                <th data-sort="transactionType">Type</th>
+                <th data-sort="amount" class="text-end">Amount</th>
+                <th data-sort="status">Status</th>
+                <th class="text-end no-print">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="ledgerRows"><tr><td colspan="10" class="text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="tx-pagination no-print">
+          <div class="tx-muted" id="pageInfo">Page 1</div>
+          <nav><ul class="pagination pagination-sm mb-0" id="pagination"></ul></nav>
+        </div>
+      </section>
+
+      <section class="tx-panel">
+        <div class="tx-panel-header">
+          <div>
+            <h5 class="tx-title">Graph Over Time</h5>
+            <div class="tx-muted">Category and merchant movement using the current filters.</div>
+          </div>
+          <div class="tx-chart-controls no-print">
+            <select class="form-select form-select-sm" id="trendGroup" style="width:142px">
+              <option value="category">Category</option>
+              <option value="merchant">Merchant</option>
+            </select>
+            <select class="form-select form-select-sm" id="trendMeasure" style="width:124px">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+              <option value="transfer">Transfer</option>
+              <option value="net">Net</option>
+            </select>
+            <select class="form-select form-select-sm" id="trendChartType" style="width:116px">
+              <option value="bar">Bars</option>
+              <option value="line">Soft Line</option>
+            </select>
+          </div>
+        </div>
+        <div class="tx-panel-body">
+          <div class="tx-chart-frame"><canvas id="trendChart"></canvas></div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <div>
+          <h5 class="modal-title" id="categoryModalTitle">Category Review</h5>
+          <div class="tx-muted" id="categoryModalMeta"></div>
+        </div>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex flex-wrap gap-2 align-items-end mb-3 no-print">
+          <div style="min-width:260px">
+            <label class="form-label small fw-semibold" for="modalCategorySelect">Change to</label>
+            <select class="form-select form-select-sm" id="modalCategorySelect"></select>
+          </div>
+          <button class="btn btn-primary btn-sm" type="button" id="modalApplyCategory"><i class="fas fa-tags me-1"></i>Apply To Listed</button>
+          <button class="btn btn-outline-info btn-sm" type="button" id="modalLookupCategory"><i class="fas fa-globe me-1"></i>Lookup Listed</button>
+          <a class="btn btn-outline-secondary btn-sm" href="/categories"><i class="fas fa-pen-to-square me-1"></i>Manage Category</a>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Date</th><th>Account</th><th>Merchant</th><th>Description</th><th class="text-end">Amount</th></tr></thead>
+            <tbody id="categoryModalRows"><tr><td colspan="5" class="text-muted">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:1100"></div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<script src="/assets/chart.umd.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
+<script src="/js/main.js"></script>
+<script>
+const START_NEW = <%= locals.startNew ? 'true' : 'false' %>;
+let accounts = [];
+let categories = [];
+let rows = [];
+let lastSearch = { total: 0, page: 1, limit: 50, totalPages: 1, categorySummary: [] };
+let sortState = { key: 'transactionDate', dir: 'desc' };
+let trendChart = null;
+let categoryModal = null;
+let modalRows = [];
+
+function authHeaders(json) {
+  const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
+  const headers = token ? { Authorization: 'Bearer ' + token } : {};
+  if (json) headers['Content-Type'] = 'application/json';
+  return headers;
+}
+function esc(value) {
+  return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function attr(value) { return esc(value).replace(/`/g, '&#96;'); }
+function toast(message, type) {
+  if (typeof showToast === 'function') showToast(message, type || 'success');
+}
+function qs(params) {
+  return Object.keys(params)
+    .filter(key => params[key] !== '' && params[key] != null)
+    .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
+    .join('&');
+}
+function money(value, currency) {
+  const code = currency || 'USD';
+  return Number(value || 0).toLocaleString(undefined, { style: 'currency', currency: code, maximumFractionDigits: code === 'COP' ? 0 : 2 });
+}
+function normalize(value) {
+  return String(value || '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
+function accountLabel(account) {
+  return account ? account.name + (account.accountClass ? ' [' + account.accountClass + ']' : '') : '';
+}
+function categoryLabel(category) {
+  return category ? category.name + (category.groupName ? ' [' + category.groupName + ']' : '') : '';
+}
+function findByLabel(collection, label, mapper) {
+  const key = normalize(label);
+  if (!key) return null;
+  return collection.find(item => normalize(mapper(item)) === key || normalize(item.name) === key) || null;
+}
+function activeAccounts() {
+  return accounts.filter(account => account.status !== 'inactive' && account.status !== 'closed');
+}
+function activeCategories() {
+  return categories.filter(category => category.isActive !== false);
+}
+function categoryOptionsHtml(selectedId, includeBlank) {
+  const blank = includeBlank ? '<option value="">Uncategorized</option>' : '<option value="">Choose category...</option>';
+  return blank + activeCategories().map(category => {
+    const selected = Number(selectedId) === Number(category.id) ? ' selected' : '';
+    return '<option value="' + category.id + '"' + selected + '>' + esc(categoryLabel(category)) + '</option>';
+  }).join('');
+}
+function setComboFromId(inputId, hiddenId, collection, id, mapper) {
+  const row = collection.find(item => Number(item.id) === Number(id));
+  document.getElementById(hiddenId).value = row ? row.id : '';
+  document.getElementById(inputId).value = row ? mapper(row) : '';
+}
+function bindCombo(inputId, hiddenId, collectionGetter, mapper, required) {
+  const input = document.getElementById(inputId);
+  const hidden = document.getElementById(hiddenId);
+  input.addEventListener('input', () => {
+    const row = findByLabel(collectionGetter(), input.value, mapper);
+    hidden.value = row ? row.id : '';
+  });
+  input.addEventListener('blur', () => {
+    const row = findByLabel(collectionGetter(), input.value, mapper);
+    if (row) {
+      hidden.value = row.id;
+      input.value = mapper(row);
+    } else if (!required && !input.value.trim()) {
+      hidden.value = '';
+    }
+  });
+}
+
+async function loadLookups() {
+  const [accountRows, categoryRows] = await Promise.all([
+    fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
+    fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : [])
+  ]);
+  accounts = accountRows.sort((a, b) => accountLabel(a).localeCompare(accountLabel(b)));
+  categories = categoryRows.sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
+
+  const accountOpts = activeAccounts().map(account => '<option value="' + attr(accountLabel(account)) + '"></option>').join('');
+  document.getElementById('accountOptions').innerHTML = accountOpts;
+  document.getElementById('relatedAccountOptions').innerHTML = accountOpts;
+  document.getElementById('categoryOptions').innerHTML = activeCategories().map(category => '<option value="' + attr(categoryLabel(category)) + '"></option>').join('');
+
+  document.getElementById('accountFilter').innerHTML = '<option value="">All</option>' + accounts.map(account => '<option value="' + account.id + '">' + esc(accountLabel(account)) + '</option>').join('');
+  document.getElementById('categoryFilter').innerHTML = '<option value="">All</option><option value="uncategorized">Uncategorized</option>' + activeCategories().map(category => '<option value="' + category.id + '">' + esc(categoryLabel(category)) + '</option>').join('');
+  document.getElementById('bulkCategory').innerHTML = categoryOptionsHtml('', false);
+  document.getElementById('modalCategorySelect').innerHTML = categoryOptionsHtml('', false);
+}
+
+function resetEntry() {
+  document.getElementById('transactionForm').reset();
+  document.getElementById('txId').value = '';
+  document.getElementById('accountId').value = '';
+  document.getElementById('categoryId').value = '';
+  document.getElementById('relatedAccountId').value = '';
+  document.getElementById('entryTitle').textContent = 'New Transaction';
+  document.getElementById('transactionDate').value = new Date().toISOString().slice(0, 10);
+  document.getElementById('transactionType').value = 'expense';
+  document.getElementById('currency').value = 'USD';
+  document.getElementById('status').value = 'draft';
+  document.getElementById('isRecurring').value = 'false';
+}
+
+function editTransaction(id) {
+  const row = rows.find(item => Number(item.id) === Number(id));
+  if (!row) return;
+  document.getElementById('txId').value = row.id;
+  document.getElementById('entryTitle').textContent = 'Edit Transaction #' + row.id;
+  document.getElementById('transactionDate').value = row.transactionDate || '';
+  setComboFromId('accountCombo', 'accountId', accounts, row.accountId, accountLabel);
+  setComboFromId('categoryCombo', 'categoryId', categories, row.categoryId, categoryLabel);
+  setComboFromId('relatedAccountCombo', 'relatedAccountId', accounts, row.relatedAccountId, accountLabel);
+  document.getElementById('transactionType').value = row.transactionType || 'expense';
+  document.getElementById('amount').value = row.amount;
+  document.getElementById('currency').value = row.currency || 'USD';
+  document.getElementById('merchant').value = row.merchant || '';
+  document.getElementById('description').value = row.description || '';
+  document.getElementById('status').value = row.status || 'draft';
+  document.getElementById('referenceNumber').value = row.referenceNumber || '';
+  document.getElementById('originalAmount').value = row.originalAmount == null ? '' : row.originalAmount;
+  document.getElementById('originalCurrency').value = row.originalCurrency || '';
+  document.getElementById('exchangeRate').value = row.exchangeRate == null ? '' : row.exchangeRate;
+  document.getElementById('clearedDate').value = row.clearedDate || '';
+  document.getElementById('tags').value = row.tags || '';
+  document.getElementById('memo').value = row.memo || '';
+  document.getElementById('isRecurring').value = row.isRecurring ? 'true' : 'false';
+  document.getElementById('entryPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function readEntry() {
+  const account = findByLabel(activeAccounts(), document.getElementById('accountCombo').value, accountLabel);
+  const categoryText = document.getElementById('categoryCombo').value;
+  const category = categoryText.trim() ? findByLabel(activeCategories(), categoryText, categoryLabel) : null;
+  const relatedText = document.getElementById('relatedAccountCombo').value;
+  const related = relatedText.trim() ? findByLabel(activeAccounts(), relatedText, accountLabel) : null;
+  if (!account) throw new Error('Select a valid account.');
+  if (categoryText.trim() && !category) throw new Error('Select a valid category or leave it blank.');
+  if (relatedText.trim() && !related) throw new Error('Select a valid related account or leave it blank.');
+  const merchant = document.getElementById('merchant').value.trim();
+  return {
+    transactionDate: document.getElementById('transactionDate').value,
+    accountId: account.id,
+    categoryId: category ? category.id : null,
+    relatedAccountId: related ? related.id : null,
+    description: document.getElementById('description').value.trim(),
+    merchant,
+    normalizedMerchant: normalize(merchant),
+    transactionType: document.getElementById('transactionType').value,
+    amount: Number(document.getElementById('amount').value),
+    currency: document.getElementById('currency').value,
+    originalAmount: document.getElementById('originalAmount').value ? Number(document.getElementById('originalAmount').value) : null,
+    originalCurrency: document.getElementById('originalCurrency').value || null,
+    exchangeRate: document.getElementById('exchangeRate').value ? Number(document.getElementById('exchangeRate').value) : null,
+    status: document.getElementById('status').value,
+    sourceType: 'manual',
+    referenceNumber: document.getElementById('referenceNumber').value.trim(),
+    tags: document.getElementById('tags').value.trim(),
+    clearedDate: document.getElementById('clearedDate').value || null,
+    isRecurring: document.getElementById('isRecurring').value === 'true',
+    memo: document.getElementById('memo').value.trim()
+  };
+}
+
+async function saveEntry(event) {
+  event.preventDefault();
+  let payload;
+  try {
+    payload = readEntry();
+  } catch (err) {
+    toast(err.message, 'warning');
+    return;
+  }
+  const id = document.getElementById('txId').value;
+  const res = await fetch(id ? '/api/transactions/' + id : '/api/transactions', {
+    method: id ? 'PUT' : 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast(data.error || data.message || 'Unable to save transaction.', 'danger');
+  toast(id ? 'Transaction updated.' : 'Transaction saved.');
+  resetEntry();
+  await loadRows();
+  await loadTrend();
+}
+
+function filterParams(extra) {
+  return {
+    q: document.getElementById('qFilter').value.trim(),
+    year: document.getElementById('yearFilter').value || '2026',
+    month: document.getElementById('monthFilter').value,
+    accountClass: document.getElementById('accountClassFilter').value,
+    accountId: document.getElementById('accountFilter').value,
+    categoryId: document.getElementById('categoryFilter').value,
+    type: document.getElementById('typeFilter').value,
+    status: document.getElementById('statusFilter').value,
+    currency: document.getElementById('currencyFilter').value,
+    from: document.getElementById('fromFilter').value,
+    to: document.getElementById('toFilter').value,
+    page: lastSearch.page || 1,
+    limit: document.getElementById('perPageFilter').value || '50',
+    sort: sortState.key,
+    dir: sortState.dir,
+    ...(extra || {})
+  };
+}
+
+async function loadRows() {
+  const body = document.getElementById('ledgerRows');
+  body.innerHTML = '<tr><td colspan="10" class="text-muted">Loading...</td></tr>';
+  const res = await fetch('/api/finance/search?' + qs(filterParams()), { headers: authHeaders() });
+  if (!res.ok) {
+    body.innerHTML = '<tr><td colspan="10" class="text-danger">Unable to load transactions.</td></tr>';
+    return;
+  }
+  lastSearch = await res.json();
+  rows = lastSearch.rows || [];
+  renderRows();
+  renderCategoryStrip();
+  renderPagination();
+  updateSelectedCount();
+}
+
+function renderRows() {
+  const body = document.getElementById('ledgerRows');
+  const total = lastSearch.total || 0;
+  document.getElementById('resultCount').textContent = total.toLocaleString() + ' transaction' + (total === 1 ? '' : 's');
+  if (!rows.length) {
+    body.innerHTML = '<tr><td colspan="10" class="text-muted">No transactions match this view.</td></tr>';
+    return;
+  }
+  body.innerHTML = rows.map(row => {
+    const amountClass = Number(row.amount) < 0 ? 'negative' : (Number(row.amount) > 0 ? 'positive' : '');
+    return '<tr data-id="' + row.id + '">' +
+      '<td class="no-print"><input class="form-check-input tx-row-check" type="checkbox" value="' + row.id + '"></td>' +
+      '<td>' + esc(row.transactionDate) + '</td>' +
+      '<td><div class="fw-semibold">' + esc(row.accountName) + '</div><div class="tx-muted">' + esc(row.accountClass || '') + '</div></td>' +
+      '<td><div class="d-flex gap-1 align-items-center">' +
+        '<select class="form-select form-select-sm row-category" data-id="' + row.id + '">' + categoryOptionsHtml(row.categoryId, true) + '</select>' +
+        '<button class="btn btn-outline-secondary btn-sm no-print category-drill" type="button" data-category="' + (row.categoryId || 'uncategorized') + '" data-name="' + attr(row.categoryName || 'Uncategorized') + '"><i class="fas fa-magnifying-glass"></i></button>' +
+      '</div></td>' +
+      '<td><div class="fw-semibold">' + esc(row.merchant || '') + '</div><div class="tx-muted">' + esc(row.sourceType || '') + '</div></td>' +
+      '<td><div>' + esc(row.description || '') + '</div><div class="tx-row-note">' + esc(row.tags || row.memo || '') + '</div></td>' +
+      '<td>' + esc(row.transactionType || '') + '</td>' +
+      '<td class="text-end tx-amount ' + amountClass + '">' + money(row.amount, row.currency) + '</td>' +
+      '<td><span class="tx-status"><span class="status-dot ' + esc(row.status || '') + '"></span>' + esc(row.status || '') + '</span></td>' +
+      '<td class="text-end no-print">' +
+        '<button class="btn btn-outline-primary btn-sm me-1 edit-tx" type="button" data-id="' + row.id + '"><i class="fas fa-edit"></i></button>' +
+        '<button class="btn btn-outline-warning btn-sm me-1 suggest-tx" type="button" data-id="' + row.id + '"><i class="fas fa-wand-magic-sparkles"></i></button>' +
+        '<button class="btn btn-outline-danger btn-sm void-tx" type="button" data-id="' + row.id + '"><i class="fas fa-ban"></i></button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function renderCategoryStrip() {
+  const strip = document.getElementById('categoryStrip');
+  const current = document.getElementById('categoryFilter').value || '';
+  const chips = ['<button class="tx-category-chip ' + (!current ? 'active' : '') + '" type="button" data-category=""><strong>All Categories</strong><span>' + (lastSearch.total || 0).toLocaleString() + ' tx</span></button>'];
+  (lastSearch.categorySummary || []).forEach(item => {
+    const id = item.categoryId || 'uncategorized';
+    chips.push('<button class="tx-category-chip ' + (String(current) === String(id) ? 'active' : '') + '" type="button" data-category="' + id + '" data-name="' + attr(item.name) + '">' +
+      '<strong>' + esc(item.name) + '</strong><span>' + Number(item.count || 0).toLocaleString() + ' tx | ' + money(item.amount, document.getElementById('currencyFilter').value === 'ALL' ? 'USD' : document.getElementById('currencyFilter').value) + '</span></button>');
+  });
+  strip.innerHTML = chips.join('');
+}
+
+function renderPagination() {
+  const page = lastSearch.page || 1;
+  const totalPages = lastSearch.totalPages || 1;
+  const limit = lastSearch.limit || 50;
+  const first = totalPages ? ((page - 1) * limit) + 1 : 0;
+  const last = Math.min((lastSearch.total || 0), page * limit);
+  document.getElementById('pageInfo').textContent = first + '-' + last + ' of ' + (lastSearch.total || 0).toLocaleString();
+  const pages = [
+    ['first', 1, page === 1, '<i class="fas fa-angles-left"></i>'],
+    ['prev', Math.max(1, page - 1), page === 1, '<i class="fas fa-angle-left"></i>'],
+    ['current', page, true, page + ' / ' + totalPages],
+    ['next', Math.min(totalPages, page + 1), page === totalPages, '<i class="fas fa-angle-right"></i>'],
+    ['last', totalPages, page === totalPages, '<i class="fas fa-angles-right"></i>']
+  ];
+  document.getElementById('pagination').innerHTML = pages.map(item => {
+    const active = item[0] === 'current' ? ' active' : '';
+    const disabled = item[2] && item[0] !== 'current' ? ' disabled' : '';
+    return '<li class="page-item' + active + disabled + '"><button class="page-link" type="button" data-page="' + item[1] + '">' + item[3] + '</button></li>';
+  }).join('');
+}
+
+function selectedIds() {
+  return Array.from(document.querySelectorAll('.tx-row-check:checked')).map(input => Number(input.value)).filter(Boolean);
+}
+function updateSelectedCount() {
+  const count = selectedIds().length;
+  document.getElementById('selectedCount').textContent = count + ' selected';
+  document.getElementById('selectAllRows').checked = rows.length > 0 && count === rows.length;
+}
+
+async function updateCategory(ids, categoryId) {
+  const res = await fetch('/api/finance/transactions/bulk-category', {
+    method: 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify({ ids, categoryId: categoryId || null })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.message || 'Category update failed.');
+  return data;
+}
+
+async function bulkApplyCategory() {
+  const ids = selectedIds();
+  if (!ids.length) return toast('Select transactions first.', 'warning');
+  const categoryId = document.getElementById('bulkCategory').value;
+  if (!categoryId) return toast('Choose a category.', 'warning');
+  try {
+    const data = await updateCategory(ids, categoryId);
+    toast(data.updated + ' transaction(s) updated.');
+    await loadRows();
+    await loadTrend();
+  } catch (err) {
+    toast(err.message, 'danger');
+  }
+}
+
+async function autoCategorizeSelected() {
+  const ids = selectedIds();
+  const body = ids.length ? { ids, onlyUncategorized: false } : { onlyUncategorized: true, limit: 500 };
+  const res = await fetch('/api/finance/transactions/auto-categorize', {
+    method: 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify(body)
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast(data.error || data.message || 'Auto match failed.', 'danger');
+  toast('Auto matched ' + data.applied + ' of ' + data.scanned + ' transaction(s).');
+  await loadRows();
+  await loadTrend();
+}
+
+async function suggestOne(row, onlineLookup) {
+  const res = await fetch('/api/finance/merchant-suggest', {
+    method: 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      merchant: row.merchant || row.description,
+      description: row.description,
+      transactionType: row.transactionType,
+      onlineLookup: !!onlineLookup
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.message || 'Lookup failed.');
+  return data;
+}
+
+async function onlineLookupRows(targetRows) {
+  if (!targetRows.length) return toast('Select rows or show uncategorized rows first.', 'warning');
+  let applied = 0;
+  for (const row of targetRows.slice(0, 25)) {
+    try {
+      const data = await suggestOne(row, true);
+      if (data.suggestion && data.suggestion.categoryId) {
+        await updateCategory([row.id], data.suggestion.categoryId);
+        applied += 1;
+      }
+    } catch (err) {}
+  }
+  toast('Online lookup applied ' + applied + ' suggestion(s).');
+  await loadRows();
+  await loadTrend();
+}
+
+async function onlineLookupSelected() {
+  const ids = selectedIds();
+  const targetRows = ids.length ? rows.filter(row => ids.includes(Number(row.id))) : rows.filter(row => !row.categoryId).slice(0, 25);
+  await onlineLookupRows(targetRows);
+}
+
+async function suggestRow(id) {
+  const row = rows.find(item => Number(item.id) === Number(id));
+  if (!row) return;
+  try {
+    const data = await suggestOne(row, true);
+    if (!data.suggestion || !data.suggestion.categoryId) return toast('No category suggestion found.', 'warning');
+    const label = data.suggestion.categoryName + ' (' + Math.round(Number(data.suggestion.confidence || 0) * 100) + '%)';
+    if (!confirm('Apply category suggestion: ' + label + '?')) return;
+    await updateCategory([id], data.suggestion.categoryId);
+    toast('Suggestion applied.');
+    await loadRows();
+    await loadTrend();
+  } catch (err) {
+    toast(err.message, 'danger');
+  }
+}
+
+async function voidTransaction(id) {
+  if (!confirm('Void this transaction?')) return;
+  const res = await fetch('/api/transactions/' + id, {
+    method: 'PUT',
+    headers: authHeaders(true),
+    body: JSON.stringify({ status: 'void' })
+  });
+  if (!res.ok) return toast('Unable to void transaction.', 'danger');
+  toast('Transaction voided.');
+  await loadRows();
+  await loadTrend();
+}
+
+async function exportCsv() {
+  const res = await fetch('/api/finance/search?' + qs(filterParams({ page: 1, exportAll: 'true', limit: 20000 })), { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast('Export failed.', 'danger');
+  const exportRows = data.rows || [];
+  const headers = ['Date', 'Account', 'Account Type', 'Category', 'Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Source', 'Reference', 'Tags', 'Memo'];
+  const lines = [headers].concat(exportRows.map(row => [
+    row.transactionDate, row.accountName, row.accountClass, row.categoryName || 'Uncategorized', row.merchant || '',
+    row.description || '', row.transactionType, row.amount, row.currency, row.status, row.sourceType,
+    row.referenceNumber || '', row.tags || '', row.memo || ''
+  ]));
+  const csv = lines.map(line => line.map(cell => typeof sanitizeCsvCell === 'function' ? sanitizeCsvCell(cell) : '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"').join(',')).join('\n');
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  link.download = 'home_accounting_transactions_2026.csv';
+  link.click();
+  URL.revokeObjectURL(link.href);
+}
+
+function chartColors(index) {
+  const colors = ['#4a90e2', '#3dbb6c', '#f5a623', '#e55353', '#8b5cf6', '#06b6d4', '#64748b', '#ec4899', '#22c55e', '#f97316'];
+  return colors[index % colors.length];
+}
+async function loadTrend() {
+  const params = filterParams({
+    page: null,
+    limit: null,
+    sort: null,
+    dir: null,
+    groupBy: document.getElementById('trendGroup').value,
+    measure: document.getElementById('trendMeasure').value
+  });
+  const res = await fetch('/api/finance/trends?' + qs(params), { headers: authHeaders() });
+  if (!res.ok) return;
+  const data = await res.json();
+  const type = document.getElementById('trendChartType').value === 'line' ? 'line' : 'bar';
+  const datasets = (data.series || []).map((serie, index) => ({
+    label: serie.name,
+    data: serie.values,
+    borderColor: chartColors(index),
+    backgroundColor: type === 'line' ? chartColors(index) + '22' : chartColors(index) + 'bb',
+    borderWidth: 2,
+    tension: .35,
+    fill: type === 'line',
+    pointRadius: type === 'line' ? 3 : 0
+  }));
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(document.getElementById('trendChart'), {
+    type,
+    data: { labels: data.labels || [], datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+}
+
+async function openCategory(categoryId, name) {
+  const query = filterParams({ page: 1, limit: 100, categoryId: categoryId || '', sort: 'transactionDate', dir: 'desc' });
+  const res = await fetch('/api/finance/search?' + qs(query), { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast('Unable to open category.', 'danger');
+  modalRows = data.rows || [];
+  document.getElementById('categoryModalTitle').textContent = name || 'Category Review';
+  document.getElementById('categoryModalMeta').textContent = (data.total || modalRows.length) + ' transaction(s) in current filter';
+  document.getElementById('categoryModalRows').innerHTML = modalRows.length ? modalRows.map(row => (
+    '<tr><td>' + esc(row.transactionDate) + '</td><td>' + esc(row.accountName) + '</td><td>' + esc(row.merchant || '') + '</td><td>' + esc(row.description || '') + '</td><td class="text-end">' + money(row.amount, row.currency) + '</td></tr>'
+  )).join('') : '<tr><td colspan="5" class="text-muted">No transactions in this category.</td></tr>';
+  categoryModal.show();
+}
+
+async function modalApplyCategory() {
+  if (!modalRows.length) return;
+  const categoryId = document.getElementById('modalCategorySelect').value;
+  if (!categoryId) return toast('Choose a category.', 'warning');
+  try {
+    await updateCategory(modalRows.map(row => row.id), categoryId);
+    toast('Category review rows updated.');
+    categoryModal.hide();
+    await loadRows();
+    await loadTrend();
+  } catch (err) {
+    toast(err.message, 'danger');
+  }
+}
+
+function resetFilters() {
+  document.getElementById('filterForm').reset();
+  document.getElementById('currencyFilter').value = 'ALL';
+  document.getElementById('perPageFilter').value = '50';
+  lastSearch.page = 1;
+}
+
+document.getElementById('transactionForm').addEventListener('submit', saveEntry);
+document.getElementById('clearEntryBtn').addEventListener('click', resetEntry);
+document.getElementById('newEntryBtn').addEventListener('click', resetEntry);
+document.getElementById('filterForm').addEventListener('change', () => { lastSearch.page = 1; loadRows(); loadTrend(); });
+document.getElementById('qFilter').addEventListener('keydown', event => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    lastSearch.page = 1;
+    loadRows();
+    loadTrend();
+  }
+});
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.getAttribute('data-sort');
+    sortState = { key, dir: sortState.key === key && sortState.dir === 'desc' ? 'asc' : 'desc' };
+    loadRows();
+  });
+});
+document.getElementById('ledgerRows').addEventListener('click', event => {
+  const editBtn = event.target.closest('.edit-tx');
+  const voidBtn = event.target.closest('.void-tx');
+  const suggestBtn = event.target.closest('.suggest-tx');
+  const drillBtn = event.target.closest('.category-drill');
+  if (editBtn) editTransaction(editBtn.dataset.id);
+  if (voidBtn) voidTransaction(voidBtn.dataset.id);
+  if (suggestBtn) suggestRow(Number(suggestBtn.dataset.id));
+  if (drillBtn) openCategory(drillBtn.dataset.category, drillBtn.dataset.name);
+});
+document.getElementById('ledgerRows').addEventListener('change', async event => {
+  if (event.target.classList.contains('tx-row-check')) updateSelectedCount();
+  if (event.target.classList.contains('row-category')) {
+    try {
+      await updateCategory([Number(event.target.dataset.id)], event.target.value || null);
+      toast('Category updated.');
+      await loadRows();
+      await loadTrend();
+    } catch (err) {
+      toast(err.message, 'danger');
+    }
+  }
+});
+document.getElementById('selectAllRows').addEventListener('change', event => {
+  document.querySelectorAll('.tx-row-check').forEach(input => { input.checked = event.target.checked; });
+  updateSelectedCount();
+});
+document.getElementById('pagination').addEventListener('click', event => {
+  const btn = event.target.closest('button[data-page]');
+  if (!btn || btn.closest('.disabled') || btn.closest('.active')) return;
+  lastSearch.page = Number(btn.dataset.page) || 1;
+  loadRows();
+});
+document.getElementById('categoryStrip').addEventListener('click', event => {
+  const btn = event.target.closest('.tx-category-chip');
+  if (!btn) return;
+  document.getElementById('categoryFilter').value = btn.dataset.category || '';
+  lastSearch.page = 1;
+  loadRows();
+  loadTrend();
+});
+document.getElementById('bulkCategoryBtn').addEventListener('click', bulkApplyCategory);
+document.getElementById('autoCategorizeBtn').addEventListener('click', autoCategorizeSelected);
+document.getElementById('onlineLookupBtn').addEventListener('click', onlineLookupSelected);
+document.getElementById('uncategorizedBtn').addEventListener('click', () => {
+  document.getElementById('categoryFilter').value = 'uncategorized';
+  lastSearch.page = 1;
+  loadRows();
+  loadTrend();
+});
+document.getElementById('exportBtn').addEventListener('click', exportCsv);
+document.getElementById('printBtn').addEventListener('click', () => window.print());
+document.getElementById('searchBtn').addEventListener('click', () => { lastSearch.page = 1; loadRows(); loadTrend(); });
+document.getElementById('resetFilterBtn').addEventListener('click', () => { resetFilters(); loadRows(); loadTrend(); });
+document.getElementById('modalApplyCategory').addEventListener('click', modalApplyCategory);
+document.getElementById('modalLookupCategory').addEventListener('click', () => onlineLookupRows(modalRows));
+['trendGroup', 'trendMeasure', 'trendChartType'].forEach(id => document.getElementById(id).addEventListener('change', loadTrend));
+
+document.addEventListener('DOMContentLoaded', async function() {
+  categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
+  bindCombo('accountCombo', 'accountId', activeAccounts, accountLabel, true);
+  bindCombo('categoryCombo', 'categoryId', activeCategories, categoryLabel, false);
+  bindCombo('relatedAccountCombo', 'relatedAccountId', activeAccounts, accountLabel, false);
+  await loadLookups();
+  resetEntry();
+  resetFilters();
+  if (START_NEW) document.getElementById('entryPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  await loadRows();
+  await loadTrend();
+});
+</script>
+</body>
+</html>

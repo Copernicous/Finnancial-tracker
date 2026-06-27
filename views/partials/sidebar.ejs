@@ -33,6 +33,21 @@
 %>
 <!-- xa-base: FortiGate rewrites <a href> — used by base.js to compute proxy path prefix -->
 <a id="xa-base" href="/login" style="display:none" aria-hidden="true"></a>
+<script>
+    !function(){
+        var theme = null;
+        try { theme = localStorage.getItem('haTheme'); } catch (e) {}
+        if (theme !== 'dark' && theme !== 'light') {
+            try {
+                theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+            } catch (e) {
+                theme = 'light';
+            }
+        }
+        document.documentElement.setAttribute('data-theme', theme);
+        document.documentElement.style.colorScheme = theme;
+    }();
+</script>
 <% if (locals.isStaging) { %>
 <script>
     document.documentElement.classList.add('ha-staging-env');
@@ -42,6 +57,9 @@
 <nav id="sidebar" class="<%= locals.isStaging ? 'ha-staging-sidebar' : '' %>">
     <div class="sidebar-header">
         <span><i class="fas fa-calculator me-2"></i>Home Accounting</span>
+        <button type="button" class="ha-theme-toggle" data-theme-toggle aria-label="Toggle theme" title="Toggle theme">
+            <i class="fas fa-moon"></i>
+        </button>
         <% if (locals.isStaging) { %>
             <span class="ha-staging-sidebar-badge">STAGING</span>
         <% } %>

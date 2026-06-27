@@ -10,6 +10,60 @@
 //   window.appNav(path)  — navigates to a proxy-aware URL (replaces window.location.href)
 
 (function () {
+    function storedTheme() {
+        try { return localStorage.getItem('haTheme'); } catch (e) { return null; }
+    }
+    function systemTheme() {
+        try {
+            return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        } catch (e) { return 'light'; }
+    }
+    function currentTheme() {
+        var stored = storedTheme();
+        return stored === 'dark' || stored === 'light' ? stored : systemTheme();
+    }
+    function syncThemeButtons(theme) {
+        var buttons = document.querySelectorAll('[data-theme-toggle], .ha-theme-toggle, #themeToggle');
+        for (var i = 0; i < buttons.length; i++) {
+            var btn = buttons[i];
+            btn.innerHTML = theme === 'dark' ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+            btn.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+            btn.setAttribute('title', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
+            btn.setAttribute('aria-pressed', theme === 'dark' ? 'true' : 'false');
+        }
+    }
+    function applyTheme(theme, persist) {
+        theme = theme === 'dark' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', theme);
+        if (persist !== false) {
+            try { localStorage.setItem('haTheme', theme); } catch (e) {}
+        }
+        document.documentElement.style.colorScheme = theme;
+        if (document.body) document.body.style.colorScheme = theme;
+        syncThemeButtons(theme);
+    }
+    function bindThemeToggles() {
+        syncThemeButtons(document.documentElement.getAttribute('data-theme') || currentTheme());
+        var buttons = document.querySelectorAll('[data-theme-toggle], .ha-theme-toggle, #themeToggle');
+        for (var i = 0; i < buttons.length; i++) {
+            var btn = buttons[i];
+            if (btn.getAttribute('data-theme-bound') === '1') continue;
+            btn.setAttribute('data-theme-bound', '1');
+            btn.addEventListener('click', function() {
+                var next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+                applyTheme(next, true);
+            });
+        }
+    }
+
+    window.haSetTheme = applyTheme;
+    window.haToggleTheme = function() {
+        applyTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark', true);
+    };
+    window.haBindThemeToggles = bindThemeToggles;
+    applyTheme(currentTheme(), false);
+    document.addEventListener('DOMContentLoaded', bindThemeToggles);
+
     var base = '';
 
     // The anchor xa-base must exist in every page with href="/login"

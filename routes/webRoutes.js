@@ -23,11 +23,11 @@ router.get('/accounts', (req, res) => {
 });
 
 router.get('/transactions', (req, res) => {
-  res.render('crud', { title: 'Transactions', module: 'transactions', apiEndpoint: '/api/transactions', activePage: 'transactions' });
+  res.render('transactions', { title: 'Transactions', activePage: 'transactions', startNew: false });
 });
 
 router.get('/entry', (req, res) => {
-  res.render('entry', { title: 'New Accounting Entry', activePage: 'entry' });
+  res.render('transactions', { title: 'New Entry', activePage: 'entry', startNew: true });
 });
 
 router.get('/categories', (req, res) => {

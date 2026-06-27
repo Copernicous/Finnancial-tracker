@@ -147,6 +147,36 @@ body {
     box-shadow: 0 0 0 1px rgba(255,255,255,0.16), 0 6px 18px rgba(245,158,11,0.28);
 }
 
+.ha-theme-toggle {
+    flex: 0 0 auto;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 8px;
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.82);
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), border-color var(--transition), transform var(--transition);
+}
+.ha-theme-toggle:hover {
+    background: rgba(255,255,255,0.13);
+    border-color: rgba(255,255,255,0.3);
+    color: #fff;
+    transform: translateY(-1px);
+}
+.ha-login-theme-toggle {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 1300;
+}
+body.ha-staging-env .ha-login-theme-toggle {
+    top: 52px;
+}
+
 body.ha-staging-env .navbar {
     border-top: 4px solid #fb923c;
     box-shadow: 0 4px 16px rgba(124,45,18,0.12);
@@ -244,7 +274,9 @@ body.ha-staging-env .navbar::after {
 
 /* ---------- Main Content ---------- */
 #content {
-    flex: 1;
+    flex: 1 1 auto;
+    width: calc(100% - var(--sidebar-w));
+    max-width: calc(100% - var(--sidebar-w));
     min-width: 0;          /* prevent flex child from overflowing viewport */
     overflow-x: hidden;    /* belt-and-suspenders: clip any internal overflow */
     margin-left: var(--sidebar-w);
@@ -252,7 +284,11 @@ body.ha-staging-env .navbar::after {
     transition: margin var(--transition);
 }
 
-#content.sidebar-hidden { margin-left: 0; }
+#content.sidebar-hidden {
+    width: 100%;
+    max-width: 100%;
+    margin-left: 0;
+}
 
 /* ---------- Navbar ---------- */
 .navbar {
