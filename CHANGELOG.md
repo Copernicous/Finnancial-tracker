@@ -1,5 +1,14 @@
 # Home Accounting Changelog
 
+## 0.2.0 - 2026-06-29
+
+- Added a dedicated financial explorer for categories and merchants with combo-based selection and timeline controls.
+- Reworked the category and merchant charts into interactive filters so category clicks can drive merchant exploration.
+- Added merchant-focused summary cards, selection state, and a side merchant rail for quick drill-down.
+- Normalized merchant handling in the finance workspace and tightened the display around official merchant names.
+- Improved chart layout sizing and reduced duplicate visual clutter in the financial workspace.
+- Hid sample-data buttons in the working view to keep the interface focused on real accounting data.
+
 ## 0.1.0 - 2026-06-27
 
 - Rebuilt the application domain as Home Accounting.
