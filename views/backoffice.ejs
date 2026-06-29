@@ -25,8 +25,8 @@
     .table-card .desc { color: var(--text-muted,#64748b); font-size: .78rem; line-height: 1.35; min-height: 42px; }
     .table-card .actions { margin-top: auto; display: flex; gap: .4rem; flex-wrap: wrap; }
     .danger-strip { border: 1px solid rgba(220,53,69,.35); background: rgba(220,53,69,.05); border-radius: 8px; padding: .9rem; }
-    .viewer-wrap { max-height: 62vh; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
-    .viewer-wrap table { margin: 0; min-width: 900px; }
+    .viewer-wrap { max-height: 62vh; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; max-width: 100%; }
+    .viewer-wrap table { margin: 0; min-width: 780px; width: 100%; }
     .viewer-wrap th { position: sticky; top: 0; background: var(--surface,#fff); z-index: 1; white-space: nowrap; }
     .schema-layout { display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 1rem; }
     .schema-list { max-height: 640px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
@@ -39,8 +39,8 @@
     .quality-card.info { border-left: 4px solid #0dcaf0; }
     .quality-card.warning { border-left: 4px solid #ffc107; }
     .quality-card.danger { border-left: 4px solid #dc3545; }
-    .batch-wrap, .compact-table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; }
-    .batch-wrap table, .compact-table-wrap table { margin: 0; min-width: 980px; }
+    .batch-wrap, .compact-table-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; max-width: 100%; }
+    .batch-wrap table, .compact-table-wrap table { margin: 0; min-width: 860px; width: 100%; }
     .log-list { max-height: 360px; overflow: auto; }
     .sort-btn { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: 700; white-space: nowrap; }
     @media (max-width: 992px) { .schema-layout { grid-template-columns: 1fr; } }
@@ -84,6 +84,13 @@
         <button class="bo-tab" data-tab="backups"><i class="fas fa-save me-1"></i>Backups</button>
         <button class="bo-tab" data-tab="health"><i class="fas fa-heartbeat me-1"></i>Health</button>
         <button class="bo-tab" data-tab="logs"><i class="fas fa-chart-pie me-1"></i>Logs</button>
+        <button class="bo-tab" data-tab="merchants"><i class="fas fa-store me-1"></i>Merchants</button>
+        <button class="bo-tab" data-tab="orphans"><i class="fas fa-unlink me-1"></i>Orphans</button>
+        <button class="bo-tab" data-tab="audit"><i class="fas fa-history me-1"></i>Audit</button>
+        <button class="bo-tab" data-tab="users"><i class="fas fa-user-shield me-1"></i>Users</button>
+        <button class="bo-tab" data-tab="errors"><i class="fas fa-bug me-1"></i>Errors</button>
+        <button class="bo-tab" data-tab="apikeys"><i class="fas fa-key me-1"></i>API Keys</button>
+        <button class="bo-tab" data-tab="snapshots"><i class="fas fa-chart-line me-1"></i>Snapshots</button>
       </div>
 
       <section class="bo-panel active" id="panel-tables">
@@ -139,7 +146,7 @@
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
               <h5 class="mb-1">Financial Data Checks</h5>
-              <div class="text-muted small">Accounting diagnostics replacing the RX patient duplicate/lock tools.</div>
+              <div class="text-muted small">Accounting diagnostics for data quality, duplicates, and review workflow gaps.</div>
             </div>
             <button class="btn btn-outline-primary btn-sm" onclick="loadFinancialChecks()"><i class="fas fa-sync-alt me-1"></i>Run Checks</button>
           </div>
@@ -212,7 +219,7 @@
           <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
             <div>
               <h5 class="mb-1">Backups</h5>
-              <div class="text-muted small">PostgreSQL dump status plus RX-style per-table CSV snapshots.</div>
+              <div class="text-muted small">PostgreSQL dump status plus per-table CSV snapshots for accounting data.</div>
             </div>
             <div class="d-flex gap-2 flex-wrap">
               <button class="btn btn-outline-primary btn-sm" onclick="runDbBackup()"><i class="fas fa-database me-1"></i>Run DB Backup</button>
@@ -291,12 +298,160 @@
           </div>
         </div>
       </section>
+
+      <section class="bo-panel" id="panel-merchants">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <div>
+                <h5 class="mb-1">Merchant Normalization</h5>
+                <div class="text-muted small">Rebuild merchant identities from ledger text and inspect official usage.</div>
+              </div>
+              <div class="d-flex gap-2 flex-wrap">
+                <a class="btn btn-outline-secondary btn-sm" href="/merchants"><i class="fas fa-store me-1"></i>Manage</a>
+                <a class="btn btn-outline-secondary btn-sm" href="/merchant-aliases"><i class="fas fa-signature me-1"></i>Aliases</a>
+                <button class="btn btn-primary btn-sm" onclick="rebuildMerchants()"><i class="fas fa-wand-magic-sparkles me-1"></i>Rebuild Merchants</button>
+              </div>
+            </div>
+            <div id="merchantBackfillResult" class="alert alert-secondary py-2">Ready to rebuild merchant identities from existing transactions.</div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Official Merchant</th><th class="text-end">Transactions</th></tr></thead>
+              <tbody id="merchantUseRows"><tr><td colspan="2" class="text-muted">Run financial checks or backfill to load merchant usage.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-orphans">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Orphan Reference Scanner</h5>
+              <div class="text-muted small">Find foreign-key references that point to missing parent records.</div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadOrphans()"><i class="fas fa-sync-alt me-1"></i>Scan</button>
+          </div>
+          <div id="orphanSummary" class="alert alert-secondary py-2">Scan not run yet.</div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Child</th><th>Column</th><th>Parent</th><th class="text-end">Orphans</th></tr></thead>
+              <tbody id="orphanRows"><tr><td colspan="4" class="text-muted">No scan results.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-audit">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Audit Review</h5>
+              <div class="text-muted small">Search recent operational changes and exports.</div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadAudit()"><i class="fas fa-search me-1"></i>Search</button>
+          </div>
+          <div class="row g-2">
+            <div class="col-md-3"><input class="form-control form-control-sm" id="auditSearch" placeholder="Search module/action/IP"></div>
+            <div class="col-md-3"><input class="form-control form-control-sm" id="auditFrom" type="date"></div>
+            <div class="col-md-3"><input class="form-control form-control-sm" id="auditTo" type="date"></div>
+          </div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Date</th><th>User</th><th>Module</th><th>Action</th><th>IP</th></tr></thead>
+              <tbody id="auditRows"><tr><td colspan="5" class="text-muted">No audit loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-users">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">User Security</h5>
+              <div class="text-muted small">Role assignment, activation, password reset, unlock, and 2FA reset.</div>
+            </div>
+            <button class="btn btn-outline-primary btn-sm" onclick="loadAdminUsers()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+          </div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover align-middle">
+              <thead><tr><th>User</th><th>Role</th><th>Status</th><th>2FA</th><th>Lock</th><th class="text-end">Actions</th></tr></thead>
+              <tbody id="adminUserRows"><tr><td colspan="6" class="text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-errors">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Error Log Manager</h5>
+              <div class="text-muted small">Review unresolved frontend and backend errors.</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" onclick="loadErrors()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+              <button class="btn btn-outline-success btn-sm" onclick="resolveVisibleErrors()"><i class="fas fa-check-double me-1"></i>Resolve Visible</button>
+            </div>
+          </div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>ID</th><th>Source</th><th>Severity</th><th>Message</th><th>Date</th></tr></thead>
+              <tbody id="errorRows"><tr><td colspan="5" class="text-muted">No errors loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-apikeys">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">API Keys</h5>
+              <div class="text-muted small">Generate, disable, and revoke integration keys.</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" onclick="loadApiKeys()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+              <button class="btn btn-primary btn-sm" onclick="createApiKey()"><i class="fas fa-plus me-1"></i>Generate</button>
+            </div>
+          </div>
+          <div id="apiKeyResult" class="alert alert-secondary py-2 d-none"></div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Name</th><th>Prefix</th><th>Status</th><th>Expires</th><th class="text-end">Actions</th></tr></thead>
+              <tbody id="apiKeyRows"><tr><td colspan="5" class="text-muted">No API keys loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="bo-panel" id="panel-snapshots">
+        <div class="glass-card p-4 d-grid gap-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+              <h5 class="mb-1">Daily Analytics Snapshots</h5>
+              <div class="text-muted small">Capture and export accounting KPI snapshots.</div>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-outline-primary btn-sm" onclick="loadSnapshots()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+              <button class="btn btn-primary btn-sm" onclick="captureSnapshotNow()"><i class="fas fa-camera me-1"></i>Capture Now</button>
+              <a class="btn btn-outline-success btn-sm" href="/api/admin/snapshots/export"><i class="fas fa-file-csv me-1"></i>Export CSV</a>
+            </div>
+          </div>
+          <div class="compact-table-wrap">
+            <table class="table table-sm table-hover">
+              <thead><tr><th>Date</th><th class="text-end">Transactions</th><th class="text-end">Draft</th><th class="text-end">Net Worth</th><th class="text-end">Net Income</th></tr></thead>
+              <tbody id="snapshotRows"><tr><td colspan="5" class="text-muted">No snapshots loaded.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </div>
 
 <div class="modal fade" id="viewerModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-scrollable">
+  <div class="modal-dialog modal-fullscreen-lg-down modal-xl modal-dialog-scrollable" style="max-width: min(1180px, calc(100vw - 1rem));">
     <div class="modal-content">
       <div class="modal-header">
         <div>
@@ -340,6 +495,8 @@ let selectedSchemaTable = null;
 let viewerRows = [];
 let viewerColumns = [];
 let viewerSort = { key: null, dir: 'asc' };
+let adminRoles = [];
+let visibleErrorIds = [];
 
 function authHeaders(json) {
   const t = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -374,6 +531,12 @@ function showResult(message, type) {
   box.className = 'alert alert-' + (type || 'secondary') + ' py-2';
   box.textContent = message;
 }
+function setAlert(id, message, type) {
+  const box = document.getElementById(id);
+  if (!box) return;
+  box.className = 'alert alert-' + (type || 'secondary') + ' py-2';
+  box.textContent = message;
+}
 function setTab(tab) {
   document.querySelectorAll('.bo-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.tab === tab));
   document.querySelectorAll('.bo-panel').forEach(panel => panel.classList.toggle('active', panel.id === 'panel-' + tab));
@@ -383,6 +546,13 @@ function setTab(tab) {
   if (tab === 'backups') loadBackups();
   if (tab === 'health') loadHealth();
   if (tab === 'logs') loadLogDashboard();
+  if (tab === 'merchants') loadFinancialChecks();
+  if (tab === 'orphans') loadOrphans();
+  if (tab === 'audit') loadAudit();
+  if (tab === 'users') loadAdminUsers();
+  if (tab === 'errors') loadErrors();
+  if (tab === 'apikeys') loadApiKeys();
+  if (tab === 'snapshots') loadSnapshots();
 }
 
 async function loadStats() {
@@ -525,6 +695,160 @@ async function loadFinancialChecks() {
   document.getElementById('duplicateTransactionRows').innerHTML = (data.duplicateTransactions || []).length ? data.duplicateTransactions.map(r => '<tr><td>' + esc(r.accountId) + '</td><td>' + esc(r.transactionDate) + '</td><td>' + esc(r.amount) + ' ' + esc(r.currency) + '</td><td>' + esc(r.descriptionKey) + '</td><td>' + esc((r.ids || []).join(', ')) + '</td></tr>').join('') : '<tr><td colspan="5" class="text-muted">No duplicate groups detected.</td></tr>';
   document.getElementById('accountGapRows').innerHTML = (data.accountGaps || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.accountClass || r.accountType) + '</td><td>' + esc(r.currency) + '</td><td class="text-end">' + fmtNum(r.transactionCount) + '</td><td>' + esc(r.latestTransactionDate || '') + '</td></tr>').join('');
   document.getElementById('categoryUseRows').innerHTML = (data.categoryUse || []).map(r => '<tr><td>' + esc(r.name) + '</td><td>' + esc(r.categoryType) + '</td><td class="text-end">' + fmtNum(r.transactionCount) + '</td></tr>').join('');
+  const merchantRows = document.getElementById('merchantUseRows');
+  if (merchantRows) {
+    merchantRows.innerHTML = (data.merchantUse || []).length
+      ? data.merchantUse.map(r => '<tr><td>' + esc(r.officialName || r.name || 'Unknown') + '</td><td class="text-end">' + fmtNum(r.transactionCount) + '</td></tr>').join('')
+      : '<tr><td colspan="2" class="text-muted">No linked official merchant usage yet.</td></tr>';
+  }
+}
+
+  async function rebuildMerchants() {
+    setAlert('merchantBackfillResult', 'Rebuilding merchant identities from existing transactions...', 'info');
+    try {
+      const data = await api('/api/admin/merchants/rebuild', {
+        method: 'POST',
+        json: true,
+        body: JSON.stringify({ limit: 10000, force: true })
+      });
+      setAlert('merchantBackfillResult', 'Rebuild finished: ' + fmtNum(data.updated || 0) + ' transaction(s) normalized.', 'success');
+      await loadFinancialChecks();
+      await loadStats();
+    } catch (err) {
+      setAlert('merchantBackfillResult', err.message || 'Merchant rebuild failed.', 'danger');
+    }
+  }
+
+async function loadOrphans() {
+  const summary = document.getElementById('orphanSummary');
+  if (summary) setAlert('orphanSummary', 'Scanning foreign-key references...', 'info');
+  try {
+    const data = await api('/api/admin/orphans');
+    const rows = data.results || data.orphans || data.rows || [];
+    const total = rows.reduce((sum, row) => sum + Number(row.count || row.orphanCount || 0), 0);
+    if (summary) setAlert('orphanSummary', rows.length ? (fmtNum(total) + ' orphaned reference(s) across ' + fmtNum(rows.length) + ' relationship(s).') : 'No orphaned references found.', rows.length ? 'warning' : 'success');
+    document.getElementById('orphanRows').innerHTML = rows.length ? rows.map(row =>
+      '<tr><td>' + esc(row.childTable || row.table || row.fromTable || '') + '</td><td>' + esc(row.childColumn || row.column || row.fromColumn || '') + '</td><td>' + esc(row.parentTable || row.referencesTable || row.toTable || '') + '</td><td class="text-end">' + fmtNum(row.count || row.orphanCount || 0) + '</td></tr>'
+    ).join('') : '<tr><td colspan="4" class="text-muted">No orphaned references found.</td></tr>';
+  } catch (err) {
+    if (summary) setAlert('orphanSummary', err.message || 'Orphan scan failed.', 'danger');
+  }
+}
+
+async function loadAudit() {
+  const params = new URLSearchParams({ limit: '300' });
+  const search = document.getElementById('auditSearch').value.trim();
+  const from = document.getElementById('auditFrom').value;
+  const to = document.getElementById('auditTo').value;
+  if (search) params.set('search', search);
+  if (from) params.set('dateFrom', from);
+  if (to) params.set('dateTo', to);
+  const data = await api('/api/admin/audit-logs?' + params.toString());
+  const rows = data.data || data.rows || [];
+  document.getElementById('auditRows').innerHTML = rows.length ? rows.map(row => {
+    const user = row.User || row.user || {};
+    const name = user.username || [user.firstName, user.lastName].filter(Boolean).join(' ') || row.username || '';
+    return '<tr><td>' + fmtDate(row.createdAt) + '</td><td>' + esc(name) + '</td><td>' + esc(row.module || '') + '</td><td>' + esc(row.action || '') + '</td><td>' + esc(row.ipAddress || '') + '</td></tr>';
+  }).join('') : '<tr><td colspan="5" class="text-muted">No audit rows match.</td></tr>';
+}
+
+async function loadAdminUsers() {
+  const data = await api('/api/admin/users');
+  adminRoles = data.roles || [];
+  const rows = data.users || [];
+  const roleOptions = function(selectedId) {
+    return adminRoles.map(role => '<option value="' + Number(role.id) + '"' + (Number(role.id) === Number(selectedId) ? ' selected' : '') + '>' + esc(role.name) + '</option>').join('');
+  };
+  document.getElementById('adminUserRows').innerHTML = rows.length ? rows.map(user => {
+    const locked = user.lockedUntil && new Date(user.lockedUntil) > new Date();
+    return '<tr>' +
+      '<td><strong>' + esc(user.username || '') + '</strong><div class="small text-muted">' + esc([user.firstName, user.lastName].filter(Boolean).join(' ')) + '</div><div class="small text-muted">' + esc(user.email || '') + '</div></td>' +
+      '<td><select class="form-select form-select-sm" onchange="updateAdminUserRole(' + Number(user.id) + ', this.value)">' + roleOptions(user.roleId) + '</select></td>' +
+      '<td><button class="btn btn-sm ' + (user.isActive ? 'btn-outline-success' : 'btn-outline-secondary') + '" onclick="toggleAdminUser(' + Number(user.id) + ', ' + (!user.isActive) + ')">' + (user.isActive ? 'Active' : 'Inactive') + '</button></td>' +
+      '<td>' + (user.twoFactorEnabled ? '<span class="badge text-bg-success">Enabled</span>' : '<span class="badge text-bg-secondary">Off</span>') + '</td>' +
+      '<td>' + (locked ? '<span class="badge text-bg-danger">' + fmtDate(user.lockedUntil) + '</span>' : '<span class="badge text-bg-secondary">Clear</span>') + '</td>' +
+      '<td class="text-end"><div class="d-inline-flex gap-1 flex-wrap justify-content-end">' +
+        '<button class="btn btn-outline-warning btn-sm" onclick="resetAdminPassword(' + Number(user.id) + ')">Password</button>' +
+        '<button class="btn btn-outline-primary btn-sm" onclick="unlockAdminUser(' + Number(user.id) + ')">Unlock</button>' +
+        '<button class="btn btn-outline-secondary btn-sm" onclick="resetAdmin2fa(' + Number(user.id) + ')">Reset 2FA</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="6" class="text-muted">No users found.</td></tr>';
+}
+
+async function updateAdminUserRole(id, roleId) {
+  await api('/api/admin/users/' + id, { method: 'PATCH', json: true, body: JSON.stringify({ roleId: Number(roleId) }) });
+  await loadAdminUsers();
+}
+async function toggleAdminUser(id, isActive) {
+  await api('/api/admin/users/' + id, { method: 'PATCH', json: true, body: JSON.stringify({ isActive: !!isActive }) });
+  await loadAdminUsers();
+}
+async function resetAdminPassword(id) {
+  const password = prompt('Enter a temporary password for user #' + id + ' (minimum 8 characters).');
+  if (!password) return;
+  await api('/api/admin/users/' + id + '/reset-password', { method: 'POST', json: true, body: JSON.stringify({ password }) });
+  alert('Password reset complete.');
+}
+async function unlockAdminUser(id) {
+  await api('/api/admin/users/' + id + '/unlock', { method: 'POST', json: true });
+  await loadAdminUsers();
+}
+async function resetAdmin2fa(id) {
+  if (!confirm('Reset 2FA for user #' + id + '?')) return;
+  await api('/api/admin/users/' + id + '/reset-2fa', { method: 'DELETE', json: true });
+  await loadAdminUsers();
+}
+
+async function loadErrors() {
+  const rows = await api('/api/admin/error-logs?resolved=false&limit=300');
+  visibleErrorIds = (rows || []).map(row => row.id).filter(Boolean);
+  document.getElementById('errorRows').innerHTML = rows.length ? rows.map(row =>
+    '<tr><td>#' + esc(row.id) + '</td><td>' + esc(row.source || '') + '</td><td><span class="badge text-bg-' + (row.severity === 'error' ? 'danger' : 'warning') + '">' + esc(row.severity || '') + '</span></td><td><div class="fw-semibold">' + esc(row.message || '') + '</div><div class="small text-muted">' + esc(row.url || '') + '</div></td><td>' + fmtDate(row.createdAt) + '</td></tr>'
+  ).join('') : '<tr><td colspan="5" class="text-muted">No unresolved errors.</td></tr>';
+}
+async function resolveVisibleErrors() {
+  if (!visibleErrorIds.length) return alert('No visible unresolved errors to resolve.');
+  await api('/api/admin/error-logs/resolve', { method: 'PATCH', json: true, body: JSON.stringify({ ids: visibleErrorIds }) });
+  await loadErrors();
+  await loadLogDashboard();
+}
+
+async function loadApiKeys() {
+  const rows = await api('/api/admin/api-keys');
+  document.getElementById('apiKeyRows').innerHTML = rows.length ? rows.map(row =>
+    '<tr><td><strong>' + esc(row.name || '') + '</strong><div class="small text-muted">' + esc(row.description || '') + '</div></td><td><code>' + esc(row.keyPrefix || '') + '</code></td><td><span class="badge ' + (row.isActive ? 'text-bg-success' : 'text-bg-secondary') + '">' + (row.isActive ? 'Active' : 'Disabled') + '</span></td><td>' + esc(row.expiresAt ? fmtDate(row.expiresAt) : 'Never') + '</td><td class="text-end"><div class="d-inline-flex gap-1"><button class="btn btn-outline-secondary btn-sm" onclick="toggleApiKey(' + Number(row.id) + ')">' + (row.isActive ? 'Disable' : 'Enable') + '</button><button class="btn btn-outline-danger btn-sm" onclick="revokeApiKey(' + Number(row.id) + ')">Revoke</button></div></td></tr>'
+  ).join('') : '<tr><td colspan="5" class="text-muted">No API keys found.</td></tr>';
+}
+async function createApiKey() {
+  const name = prompt('API key name');
+  if (!name) return;
+  const data = await api('/api/admin/api-keys', { method: 'POST', json: true, body: JSON.stringify({ name, expiresIn: '90d' }) });
+  const box = document.getElementById('apiKeyResult');
+  box.className = 'alert alert-warning py-2';
+  box.textContent = 'New API key, shown once: ' + (data.fullKey || '');
+  await loadApiKeys();
+}
+async function toggleApiKey(id) {
+  await api('/api/admin/api-keys/' + id + '/toggle', { method: 'PATCH', json: true });
+  await loadApiKeys();
+}
+async function revokeApiKey(id) {
+  if (!confirm('Revoke API key #' + id + '?')) return;
+  await api('/api/admin/api-keys/' + id, { method: 'DELETE', json: true });
+  await loadApiKeys();
+}
+
+async function loadSnapshots() {
+  const data = await api('/api/admin/snapshots?limit=90');
+  const rows = data.rows || [];
+  document.getElementById('snapshotRows').innerHTML = rows.length ? rows.map(row =>
+    '<tr><td>' + esc(row.snapshotDate || '') + '</td><td class="text-end">' + fmtNum(row.transactionCount) + '</td><td class="text-end">' + fmtNum(row.draftTransactionCount) + '</td><td class="text-end">' + fmtNum(row.netWorth) + '</td><td class="text-end">' + fmtNum(row.netIncome) + '</td></tr>'
+  ).join('') : '<tr><td colspan="5" class="text-muted">No snapshots found.</td></tr>';
+}
+async function captureSnapshotNow() {
+  await api('/api/admin/snapshots/capture', { method: 'POST', json: true, body: JSON.stringify({}) });
+  await loadSnapshots();
 }
 
 async function seedSimulation() {

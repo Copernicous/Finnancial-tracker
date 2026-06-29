@@ -6,6 +6,7 @@ module.exports = (sequelize, DataTypes) => {
     static associate(models) {
       Transaction.belongsTo(models.Account, { foreignKey: 'accountId' });
       Transaction.belongsTo(models.Category, { foreignKey: 'categoryId' });
+      Transaction.belongsTo(models.Merchant, { foreignKey: 'merchantId' });
       Transaction.belongsTo(models.Account, { foreignKey: 'relatedAccountId', as: 'RelatedAccount' });
       Transaction.belongsTo(models.User, { foreignKey: 'reviewedByUserId', as: 'ReviewedBy' });
     }
@@ -16,8 +17,12 @@ module.exports = (sequelize, DataTypes) => {
     categoryId: DataTypes.INTEGER,
     relatedAccountId: DataTypes.INTEGER,
     description: { type: DataTypes.STRING, allowNull: false },
+    merchantId: DataTypes.INTEGER,
     merchant: DataTypes.STRING,
+    receiptMerchant: DataTypes.STRING,
     normalizedMerchant: DataTypes.STRING,
+    merchantMatchConfidence: DataTypes.DECIMAL(5, 4),
+    merchantMatchSource: DataTypes.STRING,
     transactionType: { type: DataTypes.STRING, allowNull: false },
     amount: { type: DataTypes.DECIMAL(14, 2), allowNull: false },
     currency: { type: DataTypes.STRING, allowNull: false, defaultValue: 'USD' },

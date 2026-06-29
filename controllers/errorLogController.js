@@ -48,7 +48,7 @@ exports.resolve = async (req, res) => {
     try {
         const err = await db.ErrorLog.findByPk(req.params.id);
         if (!err) return res.status(404).json({ error: 'Not found' });
-        await err.update({ resolved: true });
+        await err.update({ resolved: true, resolvedAt: new Date() });
         res.json({ ok: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -60,7 +60,7 @@ exports.bulkResolve = async (req, res) => {
     try {
         const { ids } = req.body;
         if (!ids || !ids.length) return res.status(400).json({ error: 'No IDs provided' });
-        await db.ErrorLog.update({ resolved: true }, { where: { id: { [Op.in]: ids } } });
+        await db.ErrorLog.update({ resolved: true, resolvedAt: new Date() }, { where: { id: { [Op.in]: ids } } });
         res.json({ ok: true, count: ids.length });
     } catch (e) {
         res.status(500).json({ error: e.message });

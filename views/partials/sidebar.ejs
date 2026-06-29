@@ -21,12 +21,12 @@
   }
 
   const ap = locals.activePage || '';
-  const refActive   = ['financial-institutions','categories','reconciliations','proofs'].includes(ap);
+  const refActive   = ['financial-institutions','categories','merchants','merchant-aliases','reconciliations','proofs'].includes(ap);
   const planningActive = ['finance','budgets','recurring','financial-goals','investments','currency-rates','balance-snapshots'].includes(ap);
   const rptActive   = ['reports','audit-log'].includes(ap);
   const adminActive = ['roles','users','system-settings','backups','import','active-users','backoffice'].includes(ap);
 
-  const refVisible   = sv('financial_institutions') || sv('categories') || sv('reconciliations') || sv('proofs');
+  const refVisible   = sv('financial_institutions') || sv('categories') || sv('merchants') || sv('merchant_aliases') || sv('reconciliations') || sv('proofs');
   const planningVisible = sv('reports') || sv('budgets') || sv('recurring') || sv('goals') || sv('investments') || sv('currency_rates') || sv('balance_snapshots');
   const rptVisible   = sv('reports') || sv('audit_log');
   const adminVisible = sv('users') || sv('backups') || sv('system_settings') || sv('import') || sv('active_users') || isMaster;
@@ -148,6 +148,16 @@
                 <% if (!UP || sv('categories')) { %>
                 <li class="<%= ap === 'categories' ? 'active' : '' %>">
                     <a href="/categories"><i class="fas fa-tags me-2"></i>Categories</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('merchants')) { %>
+                <li class="<%= ap === 'merchants' ? 'active' : '' %>">
+                    <a href="/merchants"><i class="fas fa-store me-2"></i>Official Merchants</a>
+                </li>
+                <% } %>
+                <% if (!UP || sv('merchant_aliases')) { %>
+                <li class="<%= ap === 'merchant-aliases' ? 'active' : '' %>">
+                    <a href="/merchant-aliases"><i class="fas fa-signature me-2"></i>Merchant Aliases</a>
                 </li>
                 <% } %>
                 <% if (!UP || sv('reconciliations')) { %>

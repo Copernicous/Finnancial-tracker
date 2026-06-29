@@ -145,6 +145,34 @@ function isCardholderLine(line) {
   return !/^(ACCOUNT SUMMARY|CARDHOLDER SUMMARY|TOTAL FEES|TOTAL INTEREST|PURCHASES|ADVANCES|CITI|PO BOX|DALLAS|SIOUX FALLS|MEMBER SINCE|IMPORTANT INFORMATION)$/i.test(line);
 }
 
+function parseBankingAmount(raw) {
+  const text = String(raw || '').replace(/,/g, '').trim();
+  if (!text) return null;
+  const negative = /^\(.*\)$/.test(text) || /^-/.test(text);
+  const value = Number(text.replace(/[()\s+-]/g, ''));
+  if (!Number.isFinite(value)) return null;
+  return negative ? -value : value;
+}
+
+function parseBankingTransactionLine(line) {
+  const normalized = String(line || '').replace(/\s+/g, ' ').trim();
+  const match = normalized.match(/^(\d{2}\/\d{2}\/\d{2})\s+(.+?)\s+([0-9,.()-]+)\s+([0-9,.()-]+)$/);
+  if (!match) return null;
+  const date = match[1];
+  const description = match[2].trim();
+  const amountOne = parseBankingAmount(match[3]);
+  const amountTwo = parseBankingAmount(match[4]);
+  if (amountOne == null || amountTwo == null) return null;
+  const desc = description.toLowerCase();
+  const isNegative = /\b(debit|withdrawal|payment|transfer to|sent to|bill pay|online payment)\b/.test(desc);
+  return {
+    postDate: new Date('20' + date.slice(6, 8) + '-' + date.slice(0, 2) + '-' + date.slice(3, 5) + 'T00:00:00Z').toISOString().slice(0, 10),
+    description,
+    amount: isNegative ? -Math.abs(amountOne) : Math.abs(amountOne),
+    rawAmounts: [amountOne, amountTwo]
+  };
+}
+
 function parseTransactionLine(line, closeDate) {
   let match = line.match(/^(\d{2}\/\d{2})\s+(\d{2}\/\d{2})\s+(.+?)\s+(-?\$[\d,]+\.\d{2})$/);
   if (match) {
@@ -278,14 +306,141 @@ async function parseAdvantagePdf(buffer) {
   };
 }
 
+function detectBankingSection(line) {
+  const text = String(line || '').toLowerCase();
+  if (text.includes('checking activity')) return 'checking';
+  if (text.includes('savings') && text.includes('account activity')) return 'savings';
+  if (text.includes('certificate of deposit')) return 'cd';
+  return null;
+}
+
+async function parsePriorityBankingPdf(buffer) {
+  const { text, pageCount } = await extractPdfText(buffer);
+  const lines = normalizeLines(text);
+  const metadata = parseStatementMetadata(lines);
+  metadata.institutionName = 'Citi Priority';
+  metadata.profile = 'citi_checking_pdf';
+  const transactions = [];
+  let currentSection = null;
+  let currentAccountName = null;
+  let currentAccountClass = 'checking';
+  let currentSectionBalance = null;
+
+  for (const line of lines) {
+    const section = detectBankingSection(line);
+    if (section === 'checking') {
+      currentAccountClass = 'checking';
+      currentSection = 'Checking';
+      currentAccountName = 'Regular Checking';
+      continue;
+    }
+    if (section === 'savings') {
+      currentAccountClass = 'savings';
+      currentSection = 'Savings';
+      currentAccountName = 'Citibank Savings Plus';
+      continue;
+    }
+    if (section === 'cd') {
+      currentAccountClass = 'savings';
+      currentSection = 'Certificates of Deposit';
+      currentAccountName = 'Certificate of Deposit';
+      continue;
+    }
+    if (/^Date Description Amount Subtracted Amount Added Balance$/i.test(line)) continue;
+    if (/^Opening Balance /i.test(line) || /^Closing Balance /i.test(line) || /^Total Subtracted\/Added /i.test(line)) continue;
+    const headerMatch = line.match(/^(Checking|Savings|Certificates of Deposit)\s+(.+Account Activity.+)$/i);
+    if (headerMatch) {
+      if (/checking/i.test(headerMatch[1])) {
+        currentAccountClass = 'checking';
+      } else if (/savings|deposit/i.test(headerMatch[1])) {
+        currentAccountClass = 'savings';
+      }
+      currentAccountName = headerMatch[2].replace(/Account Activity/i, '').replace(/\s+/g, ' ').trim();
+      continue;
+    }
+    const parsed = parseBankingTransactionLine(line);
+    if (!parsed) continue;
+    currentSectionBalance = parsed.rawAmounts[1];
+    const amount = parsed.amount;
+    const transactionType = amount >= 0 ? 'income' : 'expense';
+    transactions.push({
+      saleDate: null,
+      postDate: parsed.postDate,
+      description: parsed.description,
+      amount,
+      statementDate: metadata.statementDate,
+      cardholder: null,
+      section: currentSection || 'Banking Activity',
+      transactionType,
+      suggestedLedgerType: amount >= 0 ? 'income' : 'expense',
+      suggestedLedgerAmount: amount,
+      currency: 'USD',
+      confidence: 0.9,
+      accountClass: currentAccountClass,
+      accountName: currentAccountName,
+      balance: currentSectionBalance,
+      fingerprint: crypto.createHash('sha256').update([parsed.postDate, parsed.description, amount.toFixed(2), currentAccountName || ''].join('|').toLowerCase()).digest('hex')
+    });
+  }
+
+  return {
+    profile: 'citi_checking_pdf',
+    parserVersion: 'citi-banking-pdf-v1',
+    pageCount,
+    lineCount: lines.length,
+    metadata,
+    transactions,
+    warnings: transactions.length ? [] : ['No banking transaction rows were detected. The PDF may require OCR or a new banking profile.']
+  };
+}
+
+const PROFILE_CONFIG = {
+  advantage_citi_pdf: {
+    profile: 'advantage_citi_pdf',
+    institutionName: 'Citi Advantage',
+    accountClass: 'credit_card',
+    accountSubtype: 'credit card'
+  },
+  citi_checking_pdf: {
+    profile: 'citi_checking_pdf',
+    institutionName: 'Citi Checking',
+    accountClass: 'checking',
+    accountSubtype: 'checking'
+  },
+  citi_ultimate_plus_pdf: {
+    profile: 'citi_ultimate_plus_pdf',
+    institutionName: 'Citi Ultimate Plus',
+    accountClass: 'savings',
+    accountSubtype: 'savings'
+  },
+  citi_savings_pdf: {
+    profile: 'citi_savings_pdf',
+    institutionName: 'Day to Day Savings',
+    accountClass: 'savings',
+    accountSubtype: 'savings'
+  }
+};
+
 async function parseBankStatement({ buffer, profile }) {
-  if (profile !== 'advantage_citi_pdf') {
+  if (!PROFILE_CONFIG[profile]) {
     throw new Error('Unsupported statement profile: ' + profile);
   }
-  return parseAdvantagePdf(buffer);
+  const parsed = profile === 'advantage_citi_pdf'
+    ? await parseAdvantagePdf(buffer)
+    : await parsePriorityBankingPdf(buffer);
+  const config = PROFILE_CONFIG[profile];
+  parsed.profile = config.profile;
+  parsed.metadata = Object.assign({}, parsed.metadata, {
+    profile: config.profile,
+    institutionName: config.institutionName,
+    accountClass: config.accountClass,
+    accountSubtype: config.accountSubtype
+  });
+  return parsed;
 }
 
 module.exports = {
   parseBankStatement,
-  parseAdvantagePdf
+  parseAdvantagePdf,
+  PROFILE_CONFIG
 };

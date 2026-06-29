@@ -238,7 +238,7 @@ cls
 echo.
 echo  Current port: %PORT%
 echo.
-set /p "NEW_PORT=  Enter new port (e.g. 3000, 3001, 8080): "
+set /p "NEW_PORT=  Enter new port (e.g. 3026, 3027, 8080): "
 if "%NEW_PORT%"=="" goto :MainMenu
 call :UpdateEnvLine "PORT" "%NEW_PORT%"
 call :UpdateEnvLine "APP_ORIGIN" "http://localhost:%NEW_PORT%"
@@ -859,7 +859,7 @@ goto :eof
 :: ================================================
 :: HELPER: Load .env into variables
 :LoadEnv
-set "PORT=3000"
+set "PORT=3026"
 set "DB_USER=postgres"
 set "DB_PASS="
 set "DB_NAME=home_accounting_dev"
@@ -871,7 +871,7 @@ set "SMTP_PORT=587"
 set "SMTP_USER="
 set "SMTP_PASS="
 set "SMTP_FROM_NAME=Home Accounting"
-set "APP_ORIGIN=http://localhost:3000"
+set "APP_ORIGIN=http://localhost:3026"
 set "NODE_ENV=production"
 if not exist "%ENV_FILE%" goto :eof
 for /f "usebackq tokens=1,* delims==" %%A in ("%ENV_FILE%") do (

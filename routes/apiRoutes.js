@@ -8,12 +8,15 @@ const packageInfo = require('../package.json');
 const userController = require('../controllers/userController');
 const roleController = require('../controllers/roleController');
 const auditLogController = require('../controllers/auditLogController');
+const errorLogController = require('../controllers/errorLogController');
+const snapshotController = require('../controllers/snapshotController');
 const settingsController = require('../controllers/settingsController');
 const apiKeyController = require('../controllers/apiKeyController');
 const financeController = require('../controllers/financeController');
 const importController = require('../controllers/importController');
 const adminController = require('../controllers/adminController');
 const backupService = require('../services/backupService');
+const merchantResolver = require('../services/merchantResolver');
 
 router.get('/version', (req, res) => {
   res.json({
@@ -48,14 +51,30 @@ function crud(path, modelName, moduleKey, fields, options = {}) {
   });
 
   router.post(path, rbac.requirePermission(moduleKey, 'add'), async (req, res) => {
-    const row = await db[modelName].create(pick(req.body, fields));
+    const payload = pick(req.body, fields);
+    if (modelName === 'Transaction') {
+      Object.assign(payload, await merchantResolver.merchantPayload(payload.receiptMerchant || payload.merchant || payload.description));
+    } else if (modelName === 'Merchant') {
+      payload.normalizedName = merchantResolver.normalizeMerchantKey(payload.normalizedName || payload.officialName);
+    } else if (modelName === 'MerchantAlias') {
+      payload.normalizedAlias = merchantResolver.normalizeMerchantKey(payload.normalizedAlias || payload.aliasText);
+    }
+    const row = await db[modelName].create(payload);
     res.status(201).json(row);
   });
 
   router.put(`${path}/:id`, rbac.requirePermission(moduleKey, 'edit'), async (req, res) => {
     const row = await db[modelName].findByPk(req.params.id);
     if (!row) return res.status(404).json({ error: 'Record not found' });
-    await row.update(pick(req.body, fields));
+    const payload = pick(req.body, fields);
+    if (modelName === 'Transaction' && (payload.merchant || payload.receiptMerchant || payload.description)) {
+      Object.assign(payload, await merchantResolver.merchantPayload(payload.receiptMerchant || payload.merchant || payload.description));
+    } else if (modelName === 'Merchant' && (payload.officialName || payload.normalizedName)) {
+      payload.normalizedName = merchantResolver.normalizeMerchantKey(payload.normalizedName || payload.officialName);
+    } else if (modelName === 'MerchantAlias' && (payload.aliasText || payload.normalizedAlias)) {
+      payload.normalizedAlias = merchantResolver.normalizeMerchantKey(payload.normalizedAlias || payload.aliasText);
+    }
+    await row.update(payload);
     res.json(row);
   });
 
@@ -79,9 +98,18 @@ crud('/accounts', 'Account', 'accounts', [
 crud('/categories', 'Category', 'categories', [
   'name', 'categoryType', 'groupName', 'budgetBehavior', 'parentId', 'taxRelevant', 'isActive'
 ]);
+crud('/merchants', 'Merchant', 'merchants', [
+  'officialName', 'normalizedName', 'merchantType', 'website', 'defaultCategoryId',
+  'defaultTransactionType', 'notes', 'isActive', 'lastSeenAt'
+], { order: [['officialName', 'ASC']] });
+crud('/merchant-aliases', 'MerchantAlias', 'merchant_aliases', [
+  'merchantId', 'aliasText', 'normalizedAlias', 'matchType', 'priority', 'source', 'notes', 'isActive'
+], { order: [['priority', 'DESC'], ['aliasText', 'ASC']] });
 crud('/transactions', 'Transaction', 'transactions', [
   'transactionDate', 'accountId', 'categoryId', 'relatedAccountId', 'description',
-  'merchant', 'normalizedMerchant', 'transactionType', 'amount', 'currency',
+  'merchantId', 'merchant', 'receiptMerchant', 'normalizedMerchant',
+  'merchantMatchConfidence', 'merchantMatchSource',
+  'transactionType', 'amount', 'currency',
   'originalAmount', 'originalCurrency', 'exchangeRate', 'status', 'sourceType',
   'referenceNumber', 'tags', 'clearedDate', 'isRecurring', 'memo',
   'reviewedByUserId', 'reviewedAt', 'isSimulation'
@@ -125,6 +153,22 @@ router.get('/finance/trends', rbac.requirePermission('reports', 'read'), finance
 router.post('/finance/transactions/bulk-category', rbac.requirePermission('transactions', 'edit'), financeController.bulkCategory);
 router.post('/finance/transactions/auto-categorize', rbac.requirePermission('transactions', 'edit'), financeController.autoCategorize);
 router.post('/finance/merchant-suggest', rbac.requirePermission('transactions', 'edit'), importController.suggestMerchantCategory);
+router.post('/finance/merchants/backfill', rbac.requirePermission('transactions', 'edit'), async (req, res, next) => {
+  try {
+    res.json({ ok: true, ...(await merchantResolver.backfillTransactions({ limit: req.body && req.body.limit, force: req.body && req.body.force })) });
+  } catch (err) {
+    next(err);
+  }
+});
+router.post('/admin/merchants/rebuild', rbac.requirePermission('transactions', 'edit'), async (req, res, next) => {
+  try {
+    const limit = req.body && req.body.limit ? Number(req.body.limit) : 10000;
+    const force = req.body && req.body.force !== false;
+    res.json({ ok: true, ...(await merchantResolver.backfillTransactions({ limit, force })) });
+  } catch (err) {
+    next(err);
+  }
+});
 
 async function clearSimulationData() {
   const deletedBalanceSnapshots = await db.AccountBalanceSnapshot.destroy({ where: { isSimulation: true } });
@@ -303,6 +347,9 @@ router.post('/simulation/seed', rbac.requirePermission('simulation', 'add'), asy
     }
   }
 
+  for (const row of txRows) {
+    Object.assign(row, await merchantResolver.merchantPayload(row.merchant || row.description));
+  }
   const transactions = await db.Transaction.bulkCreate(txRows);
 
   await db.Budget.bulkCreate([
@@ -520,6 +567,17 @@ router.post('/roles/:id/duplicate', rbac.requireRole(['Administrator']), roleCon
 router.get('/audit-logs', rbac.requirePermission('audit_log', 'read'), auditLogController.getAll);
 router.get('/audit-logs/users', rbac.requirePermission('audit_log', 'read'), auditLogController.getUsers);
 router.get('/audit-logs/modules', rbac.requirePermission('audit_log', 'read'), auditLogController.getModules);
+router.get('/audit-logs/actions', rbac.requirePermission('audit_log', 'read'), auditLogController.getActions);
+router.delete('/audit-logs/:id', rbac.requireRole(['Administrator']), auditLogController.deleteOne);
+router.delete('/audit-logs', rbac.requireRole(['Administrator']), auditLogController.bulkDelete);
+router.post('/audit-logs/rotate', rbac.requireRole(['Administrator']), auditLogController.rotate);
+
+router.post('/errors', errorLogController.logFrontend);
+router.get('/errors', rbac.requirePermission('audit_log', 'read'), errorLogController.getAll);
+router.patch('/errors/bulk-resolve', rbac.requirePermission('audit_log', 'edit'), errorLogController.bulkResolve);
+router.delete('/errors/bulk-delete', rbac.requirePermission('audit_log', 'delete'), errorLogController.bulkDelete);
+router.patch('/errors/:id/resolve', rbac.requirePermission('audit_log', 'edit'), errorLogController.resolve);
+router.delete('/errors', rbac.requirePermission('audit_log', 'delete'), errorLogController.clearResolved);
 
 router.get('/settings', rbac.requirePermission('system_settings', 'read'), settingsController.getAll);
 router.put('/settings', rbac.requirePermission('system_settings', 'edit'), settingsController.update);
@@ -544,6 +602,26 @@ router.get('/admin/orphans', masterOnly, adminController.getOrphans);
 router.get('/admin/financial-checks', masterOnly, adminController.getFinancialChecks);
 router.get('/admin/health', masterOnly, adminController.getHealth);
 router.get('/admin/log-dashboard', masterOnly, adminController.getLogDashboard);
+router.get('/admin/audit-logs', masterOnly, auditLogController.getAll);
+router.get('/admin/audit-logs/users', masterOnly, auditLogController.getUsers);
+router.get('/admin/audit-logs/modules', masterOnly, auditLogController.getModules);
+router.get('/admin/audit-logs/actions', masterOnly, auditLogController.getActions);
+router.get('/admin/error-logs', masterOnly, errorLogController.getAll);
+router.patch('/admin/error-logs/resolve', masterOnly, errorLogController.bulkResolve);
+router.delete('/admin/error-logs', masterOnly, errorLogController.bulkDelete);
+router.get('/admin/api-keys', masterOnly, apiKeyController.getAll);
+router.post('/admin/api-keys', masterOnly, apiKeyController.generate);
+router.patch('/admin/api-keys/:id/toggle', masterOnly, apiKeyController.toggle);
+router.delete('/admin/api-keys/:id', masterOnly, apiKeyController.remove);
+router.get('/admin/snapshots/export', masterOnly, snapshotController.exportCSV);
+router.get('/admin/snapshots', masterOnly, snapshotController.getSnapshots);
+router.post('/admin/snapshots/capture', masterOnly, snapshotController.captureNow);
+router.delete('/admin/snapshots/:date', masterOnly, snapshotController.deleteSnapshot);
+router.get('/admin/users', masterOnly, adminController.getUsers);
+router.patch('/admin/users/:id', masterOnly, adminController.updateUser);
+router.post('/admin/users/:id/reset-password', masterOnly, adminController.adminResetPassword);
+router.post('/admin/users/:id/unlock', masterOnly, adminController.adminUnlockUser);
+router.delete('/admin/users/:id/reset-2fa', masterOnly, adminController.adminReset2fa);
 router.get('/admin/backups/status', masterOnly, adminController.getBackupStatus);
 router.post('/admin/backups/run', masterOnly, adminController.runDbBackup);
 router.get('/admin/csv-backups', masterOnly, adminController.listCsvBackups);

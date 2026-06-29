@@ -1,5 +1,4 @@
 {
-  "appName": "Home Accounting",
-  "backupSchedule": "off",
-  "siteBackupSchedule": "off"
+  "siteBackupSchedule": "0 3 * * 0",
+  "backupSchedule": "0 2 * * *"
 }

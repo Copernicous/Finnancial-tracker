@@ -8,11 +8,14 @@ const settings = require('../services/settingsService');
 const backupService = require('../services/backupService');
 const { getWritableRoot } = require('../utils/runtimePaths');
 const { QueryTypes } = require('sequelize');
+const bcrypt = require('bcryptjs');
 
 const TABLE_META = [
   { key: 'ImportRows', label: 'Import Rows', area: 'Import', icon: 'fa-list-check', color: '#0d6efd', description: 'Parsed rows staged from bank statements and curated files.', purgeable: true },
   { key: 'ImportBatches', label: 'Import Batches', area: 'Import', icon: 'fa-box-archive', color: '#2563eb', description: 'Uploaded files and staging batch status.', purgeable: true },
   { key: 'Transactions', label: 'Transactions', area: 'Ledger', icon: 'fa-receipt', color: '#059669', description: 'Reviewed ledger transactions and posted import rows.', purgeable: true },
+  { key: 'Merchants', label: 'Official Merchants', area: 'Reference', icon: 'fa-store', color: '#0f766e', description: 'Canonical merchant names used for analytics and import normalization.', purgeable: true },
+  { key: 'MerchantAliases', label: 'Merchant Aliases', area: 'Reference', icon: 'fa-signature', color: '#14b8a6', description: 'Receipt and statement text patterns mapped to official merchants.', purgeable: true },
   { key: 'Reconciliations', label: 'Reconciliations', area: 'Ledger', icon: 'fa-scale-balanced', color: '#0ea5e9', description: 'Statement-to-book reconciliation records.', purgeable: true },
   { key: 'ProofDocuments', label: 'Proof Documents', area: 'Documents', icon: 'fa-paperclip', color: '#64748b', description: 'Receipts, statements, and proof metadata.', purgeable: true },
   { key: 'AccountAliases', label: 'Account Aliases', area: 'Accounts', icon: 'fa-link', color: '#14b8a6', description: 'Statement aliases mapped to accounts.', purgeable: true },
@@ -284,6 +287,7 @@ exports.getFinancialChecks = async (req, res) => {
     const [uncleared] = await db.sequelize.query('SELECT COUNT(*)::int AS count FROM "Transactions" WHERE "status" IN (\'draft\', \'needs_review\')', { type: QueryTypes.SELECT });
     const [stagedRows] = await db.sequelize.query('SELECT COUNT(*)::int AS count FROM "ImportRows" WHERE "status" IN (\'staged\', \'ready\', \'error\')', { type: QueryTypes.SELECT });
     const [duplicateRows] = await db.sequelize.query('SELECT COUNT(*)::int AS count FROM "ImportRows" WHERE "status" = \'duplicate\'', { type: QueryTypes.SELECT });
+    const [missingMerchant] = await db.sequelize.query('SELECT COUNT(*)::int AS count FROM "Transactions" WHERE "merchantId" IS NULL AND COALESCE("merchant", "description", \'\') <> \'\'', { type: QueryTypes.SELECT });
 
     const duplicateTransactions = await db.sequelize.query(`
       SELECT "accountId", "transactionDate", "amount", "currency",
@@ -306,6 +310,15 @@ exports.getFinancialChecks = async (req, res) => {
       LIMIT 40
     `, { type: QueryTypes.SELECT });
 
+    const merchantUse = await db.sequelize.query(`
+      SELECT m.id, m."officialName", COUNT(t.id)::int AS "transactionCount"
+      FROM "Merchants" m
+      LEFT JOIN "Transactions" t ON t."merchantId" = m.id
+      GROUP BY m.id, m."officialName"
+      ORDER BY "transactionCount" DESC, m."officialName" ASC
+      LIMIT 40
+    `, { type: QueryTypes.SELECT });
+
     const accountGaps = await db.sequelize.query(`
       SELECT a.id, a.name, a."accountType", a."accountClass", a.currency,
              COUNT(t.id)::int AS "transactionCount",
@@ -322,10 +335,11 @@ exports.getFinancialChecks = async (req, res) => {
       { key: 'needsReview', label: 'Draft / Needs Review Transactions', severity: Number(uncleared.count) ? 'warning' : 'good', count: Number(uncleared.count || 0), action: 'Finish review and mark transactions reviewed or reconciled.' },
       { key: 'stagedRows', label: 'Open Staged Import Rows', severity: Number(stagedRows.count) ? 'info' : 'good', count: Number(stagedRows.count || 0), action: 'Use Import Cleanup or Review & Post to close staged rows.' },
       { key: 'duplicateImportRows', label: 'Duplicate Import Rows', severity: Number(duplicateRows.count) ? 'info' : 'good', count: Number(duplicateRows.count || 0), action: 'Duplicates are blocked from posting; purge bad batches if needed.' },
+      { key: 'missingMerchant', label: 'Transactions Missing Official Merchant', severity: Number(missingMerchant.count) ? 'warning' : 'good', count: Number(missingMerchant.count || 0), action: 'Run merchant backfill so merchant analytics use official names.' },
       { key: 'duplicateTransactions', label: 'Possible Duplicate Transactions', severity: duplicateTransactions.length ? 'danger' : 'good', count: duplicateTransactions.length, action: 'Review same date/account/amount/description groups.' }
     ];
 
-    res.json({ checks, duplicateTransactions, categoryUse, accountGaps, generatedAt: new Date().toISOString() });
+    res.json({ checks, duplicateTransactions, categoryUse, merchantUse, accountGaps, generatedAt: new Date().toISOString() });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -465,6 +479,79 @@ exports.runDbBackup = async (req, res) => {
 
 exports.getBackupStatus = (req, res) => {
   res.json(backupService.getStatus());
+};
+
+exports.getUsers = async (req, res) => {
+  try {
+    const users = await db.User.findAll({
+      attributes: [
+        'id', 'firstName', 'lastName', 'username', 'email', 'roleId', 'isActive',
+        'twoFactorEnabled', 'failedLoginCount', 'lockedUntil', 'tokenVersion',
+        'createdAt', 'updatedAt'
+      ],
+      include: [{ model: db.Role, attributes: ['id', 'name'] }],
+      order: [['username', 'ASC']]
+    });
+    const roles = await db.Role.findAll({ attributes: ['id', 'name'], order: [['name', 'ASC']] });
+    res.json({ users, roles });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  try {
+    const user = await db.User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    const payload = {};
+    if (Object.prototype.hasOwnProperty.call(req.body, 'roleId')) payload.roleId = Number(req.body.roleId) || null;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'isActive')) payload.isActive = !!req.body.isActive;
+    if (Object.prototype.hasOwnProperty.call(req.body, 'notes')) payload.notes = req.body.notes || null;
+    await user.update(payload);
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+exports.adminResetPassword = async (req, res) => {
+  try {
+    const user = await db.User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    const password = String(req.body.password || '');
+    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters.' });
+    await user.update({
+      passwordHash: await bcrypt.hash(password, 12),
+      failedLoginCount: 0,
+      lockedUntil: null,
+      tokenVersion: Number(user.tokenVersion || 0) + 1
+    });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+exports.adminUnlockUser = async (req, res) => {
+  try {
+    const user = await db.User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    await user.update({ failedLoginCount: 0, lockedUntil: null });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+};
+
+exports.adminReset2fa = async (req, res) => {
+  try {
+    const user = await db.User.findByPk(req.params.id);
+    if (!user) return res.status(404).json({ error: 'User not found.' });
+    await user.update({ twoFactorEnabled: false, twoFactorSecret: null, backupCodes: null });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 };
 
 exports.purgeTables = async (req, res) => {

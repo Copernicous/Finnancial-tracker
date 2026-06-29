@@ -88,7 +88,7 @@ if "%1"=="restore" (
     echo   RESTORE COMPLETE!
     echo   Your database has been restored with all accounting data.
     echo   Start the server: npm start
-    echo   Then open: http://localhost:3000
+    echo   Then open: http://localhost:3026
     echo ============================================================
 ) else (
     echo [3/5] FRESH INSTALL: Running database migrations (creating tables)...
@@ -118,7 +118,7 @@ if "%1"=="restore" (
     echo.
     echo   IMPORTANT: Change the admin password after first login!
     echo   Start the server: npm start
-    echo   Then open: http://localhost:3000
+    echo   Then open: http://localhost:3026
     echo ============================================================
 )
 

@@ -5,6 +5,7 @@ const { Op } = require('sequelize');
 const db = require('../models');
 const { parseBankStatement } = require('../services/bankStatementParser');
 const merchantCategorizer = require('../services/merchantCategorizer');
+const merchantResolver = require('../services/merchantResolver');
 
 const TEMPLATES = {
   accounts: ['name', 'accountCode', 'accountType', 'accountClass', 'accountSubtype', 'currency', 'financialInstitutionName', 'openingBalance', 'openingBalanceDate', 'currentBalance', 'creditLimit', 'interestRate', 'includeInNetWorth', 'status', 'notes'],
@@ -187,6 +188,9 @@ function normalizeDraft(input, defaults = {}) {
   const accountId = cleanId(source.accountId) || cleanId(defaults.accountId);
   const categoryId = cleanId(source.categoryId) || cleanId(defaults.categoryId);
   const relatedAccountId = cleanId(source.relatedAccountId);
+  const merchantId = cleanId(source.merchantId);
+  const merchantText = cleanText(source.merchant || source.receiptMerchant || source.description);
+  const receiptMerchant = cleanText(source.receiptMerchant || source.rawMerchant || merchantText);
   const amount = toNumber(source.amount);
   const transactionType = cleanText(source.transactionType || defaults.transactionType || 'expense').toLowerCase();
   const currency = cleanText(source.currency || defaults.currency || 'USD').toUpperCase();
@@ -199,8 +203,12 @@ function normalizeDraft(input, defaults = {}) {
     categoryId,
     relatedAccountId,
     description: cleanText(source.description),
-    merchant: cleanText(source.merchant || source.description),
-    normalizedMerchant: cleanText(source.merchant || source.description).toLowerCase(),
+    merchantId,
+    merchant: merchantText,
+    receiptMerchant,
+    normalizedMerchant: cleanText(source.normalizedMerchant) || merchantResolver.normalizeMerchantKey(merchantText),
+    merchantMatchConfidence: source.merchantMatchConfidence == null || source.merchantMatchConfidence === '' ? null : toNumber(source.merchantMatchConfidence),
+    merchantMatchSource: cleanText(source.merchantMatchSource),
     transactionType: ['income', 'expense', 'transfer', 'adjustment'].includes(transactionType) ? transactionType : 'expense',
     amount,
     currency: currency || 'USD',
@@ -240,6 +248,52 @@ function mergeTags(tags, extra) {
     if (item && !values.includes(item)) values.push(item);
   });
   return values.join(',');
+}
+
+async function resolveDefaultBankAccountId(requestedAccountId, profile, metadata = {}) {
+  const explicitAccountId = cleanId(requestedAccountId);
+  if (explicitAccountId) return { accountId: explicitAccountId, source: 'explicit' };
+
+  const activeAccounts = await db.Account.findAll({
+    where: {
+      status: { [Op.notIn]: ['inactive', 'closed'] }
+    },
+    order: [['id', 'ASC']]
+  });
+
+  if (!activeAccounts.length) return { accountId: null, source: 'none', reason: 'No active accounts exist.' };
+  if (activeAccounts.length === 1) return { accountId: activeAccounts[0].id, source: 'single_active' };
+
+  const last4 = cleanText(metadata.accountLast4 || metadata.last4 || metadata.accountEnding);
+  const normalizedProfile = cleanText(profile).toLowerCase();
+  const accountText = (account) => [
+    account.name,
+    account.accountCode,
+    account.accountType,
+    account.accountClass,
+    account.accountSubtype,
+    account.notes
+  ].filter(Boolean).join(' ');
+
+  const directLast4Match = last4 ? activeAccounts.find((account) => {
+    const haystack = accountText(account);
+    return new RegExp(`(^|\\D)${last4}(\\D|$)`).test(haystack);
+  }) : null;
+  if (directLast4Match) return { accountId: directLast4Match.id, source: 'last4', reason: `Matched account ending in ${last4}.` };
+
+  const profileMatchers = [];
+  if (normalizedProfile.includes('checking')) profileMatchers.push(/checking/i, /current/i);
+  if (normalizedProfile.includes('savings')) profileMatchers.push(/savings/i, /deposit/i);
+  if (normalizedProfile.includes('credit')) profileMatchers.push(/credit/i, /card/i);
+  if (!profileMatchers.length) profileMatchers.push(/checking/i, /savings/i, /bank/i);
+
+  const profileMatches = activeAccounts.filter((account) => profileMatchers.some((pattern) => pattern.test(accountText(account))));
+  if (profileMatches.length === 1) return { accountId: profileMatches[0].id, source: 'profile', reason: `Matched account by ${profile}.` };
+  if (profileMatches.length > 1) {
+    return { accountId: null, source: 'ambiguous', reason: `Multiple active accounts match ${profile}; please select the account manually.` };
+  }
+
+  return { accountId: activeAccounts[0].id, source: 'first_active', reason: 'No exact account match was found; using the first active account.' };
 }
 
 async function refreshBatchCounts(batchId, transaction) {
@@ -635,6 +689,30 @@ exports.getBankStatementProfiles = async (req, res) => {
       fileTypes: ['pdf'],
       importMode: 'stage_only',
       posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_checking_pdf',
+      label: 'Citi Checking PDF',
+      institution: 'Citi Checking',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_ultimate_plus_pdf',
+      label: 'Citi Ultimate Plus PDF',
+      institution: 'Citi Ultimate Plus',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_savings_pdf',
+      label: 'Day to Day Savings PDF',
+      institution: 'Day to Day Savings',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
     }
   ]);
 };
@@ -676,7 +754,16 @@ exports.saveMerchantRule = async (req, res) => {
   else rules.unshift(nextRule);
   await saveStoredMerchantRules(rules);
 
-  res.json({ ok: true, rule: nextRule, count: rules.length });
+  const resolvedMerchant = await merchantResolver.resolveMerchantText(pattern, { create: true });
+  if (resolvedMerchant.merchantId) {
+    await db.Merchant.update({
+      defaultCategoryId: category.id,
+      defaultTransactionType: nextRule.transactionType,
+      lastSeenAt: new Date()
+    }, { where: { id: resolvedMerchant.merchantId } });
+  }
+
+  res.json({ ok: true, rule: nextRule, merchant: resolvedMerchant, count: rules.length });
 };
 
 function cleanMerchantLookupQuery(value) {
@@ -782,7 +869,8 @@ async function lookupMerchantOnline(query) {
 }
 
 exports.suggestMerchantCategory = async (req, res) => {
-  const merchant = cleanText(req.body.merchant || req.body.description || req.body.text);
+  const merchant = cleanText(req.body.merchant || req.body.receiptMerchant || req.body.description || req.body.text);
+  const receiptMerchant = cleanText(req.body.receiptMerchant);
   const description = cleanText(req.body.description);
   const transactionType = cleanText(req.body.transactionType).toLowerCase();
   const onlineLookup = !!req.body.onlineLookup;
@@ -792,8 +880,26 @@ exports.suggestMerchantCategory = async (req, res) => {
     db.Category.findAll({ where: { isActive: { [Op.ne]: false } }, order: [['groupName', 'ASC'], ['name', 'ASC']] }),
     getStoredMerchantRules()
   ]);
+  const resolvedMerchant = await merchantResolver.resolveMerchantText(merchant || receiptMerchant || description, { create: true });
+  let merchantDefaultSuggestion = null;
+  if (resolvedMerchant.merchantId) {
+    const canonicalMerchant = await db.Merchant.findByPk(resolvedMerchant.merchantId, {
+      include: [{ model: db.Category, as: 'DefaultCategory' }]
+    });
+    if (canonicalMerchant && canonicalMerchant.DefaultCategory) {
+      merchantDefaultSuggestion = {
+        categoryId: canonicalMerchant.DefaultCategory.id,
+        categoryName: canonicalMerchant.DefaultCategory.name,
+        transactionType: canonicalMerchant.defaultTransactionType || canonicalMerchant.DefaultCategory.categoryType || 'expense',
+        confidence: 0.96,
+        source: 'merchant_default',
+        matchedPattern: canonicalMerchant.officialName,
+        notes: 'Suggested from canonical merchant default category.'
+      };
+    }
+  }
   const localSuggestion = merchantCategorizer.suggestFromRules({
-    text: [merchant, description].join(' '),
+    text: [merchant, receiptMerchant, description].join(' '),
     categories,
     customRules,
     transactionType
@@ -802,7 +908,9 @@ exports.suggestMerchantCategory = async (req, res) => {
     return res.json({
       ok: true,
       merchant,
-      suggestion: localSuggestion,
+      canonicalMerchant: resolvedMerchant,
+      suggestion: merchantDefaultSuggestion || localSuggestion,
+      merchantDefaultSuggestion,
       localSuggestion,
       onlineSuggestion: null,
       onlineLookupUsed: false
@@ -810,14 +918,16 @@ exports.suggestMerchantCategory = async (req, res) => {
   }
 
   try {
-    const lookup = await lookupMerchantOnline([merchant, description].join(' '));
+    const lookup = await lookupMerchantOnline([merchant, receiptMerchant, description].join(' '));
     const onlineSuggestion = lookup.text
-      ? merchantCategorizer.inferFromLookupText([merchant, description, lookup.text].join(' '), categories)
+      ? merchantCategorizer.inferFromLookupText([merchant, receiptMerchant, description, lookup.text].join(' '), categories)
       : null;
     res.json({
       ok: true,
       merchant,
-      suggestion: onlineSuggestion || localSuggestion,
+      canonicalMerchant: resolvedMerchant,
+      suggestion: merchantDefaultSuggestion || onlineSuggestion || localSuggestion,
+      merchantDefaultSuggestion,
       localSuggestion,
       onlineSuggestion,
       onlineLookupUsed: true,
@@ -830,7 +940,9 @@ exports.suggestMerchantCategory = async (req, res) => {
     res.json({
       ok: true,
       merchant,
-      suggestion: localSuggestion,
+      canonicalMerchant: resolvedMerchant,
+      suggestion: merchantDefaultSuggestion || localSuggestion,
+      merchantDefaultSuggestion,
       localSuggestion,
       onlineSuggestion: null,
       onlineLookupUsed: true,
@@ -843,9 +955,17 @@ exports.importBankStatement = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Statement file is required.' });
 
   const profile = req.body.profile || 'advantage_citi_pdf';
-  const requestedAccountId = req.body.accountId ? Number(req.body.accountId) : null;
-  const accountId = Number.isInteger(requestedAccountId) && requestedAccountId > 0 ? requestedAccountId : null;
   const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
+  const parsed = await parseBankStatement({ buffer: req.file.buffer, profile });
+  const accountResolution = await resolveDefaultBankAccountId(req.body.accountId, profile, parsed.metadata || {});
+  const accountId = accountResolution.accountId;
+  if (!accountId) {
+    return res.status(400).json({
+      error: accountResolution.reason || 'Unable to determine an import account for this statement.',
+      metadata: parsed.metadata || {},
+      suggestion: 'Create/select the matching account, or rename the account so its last 4 digits appear in the name, code, or notes.'
+    });
+  }
   const existingBatch = await db.ImportBatch.findOne({
     where: {
       importType: 'bank_statement_' + profile,
@@ -864,7 +984,6 @@ exports.importBankStatement = async (req, res) => {
     });
   }
 
-  const parsed = await parseBankStatement({ buffer: req.file.buffer, profile });
   const fingerprints = parsed.transactions.map((row) => row.fingerprint).filter(Boolean);
   const existingTransactions = fingerprints.length ? await db.Transaction.findAll({
     where: {
@@ -888,6 +1007,9 @@ exports.importBankStatement = async (req, res) => {
       duplicateTransactionId: alreadyPosted ? existingRefs.get(row.fingerprint) : null
     };
   });
+  for (const item of stagedRows) {
+    item.merchantResolution = await merchantResolver.resolveMerchantText(item.row.description, { create: true });
+  }
   const duplicateCount = stagedRows.filter((item) => item.status === 'duplicate').length;
 
   const notesPayload = {
@@ -896,9 +1018,11 @@ exports.importBankStatement = async (req, res) => {
     parserVersion: parsed.parserVersion,
     fileHashSha256: hash,
     originalFileName: req.file.originalname,
+    accountLast4: parsed.metadata && parsed.metadata.accountLast4 ? String(parsed.metadata.accountLast4) : null,
     pageCount: parsed.pageCount,
     lineCount: parsed.lineCount,
     metadata: parsed.metadata,
+    accountResolution,
     warnings: parsed.warnings || [],
     postingPolicy: 'stage_only_no_ledger_posting'
   };
@@ -918,6 +1042,7 @@ exports.importBankStatement = async (req, res) => {
     if (parsed.transactions.length) {
       await db.ImportRow.bulkCreate(stagedRows.map((item, index) => {
         const row = item.row;
+        const merchant = item.merchantResolution || {};
         return {
         importBatchId: created.id,
         rowNumber: index + 1,
@@ -931,7 +1056,12 @@ exports.importBankStatement = async (req, res) => {
           saleDate: row.saleDate,
           accountId,
           description: row.description,
-          merchant: row.description,
+          merchantId: merchant.merchantId || null,
+          merchant: merchant.officialName || row.description,
+          receiptMerchant: row.description,
+          normalizedMerchant: merchant.normalizedMerchant || merchantResolver.normalizeMerchantKey(row.description),
+          merchantMatchConfidence: merchant.confidence || null,
+          merchantMatchSource: merchant.source || null,
           transactionType: row.suggestedLedgerType,
           amount: row.suggestedLedgerAmount,
           currency: row.currency || 'USD',
@@ -1002,11 +1132,17 @@ exports.postBatchRows = async (req, res) => {
   if (!incomingRows.length) return res.status(400).json({ error: 'Select at least one staged row to post.' });
 
   const defaults = {
-    accountId: cleanId(req.body.accountId),
+    accountId: (await resolveDefaultBankAccountId(req.body.accountId, batch.importType || '', batchNotes(batch))).accountId,
     categoryId: cleanId(req.body.categoryId),
     status: cleanText(req.body.transactionStatus || 'draft'),
     sourceType: batch.importType && batch.importType.startsWith('bank_statement') ? 'bank_statement' : 'import_batch'
   };
+  if (!defaults.accountId) {
+    return res.status(400).json({
+      error: 'Unable to determine the correct account for posting.',
+      suggestion: 'Open the batch and select the matching account before posting.'
+    });
+  }
   const requestedIds = incomingRows.map((row) => cleanId(row.id)).filter(Boolean);
   const currentRows = await db.ImportRow.findAll({
     where: {
@@ -1067,14 +1203,31 @@ exports.postBatchRows = async (req, res) => {
         continue;
       }
 
+      const merchantPayload = await merchantResolver.merchantPayload(
+        draft.merchant || draft.receiptMerchant || draft.description,
+        { transaction, source: 'import_post' }
+      );
+      Object.assign(draft, {
+        merchantId: merchantPayload.merchantId,
+        merchant: merchantPayload.merchant,
+        receiptMerchant: merchantPayload.receiptMerchant,
+        normalizedMerchant: merchantPayload.normalizedMerchant,
+        merchantMatchConfidence: merchantPayload.merchantMatchConfidence,
+        merchantMatchSource: merchantPayload.merchantMatchSource
+      });
+
       const tx = await db.Transaction.create({
         transactionDate: draft.transactionDate,
         accountId: draft.accountId,
         categoryId: draft.categoryId,
         relatedAccountId: draft.relatedAccountId,
         description: draft.description,
+        merchantId: draft.merchantId,
         merchant: draft.merchant,
+        receiptMerchant: draft.receiptMerchant,
         normalizedMerchant: draft.normalizedMerchant,
+        merchantMatchConfidence: draft.merchantMatchConfidence,
+        merchantMatchSource: draft.merchantMatchSource,
         transactionType: draft.transactionType,
         amount: draft.amount,
         currency: draft.currency,

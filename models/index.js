@@ -36,6 +36,8 @@ const modelFiles = [
   require('./importbatch.js'),
   require('./importrow.js'),
   require('./investmentholding.js'),
+  require('./merchant.js'),
+  require('./merchantalias.js'),
   require('./proofdocument.js'),
   require('./recurringtransaction.js'),
   require('./reconciliation.js'),

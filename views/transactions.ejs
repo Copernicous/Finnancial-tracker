@@ -108,7 +108,7 @@
       padding: .68rem .9rem;
       border-bottom: 1px solid var(--border);
     }
-    .tx-table-wrap { max-height: 58vh; overflow: auto; }
+    .tx-table-wrap { max-height: 58vh; overflow: auto; max-width: 100%; }
     .tx-table {
       margin-bottom: 0;
       font-size: .82rem;
@@ -207,7 +207,7 @@
       #content { margin-left: 0 !important; padding: 0 !important; }
       .container-fluid { padding: 0 !important; }
       .tx-panel { box-shadow: none !important; border-color: #999 !important; }
-      .tx-table-wrap { max-height: none !important; overflow: visible !important; }
+      .tx-table-wrap { max-height: none !important; overflow: visible !important; max-width: 100%; }
     }
   </style>
 </head>
@@ -378,6 +378,14 @@
               <input class="form-control form-control-sm" id="qFilter" placeholder="merchant, memo, reference">
             </div>
             <div class="tx-field">
+              <label for="searchScope">Scope</label>
+              <select class="form-select form-select-sm" id="searchScope">
+                <option value="">Default</option>
+                <option value="entry">Entry</option>
+                <option value="group">Group</option>
+              </select>
+            </div>
+            <div class="tx-field">
               <label for="yearFilter">Year</label>
               <select class="form-select form-select-sm" id="yearFilter"><option value="2026">2026</option></select>
             </div>
@@ -463,6 +471,12 @@
             <select class="form-select form-select-sm" id="trendGroup" style="width:142px">
               <option value="category">Category</option>
               <option value="merchant">Merchant</option>
+              <option value="account">Account</option>
+            </select>
+            <select class="form-select form-select-sm" id="trendGrain" style="width:110px">
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+              <option value="day">Day</option>
             </select>
             <select class="form-select form-select-sm" id="trendMeasure" style="width:124px">
               <option value="expense">Expense</option>
@@ -472,12 +486,50 @@
             </select>
             <select class="form-select form-select-sm" id="trendChartType" style="width:116px">
               <option value="bar">Bars</option>
-              <option value="line">Soft Line</option>
+              <option value="line">Curve</option>
+              <option value="area">Area</option>
             </select>
+            <button class="btn btn-outline-primary btn-sm" type="button" id="trendRefreshBtn"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
           </div>
         </div>
         <div class="tx-panel-body">
           <div class="tx-chart-frame"><canvas id="trendChart"></canvas></div>
+          <div class="mt-3" id="trendDetail"></div>
+        </div>
+      </section>
+
+      <section class="tx-panel">
+        <div class="tx-panel-header">
+          <div>
+            <h5 class="tx-title">Vertical Trend View</h5>
+            <div class="tx-muted">Timeline drill-down with a right-side detail rail.</div>
+          </div>
+          <div class="tx-chart-controls no-print">
+            <select class="form-select form-select-sm" id="trendVerticalGroup" style="width:142px">
+              <option value="merchant">Merchant</option>
+              <option value="category">Category</option>
+              <option value="account">Account</option>
+            </select>
+            <select class="form-select form-select-sm" id="trendVerticalGrain" style="width:110px">
+              <option value="day">Day</option>
+              <option value="week">Week</option>
+              <option value="month" selected>Month</option>
+              <option value="year">Year</option>
+              <option value="custom">Custom</option>
+            </select>
+            <select class="form-select form-select-sm" id="trendVerticalMeasure" style="width:124px">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+              <option value="transfer">Transfer</option>
+              <option value="net">Net</option>
+            </select>
+          </div>
+        </div>
+        <div class="tx-panel-body">
+          <div class="split-layout">
+            <div class="tx-chart-frame"><canvas id="trendVerticalChart"></canvas></div>
+            <div class="rank-list" id="trendVerticalDetail"></div>
+          </div>
         </div>
       </section>
 
@@ -589,6 +641,7 @@ let rows = [];
 let lastSearch = { total: 0, page: 1, limit: 50, totalPages: 1, categorySummary: [] };
 let sortState = { key: 'transactionDate', dir: 'desc' };
 let trendChart = null;
+let trendVerticalChart = null;
 let categoryModal = null;
 let modalRows = [];
 
@@ -784,6 +837,7 @@ async function saveEntry(event) {
 function filterParams(extra) {
   return {
     q: document.getElementById('qFilter').value.trim(),
+    searchScope: document.getElementById('searchScope').value,
     year: document.getElementById('yearFilter').value || '2026',
     month: document.getElementById('monthFilter').value,
     accountClass: document.getElementById('accountClassFilter').value,
@@ -836,7 +890,7 @@ function renderRows() {
         '<select class="form-select form-select-sm row-category" data-id="' + row.id + '">' + categoryOptionsHtml(row.categoryId, true) + '</select>' +
         '<button class="btn btn-outline-secondary btn-sm no-print category-drill" type="button" data-category="' + (row.categoryId || 'uncategorized') + '" data-name="' + attr(row.categoryName || 'Uncategorized') + '"><i class="fas fa-magnifying-glass"></i></button>' +
       '</div></td>' +
-      '<td><div class="fw-semibold">' + esc(row.merchant || '') + '</div><div class="tx-muted">' + esc(row.sourceType || '') + '</div></td>' +
+      '<td><div class="fw-semibold">' + esc(row.merchant || '') + '</div><div class="tx-muted">' + esc(row.receiptMerchant && row.receiptMerchant !== row.merchant ? row.receiptMerchant : row.sourceType || '') + '</div></td>' +
       '<td><div>' + esc(row.description || '') + '</div><div class="tx-row-note">' + esc(row.tags || row.memo || '') + '</div></td>' +
       '<td>' + esc(row.transactionType || '') + '</td>' +
       '<td class="text-end tx-amount ' + amountClass + '">' + money(row.amount, row.currency) + '</td>' +
@@ -924,7 +978,8 @@ async function bulkApplyCategory() {
 
 async function autoCategorizeSelected() {
   const ids = selectedIds();
-  const body = ids.length ? { ids, onlyUncategorized: false } : { onlyUncategorized: true, limit: 500 };
+  const forceGroup = document.getElementById('categoryFilter').selectedOptions[0] ? document.getElementById('categoryFilter').selectedOptions[0].textContent : '';
+  const body = ids.length ? { ids, onlyUncategorized: false, forceGroup } : { onlyUncategorized: true, limit: 500, forceGroup };
   const res = await fetch('/api/finance/transactions/auto-categorize', {
     method: 'POST',
     headers: authHeaders(true),
@@ -1036,21 +1091,23 @@ async function loadTrend() {
     sort: null,
     dir: null,
     groupBy: document.getElementById('trendGroup').value,
+    grain: document.getElementById('trendGrain').value,
     measure: document.getElementById('trendMeasure').value
   });
   const res = await fetch('/api/finance/trends?' + qs(params), { headers: authHeaders() });
   if (!res.ok) return;
   const data = await res.json();
-  const type = document.getElementById('trendChartType').value === 'line' ? 'line' : 'bar';
+  const chartType = document.getElementById('trendChartType').value;
+  const type = chartType === 'bar' ? 'bar' : 'line';
   const datasets = (data.series || []).map((serie, index) => ({
     label: serie.name,
     data: serie.values,
     borderColor: chartColors(index),
-    backgroundColor: type === 'line' ? chartColors(index) + '22' : chartColors(index) + 'bb',
+    backgroundColor: chartType === 'area' ? chartColors(index) + '22' : (type === 'line' ? chartColors(index) + '22' : chartColors(index) + 'bb'),
     borderWidth: 2,
-    tension: .35,
-    fill: type === 'line',
-    pointRadius: type === 'line' ? 3 : 0
+    tension: chartType === 'bar' ? 0 : .4,
+    fill: chartType !== 'bar',
+    pointRadius: chartType === 'bar' ? 0 : 3
   }));
   if (trendChart) trendChart.destroy();
   trendChart = new Chart(document.getElementById('trendChart'), {
@@ -1063,6 +1120,49 @@ async function loadTrend() {
       scales: { y: { beginAtZero: true } }
     }
   });
+
+  const verticalParams = filterParams({
+    page: null,
+    limit: null,
+    sort: null,
+    dir: null,
+    groupBy: document.getElementById('trendVerticalGroup').value,
+    grain: document.getElementById('trendVerticalGrain').value === 'custom' ? 'month' : document.getElementById('trendVerticalGrain').value,
+    measure: document.getElementById('trendVerticalMeasure').value,
+    from: document.getElementById('trendVerticalGrain').value === 'custom' ? document.getElementById('fromFilter').value : '',
+    to: document.getElementById('trendVerticalGrain').value === 'custom' ? document.getElementById('toFilter').value : ''
+  });
+  const verticalRes = await fetch('/api/finance/trends?' + qs(verticalParams), { headers: authHeaders() });
+  if (!verticalRes.ok) return;
+  const verticalData = await verticalRes.json();
+  if (trendVerticalChart) trendVerticalChart.destroy();
+  trendVerticalChart = new Chart(document.getElementById('trendVerticalChart'), {
+    type: 'bar',
+    data: {
+      labels: verticalData.labels || [],
+      datasets: (verticalData.series || []).map((serie, index) => ({
+        label: serie.name,
+        data: serie.values,
+        backgroundColor: chartColors(index) + 'bb',
+        borderColor: chartColors(index),
+        borderWidth: 1
+      }))
+    },
+    options: {
+      indexAxis: 'x',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom' } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+  document.getElementById('trendVerticalDetail').innerHTML = (verticalData.series || []).slice(0, 8).map((serie) => (
+    '<button class="rank-row btn btn-link text-start p-0 drill-vertical" type="button" data-name="' + esc(serie.name) + '">' +
+      '<span class="fw-semibold text-truncate">' + esc(serie.name) + '</span>' +
+      '<span class="text-end">' + money(serie.total || 0) + '</span>' +
+      '<span class="small-muted text-end">' + esc((serie.values || []).filter(v => Number(v || 0) !== 0).length) + ' periods</span>' +
+    '</button>'
+  )).join('') || '<div class="text-muted">No detail available.</div>';
 }
 
 async function openCategory(categoryId, name) {
@@ -1113,6 +1213,14 @@ document.getElementById('qFilter').addEventListener('keydown', event => {
     loadTrend();
   }
 });
+['trendGroup', 'trendGrain', 'trendMeasure', 'trendChartType', 'searchScope', 'trendVerticalGroup', 'trendVerticalGrain', 'trendVerticalMeasure'].forEach(id => document.getElementById(id).addEventListener('change', () => {
+  if (id === 'searchScope') {
+    lastSearch.page = 1;
+    loadRows();
+  }
+  loadTrend();
+}));
+document.getElementById('trendRefreshBtn').addEventListener('click', loadTrend);
 document.querySelectorAll('th[data-sort]').forEach(th => {
   th.addEventListener('click', () => {
     const key = th.getAttribute('data-sort');
@@ -1182,7 +1290,7 @@ document.getElementById('searchBtn').addEventListener('click', () => { lastSearc
 document.getElementById('resetFilterBtn').addEventListener('click', () => { resetFilters(); loadRows(); loadTrend(); });
 document.getElementById('modalApplyCategory').addEventListener('click', modalApplyCategory);
 document.getElementById('modalLookupCategory').addEventListener('click', () => onlineLookupRows(modalRows));
-['trendGroup', 'trendMeasure', 'trendChartType'].forEach(id => document.getElementById(id).addEventListener('change', loadTrend));
+['trendGroup', 'trendMeasure', 'trendChartType', 'trendVerticalGroup', 'trendVerticalGrain', 'trendVerticalMeasure'].forEach(id => document.getElementById(id).addEventListener('change', loadTrend));
 
 document.addEventListener('DOMContentLoaded', async function() {
   categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));

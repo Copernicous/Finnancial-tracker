@@ -3,6 +3,7 @@
 const db = require('../models');
 const { Op } = require('sequelize');
 const merchantCategorizer = require('../services/merchantCategorizer');
+const merchantResolver = require('../services/merchantResolver');
 
 function toNumber(value) {
   const n = Number(value);
@@ -70,6 +71,7 @@ function transactionQueryParts(query, options = {}) {
   if (dateWhere) where.transactionDate = dateWhere;
 
   if (query.accountId) where.accountId = Number(query.accountId);
+  if (query.merchantId) where.merchantId = Number(query.merchantId);
   if (query.categoryId === 'uncategorized' || query.categoryId === 'none') {
     where.categoryId = { [Op.is]: null };
   } else if (query.categoryId) {
@@ -79,6 +81,23 @@ function transactionQueryParts(query, options = {}) {
   if (query.status) where.status = cleanText(query.status);
   if (query.currency && query.currency !== 'ALL') where.currency = cleanText(query.currency).toUpperCase();
   if (query.sourceType) where.sourceType = cleanText(query.sourceType);
+  if (query.searchScope === 'entry' && q) {
+    where[Op.or] = [
+      { description: { [Op.iLike]: `%${q}%` } },
+      { merchant: { [Op.iLike]: `%${q}%` } },
+      { receiptMerchant: { [Op.iLike]: `%${q}%` } },
+      { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
+      { memo: { [Op.iLike]: `%${q}%` } }
+    ];
+  } else if (query.searchScope === 'group' && q) {
+    where[Op.or] = [
+      { description: { [Op.iLike]: `%${q}%` } },
+      { merchant: { [Op.iLike]: `%${q}%` } },
+      { receiptMerchant: { [Op.iLike]: `%${q}%` } },
+      { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
+      { tags: { [Op.iLike]: `%${q}%` } }
+    ];
+  }
   if (query.onlyUncategorized === 'true' || query.onlyUncategorized === true) where.categoryId = { [Op.is]: null };
   if (query.min || query.max) {
     where.amount = {};
@@ -90,6 +109,7 @@ function transactionQueryParts(query, options = {}) {
     where[Op.or] = [
       { description: { [Op.iLike]: `%${q}%` } },
       { merchant: { [Op.iLike]: `%${q}%` } },
+      { receiptMerchant: { [Op.iLike]: `%${q}%` } },
       { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
       { referenceNumber: { [Op.iLike]: `%${q}%` } },
       { memo: { [Op.iLike]: `%${q}%` } },
@@ -114,6 +134,10 @@ function accountInclude(accountWhere = {}) {
 
 function categoryInclude() {
   return { model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'], required: false };
+}
+
+function merchantInclude() {
+  return { model: db.Merchant, attributes: ['id', 'officialName', 'normalizedName', 'merchantType'], required: false };
 }
 
 function sortOrder(sortKey, sortDir) {
@@ -145,10 +169,14 @@ function transactionDto(row) {
     categoryId: row.categoryId,
     categoryName: row.Category ? row.Category.name : '',
     categoryGroup: row.Category ? row.Category.groupName : '',
+    merchantId: row.merchantId,
     relatedAccountId: row.relatedAccountId,
     description: row.description,
-    merchant: row.merchant,
+    merchant: row.Merchant ? row.Merchant.officialName : row.merchant,
+    receiptMerchant: row.receiptMerchant,
     normalizedMerchant: row.normalizedMerchant,
+    merchantMatchConfidence: row.merchantMatchConfidence == null ? null : toNumber(row.merchantMatchConfidence),
+    merchantMatchSource: row.merchantMatchSource,
     transactionType: row.transactionType,
     amount: toNumber(row.amount),
     currency: row.currency,
@@ -226,7 +254,8 @@ exports.overview = async (req, res, next) => {
             where: Object.keys(overviewAccountWhere).length ? overviewAccountWhere : undefined,
             required: Object.keys(overviewAccountWhere).length > 0
           },
-          { model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'] }
+          { model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'] },
+          merchantInclude()
         ],
         order: [['transactionDate', 'ASC'], ['id', 'ASC']]
       }),
@@ -474,7 +503,9 @@ exports.overview = async (req, res, next) => {
         accountName: tx.Account ? tx.Account.name : '',
         categoryName: tx.Category ? tx.Category.name : '',
         description: tx.description,
-        merchant: tx.merchant,
+        merchantId: tx.merchantId,
+        merchant: tx.Merchant ? tx.Merchant.officialName : tx.merchant,
+        receiptMerchant: tx.receiptMerchant,
         transactionType: tx.transactionType,
         amount: toNumber(tx.amount),
         currency: tx.currency,
@@ -496,7 +527,7 @@ exports.search = async (req, res, next) => {
       ? Math.min(Math.max(Number(req.query.limit) || 5000, 1), 20000)
       : Math.min(Math.max(Number(req.query.limit) || 50, 1), 500);
     const offset = exportAll ? 0 : (page - 1) * limit;
-    const include = [accountInclude(accountWhere), categoryInclude()];
+    const include = [accountInclude(accountWhere), categoryInclude(), merchantInclude()];
 
     const result = await db.Transaction.findAndCountAll({
       where,
@@ -531,10 +562,10 @@ exports.search = async (req, res, next) => {
       category.amount += amount;
       category.count += 1;
 
-      const merchantName = cleanText(row.merchant || row.normalizedMerchant || row.description) || 'No merchant';
-      const merchantKey = merchantCategorizer.normalize(merchantName);
+      const merchantName = cleanText(row.Merchant ? row.Merchant.officialName : (row.merchant || row.normalizedMerchant || row.description)) || 'No merchant';
+      const merchantKey = row.merchantId ? `merchant:${row.merchantId}` : merchantResolver.normalizeMerchantKey(merchantName);
       if (!merchantSummary.has(merchantKey)) {
-        merchantSummary.set(merchantKey, { name: merchantName, amount: 0, count: 0 });
+        merchantSummary.set(merchantKey, { merchantId: row.merchantId || null, name: merchantName, amount: 0, count: 0 });
       }
       const merchant = merchantSummary.get(merchantKey);
       merchant.amount += amount;
@@ -559,7 +590,8 @@ exports.search = async (req, res, next) => {
 
 exports.trends = async (req, res, next) => {
   try {
-    const groupBy = req.query.groupBy === 'merchant' ? 'merchant' : 'category';
+    const groupBy = ['account', 'merchant', 'category'].includes(req.query.groupBy) ? req.query.groupBy : 'category';
+    const grain = ['day', 'week', 'month', 'year'].includes(req.query.grain) ? req.query.grain : 'month';
     const measure = ['income', 'expense', 'transfer', 'net'].includes(req.query.measure) ? req.query.measure : 'expense';
     const { where, accountWhere } = transactionQueryParts({
       ...req.query,
@@ -568,23 +600,54 @@ exports.trends = async (req, res, next) => {
     if (!req.query.status) where.status = { [Op.ne]: 'void' };
     const rows = await db.Transaction.findAll({
       where,
-      include: [accountInclude(accountWhere), categoryInclude()],
+      include: [accountInclude(accountWhere), categoryInclude(), merchantInclude()],
       order: [['transactionDate', 'ASC'], ['id', 'ASC']],
       limit: 20000
     });
 
-    const labels = Array.from(new Set(rows.map((row) => String(row.transactionDate).slice(0, 7)))).sort();
+    function timeBucket(dateValue) {
+      const text = String(dateValue || '');
+      if (grain === 'day') return text.slice(0, 10);
+      if (grain === 'week') {
+        const date = new Date(text + 'T00:00:00Z');
+        if (Number.isNaN(date.getTime())) return text.slice(0, 10);
+        const day = (date.getUTCDay() + 6) % 7;
+        date.setUTCDate(date.getUTCDate() - day);
+        return date.toISOString().slice(0, 10);
+      }
+      if (grain === 'year') return text.slice(0, 4);
+      return text.slice(0, 7);
+    }
+
+    function bucketLabel(value) {
+      if (grain === 'week') {
+        const start = new Date(value + 'T00:00:00Z');
+        if (Number.isNaN(start.getTime())) return value;
+        const end = new Date(start);
+        end.setUTCDate(end.getUTCDate() + 6);
+        return `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`;
+      }
+      return value;
+    }
+
+    const labels = Array.from(new Set(rows.map((row) => timeBucket(row.transactionDate)))).sort();
     const labelIndex = new Map(labels.map((label, index) => [label, index]));
     const groups = new Map();
     rows.forEach((row) => {
       const kind = classifyTransaction(row);
       if (measure !== 'net' && kind !== measure) return;
-      const label = String(row.transactionDate).slice(0, 7);
+      const label = timeBucket(row.transactionDate);
       const amount = measure === 'net' ? toNumber(row.amount) : Math.abs(toNumber(row.amount));
       const name = groupBy === 'merchant'
-        ? (cleanText(row.merchant || row.normalizedMerchant || row.description) || 'No merchant')
-        : (row.Category ? row.Category.name : 'Uncategorized');
-      const key = merchantCategorizer.normalize(name) || 'uncategorized';
+        ? (cleanText(row.Merchant ? row.Merchant.officialName : (row.merchant || row.normalizedMerchant || row.description)) || 'No merchant')
+        : groupBy === 'account'
+          ? (row.Account ? row.Account.name : 'Unassigned account')
+          : (row.Category ? row.Category.name : 'Uncategorized');
+      const key = groupBy === 'merchant'
+        ? (row.merchantId ? `merchant:${row.merchantId}` : merchantResolver.normalizeMerchantKey(name) || 'uncategorized')
+        : groupBy === 'account'
+          ? `account:${row.accountId || 'uncategorized'}`
+        : merchantCategorizer.normalize(name) || 'uncategorized';
       if (!groups.has(key)) groups.set(key, { key, name, total: 0, values: Array(labels.length).fill(0) });
       const group = groups.get(key);
       group.values[labelIndex.get(label)] += amount;
@@ -594,7 +657,7 @@ exports.trends = async (req, res, next) => {
     const series = Array.from(groups.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, Math.min(Math.max(Number(req.query.top) || 8, 1), 15));
-    res.json({ labels, groupBy, measure, series });
+    res.json({ labels: labels.map(bucketLabel), groupBy, measure, grain, series });
   } catch (err) {
     next(err);
   }
@@ -625,6 +688,7 @@ exports.autoCategorize = async (req, res, next) => {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map(cleanId).filter(Boolean) : [];
     const onlyUncategorized = req.body.onlyUncategorized !== false;
     const limit = Math.min(Math.max(Number(req.body.limit) || 500, 1), 2000);
+    const forceGroup = cleanText(req.body.forceGroup);
     const where = {};
     if (ids.length) where.id = { [Op.in]: ids };
     if (onlyUncategorized) where.categoryId = { [Op.is]: null };
@@ -632,30 +696,39 @@ exports.autoCategorize = async (req, res, next) => {
     const [categories, customRules, rows] = await Promise.all([
       db.Category.findAll({ where: { isActive: { [Op.ne]: false } }, order: [['groupName', 'ASC'], ['name', 'ASC']] }),
       getStoredMerchantRules(),
-      db.Transaction.findAll({ where, order: [['transactionDate', 'DESC'], ['id', 'DESC']], limit })
+      db.Transaction.findAll({ where, include: [merchantInclude()], order: [['transactionDate', 'DESC'], ['id', 'DESC']], limit })
     ]);
 
     const result = { scanned: rows.length, applied: 0, skipped: 0, suggestions: [] };
     await db.sequelize.transaction(async (transaction) => {
-      for (const row of rows) {
-        const suggestion = merchantCategorizer.suggestFromRules({
-          text: [row.merchant, row.description, row.normalizedMerchant, row.memo, row.tags].join(' '),
-          categories,
-          customRules,
-          transactionType: row.transactionType
-        });
-        if (!suggestion || !suggestion.categoryId) {
+        for (const row of rows) {
+          const suggestion = merchantCategorizer.suggestFromRules({
+            text: [
+              row.Merchant ? row.Merchant.officialName : row.merchant,
+              row.receiptMerchant,
+              row.description,
+              row.normalizedMerchant,
+              row.memo,
+              row.tags,
+              forceGroup
+            ].join(' '),
+            categories,
+            customRules,
+            transactionType: row.transactionType
+          });
+          if (!suggestion || !suggestion.categoryId) {
           result.skipped += 1;
           continue;
         }
-        await row.update({
-          categoryId: suggestion.categoryId,
-          transactionType: suggestion.transactionType || row.transactionType
-        }, { transaction });
+          await row.update({
+            categoryId: suggestion.categoryId,
+            transactionType: suggestion.transactionType || row.transactionType
+          }, { transaction });
         result.applied += 1;
         result.suggestions.push({
           id: row.id,
-          merchant: row.merchant || row.description,
+          merchant: row.Merchant ? row.Merchant.officialName : (row.merchant || row.description),
+          receiptMerchant: row.receiptMerchant,
           categoryId: suggestion.categoryId,
           categoryName: suggestion.categoryName,
           confidence: suggestion.confidence,

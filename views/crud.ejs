@@ -71,7 +71,7 @@
 const MODULE = '<%= module %>';
 const API_ENDPOINT = '<%= apiEndpoint %>';
 let rows = [];
-let lookups = { accounts: [], categories: [], institutions: [] };
+let lookups = { accounts: [], categories: [], institutions: [], merchants: [] };
 
 const CONFIG = {
   'financial-institutions': {
@@ -117,6 +117,34 @@ const CONFIG = {
       { key: 'parentId', label: 'Parent Category', type: 'lookup', source: 'categories', optional: true },
       { key: 'taxRelevant', label: 'Tax Relevant', type: 'checkbox', checked: false },
       { key: 'isActive', label: 'Active', type: 'checkbox' }
+    ],
+    disable: { field: 'isActive', value: false }
+  },
+  merchants: {
+    columns: ['officialName', 'merchantType', 'defaultCategoryId', 'defaultTransactionType', 'isActive'],
+    fields: [
+      { key: 'officialName', label: 'Official Merchant Name', required: true },
+      { key: 'normalizedName', label: 'Normalized Key' },
+      { key: 'merchantType', label: 'Merchant Type', type: 'select', options: ['retailer', 'grocery', 'restaurant', 'fuel', 'utility', 'subscription', 'bank', 'travel', 'health', 'service', 'other'] },
+      { key: 'website', label: 'Website' },
+      { key: 'defaultCategoryId', label: 'Default Category', type: 'lookup', source: 'categories', optional: true },
+      { key: 'defaultTransactionType', label: 'Default Transaction Type', type: 'select', options: ['', 'income', 'expense', 'transfer', 'adjustment'] },
+      { key: 'isActive', label: 'Active', type: 'checkbox' },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
+    ],
+    disable: { field: 'isActive', value: false }
+  },
+  'merchant-aliases': {
+    columns: ['merchantId', 'aliasText', 'matchType', 'priority', 'source', 'isActive'],
+    fields: [
+      { key: 'merchantId', label: 'Official Merchant', type: 'lookup', source: 'merchants', required: true },
+      { key: 'aliasText', label: 'Receipt / Statement Alias', required: true },
+      { key: 'normalizedAlias', label: 'Normalized Alias' },
+      { key: 'matchType', label: 'Match Type', type: 'select', options: ['contains', 'exact', 'starts_with', 'regex'] },
+      { key: 'priority', label: 'Priority', type: 'number' },
+      { key: 'source', label: 'Source', type: 'select', options: ['manual', 'import_review', 'built_in_alias', 'auto_cleaned', 'backfill'] },
+      { key: 'isActive', label: 'Active', type: 'checkbox' },
+      { key: 'notes', label: 'Notes', type: 'textarea' }
     ],
     disable: { field: 'isActive', value: false }
   },
@@ -287,17 +315,25 @@ function displayValue(key, value) {
   if (key === 'financialInstitutionId') return lookupLabel('institutions', value);
   if (key === 'accountId' || key === 'relatedAccountId') return lookupLabel('accounts', value);
   if (key === 'categoryId' || key === 'parentId') return lookupLabel('categories', value);
+  if (key === 'defaultCategoryId') return lookupLabel('categories', value);
+  if (key === 'merchantId') return lookupLabel('merchants', value);
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (value && typeof value === 'object') return value.name || JSON.stringify(value);
   return value == null || value === '' ? '<span class="muted-cell">--</span>' : esc(value);
 }
 async function loadLookups() {
-  const [accounts, categories, institutions] = await Promise.all([
+  const [accounts, categories, institutions, merchants] = await Promise.all([
     fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
     fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
-    fetch('/api/financial-institutions', { headers: authHeaders() }).then(r => r.ok ? r.json() : [])
+    fetch('/api/financial-institutions', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
+    fetch('/api/merchants', { headers: authHeaders() }).then(r => r.ok ? r.json() : [])
   ]);
-  lookups = { accounts, categories, institutions };
+  lookups = {
+    accounts,
+    categories,
+    institutions,
+    merchants: merchants.map(item => ({ ...item, name: item.officialName || item.name }))
+  };
 }
 function fieldHtml(field) {
   const label = `<label class="form-label small fw-semibold" for="f_${field.key}">${esc(field.label)}</label>`;

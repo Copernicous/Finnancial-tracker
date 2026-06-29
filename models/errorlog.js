@@ -15,7 +15,8 @@ module.exports = (sequelize, DataTypes) => {
     userAgent:  DataTypes.STRING,
     userId:     DataTypes.INTEGER,
     ipAddress:  DataTypes.STRING,
-    resolved:   { type: DataTypes.BOOLEAN, defaultValue: false }
+    resolved:   { type: DataTypes.BOOLEAN, defaultValue: false },
+    resolvedAt: DataTypes.DATE
   }, {
     sequelize,
     modelName: 'ErrorLog',

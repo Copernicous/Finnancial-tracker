@@ -1,6 +1,6 @@
 'use strict';
 
-const baseUrl = (process.argv.find((arg) => /^https?:\/\//i.test(arg)) || process.env.SMOKE_BASE_URL || 'http://localhost:3000').replace(/\/$/, '');
+const baseUrl = (process.argv.find((arg) => /^https?:\/\//i.test(arg)) || process.env.SMOKE_BASE_URL || 'http://localhost:3026').replace(/\/$/, '');
 const shouldSeed = process.argv.includes('--seed');
 const username = process.env.SMOKE_USER || 'admin';
 const password = process.env.SMOKE_PASS || 'admin123';

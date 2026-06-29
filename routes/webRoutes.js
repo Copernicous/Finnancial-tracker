@@ -34,6 +34,14 @@ router.get('/categories', (req, res) => {
   res.render('crud', { title: 'Categories', module: 'categories', apiEndpoint: '/api/categories', activePage: 'categories' });
 });
 
+router.get('/merchants', (req, res) => {
+  res.render('crud', { title: 'Official Merchants', module: 'merchants', apiEndpoint: '/api/merchants', activePage: 'merchants' });
+});
+
+router.get('/merchant-aliases', (req, res) => {
+  res.render('crud', { title: 'Merchant Aliases', module: 'merchant-aliases', apiEndpoint: '/api/merchant-aliases', activePage: 'merchant-aliases' });
+});
+
 router.get('/financial-institutions', (req, res) => {
   res.render('crud', { title: 'Financial Institutions', module: 'financial-institutions', apiEndpoint: '/api/financial-institutions', activePage: 'financial-institutions' });
 });

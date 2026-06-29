@@ -26,8 +26,14 @@
     .stack-row { display: grid; grid-template-columns: minmax(140px, 1fr) 110px 82px; gap: .65rem; align-items: center; padding: .55rem 0; border-bottom: 1px solid var(--border,#e5e7eb); }
     .stack-row:last-child { border-bottom: 0; }
     .compact-table th { cursor: pointer; user-select: none; }
-    .ledger-wrap { max-height: 460px; overflow: auto; }
+    .ledger-wrap { max-height: 460px; overflow: auto; max-width: 100%; }
     .finance-chart-frame { position: relative; height: 320px; min-height: 320px; }
+    .finance-chart-frame.compact { height: 260px; min-height: 260px; }
+    .category-chart-frame { height: 360px; min-height: 360px; }
+    .split-layout > .finance-panel:last-child .finance-chart-frame.compact { height: 100%; min-height: 0; flex: 1 1 auto; }
+    .rank-list { display: grid; gap: .55rem; }
+    .rank-row { display: grid; grid-template-columns: minmax(130px, 1fr) 96px 72px; gap: .65rem; align-items: center; padding: .45rem 0; border-bottom: 1px solid var(--border,#e5e7eb); }
+    .rank-row:last-child { border-bottom: 0; }
     .chart-toggle-group { display: inline-flex; gap: .35rem; flex-wrap: wrap; align-items: center; }
     .chart-toggle-group .form-check { margin: 0; min-height: auto; }
     .chart-toggle-group .form-check-label { font-size: .76rem; color: var(--text-muted,#64748b); }
@@ -35,17 +41,28 @@
     .status-dot.reviewed, .status-dot.reconciled { background: #198754; }
     .status-dot.draft { background: #f59e0b; }
     .status-dot.void { background: #dc3545; }
-    .split-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(320px, .9fr); gap: 1rem; align-items: start; }
+    .split-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .9fr); gap: 1rem; align-items: stretch; }
+    .split-layout > .finance-panel { height: 100%; }
+    .split-layout > .finance-panel:last-child { display: flex; flex-direction: column; }
+    .merchant-summary-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+    .merchant-summary-item { border: 1px solid rgba(148,163,184,.16); border-radius: 10px; padding: .75rem .85rem; background: rgba(15,23,42,.35); min-height: 68px; }
+    .merchant-summary-item .fw-semibold { line-height: 1.15; }
+    .merchant-summary-item .text-truncate { max-width: 100%; }
     .three-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
     .small-muted { color: var(--text-muted,#64748b); font-size: .78rem; }
     @media (max-width: 1200px) {
       .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .split-layout, .three-layout { grid-template-columns: 1fr; }
+      .merchant-summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .split-layout > .finance-panel:last-child { display: block; }
     }
     @media (max-width: 640px) {
       .filter-grid, .kpi-grid { grid-template-columns: 1fr; }
       .bar-row, .stack-row { grid-template-columns: 1fr; gap: .25rem; }
+      .split-layout, .three-layout { grid-template-columns: 1fr; }
+      .merchant-summary-strip { grid-template-columns: 1fr; }
+      .split-layout > .finance-panel:last-child { display: block; }
     }
   </style>
 </head>
@@ -71,8 +88,8 @@
             <div class="small-muted">Account, currency, period, budget, and ledger selectors.</div>
           </div>
           <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-outline-primary btn-sm" id="seedBtn"><i class="fas fa-chart-line me-1"></i>Load Sample</button>
-            <button class="btn btn-outline-danger btn-sm" id="clearBtn"><i class="fas fa-trash-alt me-1"></i>Clear Sample</button>
+            <button class="btn btn-outline-primary btn-sm d-none" id="seedBtn"><i class="fas fa-chart-line me-1"></i>Load Sample</button>
+            <button class="btn btn-outline-danger btn-sm d-none" id="clearBtn"><i class="fas fa-trash-alt me-1"></i>Clear Sample</button>
             <button class="btn btn-outline-success btn-sm" id="exportBtn"><i class="fas fa-file-csv me-1"></i>Export</button>
             <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="fas fa-print me-1"></i>Print</button>
           </div>
@@ -126,34 +143,78 @@
 
       <section class="kpi-grid" id="kpiGrid"></section>
 
+      <section class="finance-panel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h5 class="mb-1">Explorer</h5>
+            <div class="small-muted">Jump across all categories and merchants.</div>
+          </div>
+          <div class="d-flex gap-2 flex-wrap">
+            <select id="explorerGrain" class="form-select form-select-sm" style="width:110px">
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+              <option value="day">Day</option>
+              <option value="year">Year</option>
+            </select>
+            <select id="explorerType" class="form-select form-select-sm" style="width:110px">
+              <option value="bar">Bars</option>
+              <option value="line">Line</option>
+              <option value="area">Area</option>
+            </select>
+          </div>
+        </div>
+        <div class="filter-grid">
+          <div>
+            <label class="form-label">Category</label>
+            <select id="categoryExplorerSelect" class="form-select"></select>
+          </div>
+          <div>
+            <label class="form-label">Merchant</label>
+            <select id="merchantExplorerSelect" class="form-select"></select>
+          </div>
+          <div>
+            <label class="form-label">From</label>
+            <input id="explorerFrom" type="date" class="form-control">
+          </div>
+          <div>
+            <label class="form-label">To</label>
+            <input id="explorerTo" type="date" class="form-control">
+          </div>
+          <div class="d-flex align-items-end gap-2">
+            <button id="explorerRunBtn" class="btn btn-primary flex-fill"><i class="fas fa-search me-1"></i>Show</button>
+            <button id="explorerClearBtn" class="btn btn-outline-secondary" type="button"><i class="fas fa-undo"></i></button>
+          </div>
+        </div>
+      </section>
+
       <section class="split-layout">
         <div class="finance-panel">
           <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="mb-0">Monthly Cash Flow</h5>
+            <h5 class="mb-0">Trend Explorer</h5>
             <div class="d-flex align-items-center gap-2 flex-wrap">
               <span class="small-muted" id="periodLabel">2026</span>
-              <select id="monthlyChartType" class="form-select form-select-sm" style="width:118px">
-                <option value="bar">Bars</option>
-                <option value="line">Soft Line</option>
+              <select id="trendGroup" class="form-select form-select-sm" style="width:132px">
+                <option value="category">Category</option>
+                <option value="merchant">Merchant</option>
+                <option value="account">Account</option>
               </select>
-              <div class="chart-toggle-group">
-                <div class="form-check">
-                  <input class="form-check-input monthly-series" type="checkbox" value="income" id="showIncome" checked>
-                  <label class="form-check-label" for="showIncome">Income</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input monthly-series" type="checkbox" value="expenses" id="showExpenses" checked>
-                  <label class="form-check-label" for="showExpenses">Expenses</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input monthly-series" type="checkbox" value="net" id="showNet" checked>
-                  <label class="form-check-label" for="showNet">Net</label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input monthly-series" type="checkbox" value="transfers" id="showTransfers">
-                  <label class="form-check-label" for="showTransfers">Transfers</label>
-                </div>
-              </div>
+              <select id="trendGrain" class="form-select form-select-sm" style="width:110px">
+                <option value="month">Month</option>
+                <option value="week">Week</option>
+                <option value="day">Day</option>
+              </select>
+              <select id="trendMeasure" class="form-select form-select-sm" style="width:118px">
+                <option value="expense">Expense</option>
+                <option value="income">Income</option>
+                <option value="transfer">Transfer</option>
+                <option value="net">Net</option>
+              </select>
+              <select id="trendChartType" class="form-select form-select-sm" style="width:118px">
+                <option value="bar">Bars</option>
+                <option value="line">Curve</option>
+                <option value="area">Area</option>
+              </select>
+              <button class="btn btn-outline-primary btn-sm" id="trendRefreshBtn"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
             </div>
           </div>
           <div class="finance-chart-frame"><canvas id="monthlyCashFlowChart"></canvas></div>
@@ -163,7 +224,63 @@
             <h5 class="mb-0">Spending by Category</h5>
             <span class="small-muted">Top categories</span>
           </div>
-          <div id="categoryChart"></div>
+          <div class="split-layout">
+            <div class="finance-chart-frame category-chart-frame"><canvas id="categorySpendChart"></canvas></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="finance-panel">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <h5 class="mb-1">Usage by Official Merchant</h5>
+            <div class="small-muted">Canonical merchant names from aliases and import review.</div>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap">
+            <select id="merchantTrendGrain" class="form-select form-select-sm" style="width:110px">
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+              <option value="day">Day</option>
+              <option value="year">Year</option>
+              <option value="custom">Custom</option>
+            </select>
+            <select id="merchantTrendType" class="form-select form-select-sm" style="width:116px">
+              <option value="bar">Bars</option>
+              <option value="line">Line</option>
+              <option value="area">Area</option>
+            </select>
+            <a class="btn btn-outline-secondary btn-sm" href="/merchants"><i class="fas fa-store me-1"></i>Manage Merchants</a>
+          </div>
+        </div>
+        <div class="merchant-summary-strip mb-3">
+          <div class="merchant-summary-item">
+            <div class="small-muted text-uppercase">Selected category</div>
+            <div id="merchantCategoryName" class="fw-semibold text-truncate">All categories</div>
+          </div>
+          <div class="merchant-summary-item">
+            <div class="small-muted text-uppercase">Selected merchant</div>
+            <div id="merchantSummaryName" class="fw-semibold text-truncate">-</div>
+          </div>
+          <div class="merchant-summary-item">
+            <div class="small-muted text-uppercase">Spend</div>
+            <div id="merchantSummaryAmount" class="fw-semibold">-</div>
+          </div>
+          <div class="merchant-summary-item">
+            <div class="small-muted text-uppercase">Transactions</div>
+            <div id="merchantSummaryCount" class="fw-semibold">-</div>
+          </div>
+          <div class="merchant-summary-item">
+            <div class="small-muted text-uppercase">Timeline</div>
+            <div id="merchantSummaryGrain" class="fw-semibold">-</div>
+          </div>
+        </div>
+        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+          <label class="small-muted text-uppercase mb-0" for="merchantSubSelect">Merchant</label>
+          <select id="merchantSubSelect" class="form-select form-select-sm" style="max-width:320px"></select>
+        </div>
+        <div class="split-layout">
+          <div class="finance-chart-frame compact"><canvas id="merchantSpendChart"></canvas></div>
+          <div id="merchantRankList" class="rank-list"></div>
         </div>
       </section>
 
@@ -256,8 +373,16 @@ let accounts = [];
 let categories = [];
 let overview = null;
 let searchRows = [];
+let searchSummary = { merchantSummary: [] };
 let sortState = { key: 'transactionDate', dir: 'desc' };
+let selectedCategoryId = '';
+let selectedMerchantId = '';
 let monthlyCashFlowChart = null;
+let categorySpendChart = null;
+let merchantSpendChart = null;
+let trendChartData = null;
+let merchantTrendData = null;
+let explorerRows = [];
 
 function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -288,6 +413,23 @@ function percentBar(value, colorClass) {
 function maxAbs(rows, keys) {
   return Math.max(1, ...rows.flatMap(row => keys.map(key => Math.abs(Number(row[key] || 0)))));
 }
+function chartColor(index) {
+  const colors = ['#0d6efd', '#198754', '#dc3545', '#f59e0b', '#14b8a6', '#7c3aed', '#0ea5e9', '#db2777', '#64748b', '#84cc16'];
+  return colors[index % colors.length];
+}
+function buildMerchantSummary(rows) {
+  const map = new Map();
+  (rows || []).forEach(row => {
+    const amount = Math.abs(Number(row.amount || 0));
+    const name = row.merchant || row.receiptMerchant || row.normalizedMerchant || row.description || 'No merchant';
+    const key = row.merchantId ? 'merchant:' + row.merchantId : name.toLowerCase();
+    if (!map.has(key)) map.set(key, { merchantId: row.merchantId || null, name, amount: 0, count: 0 });
+    const item = map.get(key);
+    item.amount += amount;
+    item.count += 1;
+  });
+  return Array.from(map.values()).sort((a, b) => b.amount - a.amount);
+}
 
 async function loadLookups() {
   const [accountRows, categoryRows] = await Promise.all([
@@ -297,6 +439,8 @@ async function loadLookups() {
   accounts = accountRows;
   categories = categoryRows;
   document.getElementById('accountFilter').innerHTML = '<option value="">All accounts</option>' + accounts.map(account => '<option value="' + account.id + '">' + esc(account.name) + '</option>').join('');
+  document.getElementById('categoryExplorerSelect').innerHTML = '<option value="">All categories</option>' + categories.map(category => '<option value="' + category.id + '">' + esc(category.name) + '</option>').join('');
+  document.getElementById('merchantExplorerSelect').innerHTML = '<option value="">All merchants</option>';
 }
 
 function filters() {
@@ -331,6 +475,8 @@ async function loadSearch() {
     currency: f.currency,
     type: document.getElementById('typeFilter').value,
     status: document.getElementById('statusFilter').value,
+    categoryId: document.getElementById('categoryExplorerSelect').value || selectedCategoryId,
+    merchantId: document.getElementById('merchantExplorerSelect').value || selectedMerchantId,
     from: document.getElementById('fromFilter').value,
     to: document.getElementById('toFilter').value,
     limit: 500
@@ -339,7 +485,19 @@ async function loadSearch() {
   if (!response.ok) throw new Error('Search failed');
   const data = await response.json();
   searchRows = data.rows || [];
+  searchSummary = { merchantSummary: data.merchantSummary || buildMerchantSummary(searchRows) };
+  explorerRows = searchSummary.merchantSummary || [];
+  const merchantExplorer = document.getElementById('merchantExplorerSelect');
+  merchantExplorer.innerHTML = '<option value="">All merchants</option>' + explorerRows.map(row => '<option value="' + (row.merchantId || '') + '">' + esc(row.name) + '</option>').join('');
+  if (selectedCategoryId && !selectedMerchantId && explorerRows.length) {
+    selectedMerchantId = explorerRows[0].merchantId || '';
+    merchantExplorer.value = selectedMerchantId;
+  }
+  if (selectedMerchantId) merchantExplorer.value = selectedMerchantId;
+  document.getElementById('merchantSubSelect').innerHTML = '<option value="">Choose merchant...</option>' + explorerRows.map(row => '<option value="' + (row.merchantId || '') + '">' + esc(row.name) + '</option>').join('');
+  document.getElementById('merchantSubSelect').value = selectedMerchantId || '';
   renderLedger();
+  renderMerchantSummary();
 }
 
 function renderKpis(summary) {
@@ -365,33 +523,43 @@ function renderKpis(summary) {
   )).join('');
 }
 
-function renderMonthly() {
+async function renderMonthly() {
   if (!overview) return;
   const selectedMonth = overview.filters && overview.filters.month ? Number(overview.filters.month) : null;
-  const rows = selectedMonth ? (overview.monthly || []).filter(row => Number(row.month) === selectedMonth) : (overview.monthly || []);
-  const selectedSeries = Array.from(document.querySelectorAll('.monthly-series:checked')).map(input => input.value);
-  const type = document.getElementById('monthlyChartType').value === 'line' ? 'line' : 'bar';
-  document.getElementById('periodLabel').textContent = overview.filters.year + (overview.filters.month ? '-' + String(overview.filters.month).padStart(2, '0') : '');
-  const seriesMeta = {
-    income: { label: 'Income', color: '#198754' },
-    expenses: { label: 'Expenses', color: '#dc3545' },
-    net: { label: 'Net', color: '#0d6efd' },
-    transfers: { label: 'Transfers', color: '#f59e0b' }
-  };
-  const datasets = selectedSeries.map(key => ({
-    label: seriesMeta[key].label,
-    data: rows.map(row => Number(row[key] || 0)),
-    borderColor: seriesMeta[key].color,
-    backgroundColor: type === 'line' ? seriesMeta[key].color + '22' : seriesMeta[key].color + 'bb',
+  const selectedYear = overview.filters ? overview.filters.year : '2026';
+  const groupBy = document.getElementById('trendGroup').value;
+  const grain = document.getElementById('trendGrain').value;
+  const measure = document.getElementById('trendMeasure').value;
+  const chartType = document.getElementById('trendChartType').value;
+  document.getElementById('periodLabel').textContent = selectedYear + (overview.filters.month ? '-' + String(overview.filters.month).padStart(2, '0') : '');
+  const response = await fetch('/api/finance/trends?' + qs({
+    year: selectedYear,
+    month: selectedMonth || '',
+    accountId: document.getElementById('accountFilter').value,
+    accountClass: document.getElementById('accountClassFilter').value,
+    currency: document.getElementById('currencyFilter').value || 'USD',
+    groupBy,
+    grain,
+    measure,
+    top: 8
+  }), { headers: authHeaders() });
+  if (!response.ok) return;
+  trendChartData = await response.json();
+  const type = chartType === 'bar' ? 'bar' : 'line';
+  const datasets = (trendChartData.series || []).map((serie, index) => ({
+    label: serie.name,
+    data: serie.values,
+    borderColor: chartColor(index),
+    backgroundColor: chartType === 'area' ? chartColor(index) + '22' : (type === 'line' ? chartColor(index) + '22' : chartColor(index) + 'bb'),
     borderWidth: 2,
-    tension: .35,
-    fill: type === 'line',
-    pointRadius: type === 'line' ? 3 : 0
+    tension: chartType === 'bar' ? 0 : .4,
+    fill: chartType !== 'bar',
+    pointRadius: chartType === 'bar' ? 0 : 3
   }));
   if (monthlyCashFlowChart) monthlyCashFlowChart.destroy();
   monthlyCashFlowChart = new Chart(document.getElementById('monthlyCashFlowChart'), {
     type,
-    data: { labels: rows.map(row => row.label), datasets },
+    data: { labels: trendChartData.labels || [], datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -403,15 +571,111 @@ function renderMonthly() {
 
 function renderCategories() {
   const rows = overview.categoryTotals || [];
-  const max = Math.max(1, ...rows.map(row => Number(row.amount || 0)));
-  document.getElementById('categoryChart').innerHTML = rows.length ? rows.map(row => {
-    const width = Math.round((row.amount / max) * 100);
-    return '<div class="mb-3">' +
-      '<div class="d-flex justify-content-between gap-2 mb-1"><span class="fw-semibold">' + esc(row.name) + '</span><span>' + money(row.amount) + '</span></div>' +
-      percentBar(width, 'bar-expense') +
-      '<div class="small-muted mt-1">' + esc(row.groupName || '') + ' - ' + esc(row.count) + ' tx</div>' +
-    '</div>';
-  }).join('') : '<div class="text-muted">No category spending for this filter.</div>';
+  const chartRows = rows.slice(0, 12);
+  if (categorySpendChart) categorySpendChart.destroy();
+  categorySpendChart = new Chart(document.getElementById('categorySpendChart'), {
+    type: 'bar',
+    data: {
+      labels: chartRows.map(row => row.name),
+      datasets: [{
+        label: 'Spending',
+        data: chartRows.map(row => Number(row.amount || 0)),
+        backgroundColor: chartRows.map((row, index) => chartColor(index) + 'bb'),
+        borderColor: chartRows.map((row, index) => chartColor(index)),
+        borderWidth: 1
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true } }
+    }
+  });
+}
+
+function renderMerchantSummary() {
+  const rows = (searchSummary.merchantSummary || []).slice(0, 10);
+  const grain = document.getElementById('merchantTrendGrain').value || 'month';
+  const chartType = document.getElementById('merchantTrendType').value || 'bar';
+  if (!selectedMerchantId && rows.length) selectedMerchantId = rows[0].merchantId || '';
+  const selectedRow = rows.find(row => String(row.merchantId || '') === String(selectedMerchantId || '')) || rows[0] || null;
+  const categoryRow = (overview.categoryTotals || []).find(row => String(row.categoryId || '') === String(selectedCategoryId || ''));
+  const merchantSelect = document.getElementById('merchantSubSelect');
+  merchantSelect.innerHTML = rows.length ? '<option value="">Choose merchant...</option>' + rows.map(row => '<option value="' + (row.merchantId || '') + '">' + esc(row.name) + '</option>').join('') : '<option value="">No merchants</option>';
+  merchantSelect.value = selectedMerchantId || '';
+  const f = filters();
+  const params = {
+    page: null,
+    limit: null,
+    sort: null,
+    dir: null,
+    groupBy: 'merchant',
+    grain: grain === 'custom' ? 'month' : grain,
+    measure: 'expense',
+    from: grain === 'custom' ? document.getElementById('fromFilter').value : '',
+    to: grain === 'custom' ? document.getElementById('toFilter').value : '',
+    accountId: f.accountId,
+    accountClass: f.accountClass,
+    currency: f.currency
+  };
+  fetch('/api/finance/trends?' + qs(params), { headers: authHeaders() })
+    .then(r => r.ok ? r.json() : null)
+    .then(data => {
+      if (!data) return;
+      merchantTrendData = data;
+      if (merchantSpendChart) merchantSpendChart.destroy();
+      const seriesList = Array.isArray(data.series) ? data.series : [];
+      const targetName = selectedRow ? selectedRow.name : '';
+      const targetKey = String(selectedRow && selectedRow.merchantId ? selectedRow.merchantId : '');
+      const chosen = seriesList.find(serie => String(serie.key || '').includes(targetKey) || String(serie.name || '') === String(targetName || '')) || seriesList[0] || null;
+      const datasets = chosen ? [{
+        label: chosen.name || 'Merchant',
+        data: chosen.values || [],
+        borderColor: chartColor(0),
+        backgroundColor: chartType === 'area' ? chartColor(0) + '22' : (chartType === 'line' ? chartColor(0) + '22' : chartColor(0) + 'bb'),
+        borderWidth: 2,
+        tension: chartType === 'bar' ? 0 : .35,
+        fill: chartType !== 'bar',
+        pointRadius: chartType === 'bar' ? 0 : 3
+      }] : [];
+      const type = chartType === 'bar' ? 'bar' : 'line';
+      const canvas = document.getElementById('merchantSpendChart');
+      merchantSpendChart = new Chart(document.getElementById('merchantSpendChart'), {
+        type,
+        data: {
+          labels: data.labels || [],
+          datasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: !!chosen, position: 'bottom' },
+            title: {
+              display: !!selectedRow,
+              text: selectedRow ? (selectedRow.name + ' over time') : 'Select a merchant'
+            }
+          },
+          scales: chartType === 'bar'
+            ? { y: { beginAtZero: true } }
+            : { y: { beginAtZero: true } }
+        }
+      });
+      document.getElementById('merchantSummaryName').textContent = selectedRow ? selectedRow.name : 'All merchants';
+      document.getElementById('merchantSummaryAmount').textContent = selectedRow ? money(selectedRow.amount) : money(0);
+      document.getElementById('merchantSummaryCount').textContent = selectedRow ? (selectedRow.count + ' tx') : '-';
+      document.getElementById('merchantSummaryGrain').textContent = grain.charAt(0).toUpperCase() + grain.slice(1);
+      document.getElementById('merchantCategoryName').textContent = categoryRow ? categoryRow.name : 'All categories';
+    });
+  document.getElementById('merchantRankList').innerHTML = rows.length ? rows.map(row => (
+    '<button class="rank-row btn btn-link text-start p-0 merchant-jump ' + (String(row.merchantId || '') === String(selectedMerchantId || '') ? 'active' : '') + '" type="button" data-merchant="' + (row.merchantId || '') + '" data-name="' + esc(row.name) + '">' +
+      '<span class="fw-semibold text-truncate">' + esc(row.name) + '</span>' +
+      '<span class="text-end">' + money(row.amount) + '</span>' +
+      '<span class="small-muted text-end">' + esc(row.count) + ' tx</span>' +
+    '</button>'
+  )).join('') : '<div class="text-muted">No merchant activity for this filter.</div>';
 }
 
 function renderAccounts() {
@@ -492,7 +756,7 @@ function renderLedger() {
       '<td>' + esc(row.transactionDate) + '</td>' +
       '<td>' + esc(row.accountName) + '</td>' +
       '<td>' + esc(row.categoryName) + '</td>' +
-      '<td>' + esc(row.merchant || '') + '</td>' +
+      '<td>' + esc(row.merchant || '') + '<div class="small-muted">' + esc(row.receiptMerchant && row.receiptMerchant !== row.merchant ? row.receiptMerchant : '') + '</div></td>' +
       '<td>' + esc(row.description) + '<div class="small-muted">' + esc(row.tags || '') + '</div></td>' +
       '<td>' + esc(row.transactionType) + '</td>' +
       '<td class="text-end fw-semibold">' + money(row.amount, row.currency) + '</td>' +
@@ -530,9 +794,9 @@ async function clearSimulation() {
 }
 
 function exportCsv() {
-  const headers = ['Date', 'Account', 'Category', 'Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Tags'];
+  const headers = ['Date', 'Account', 'Category', 'Merchant', 'Receipt Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Tags'];
   const lines = [headers].concat(searchRows.map(row => [
-    row.transactionDate, row.accountName, row.categoryName, row.merchant || '', row.description,
+    row.transactionDate, row.accountName, row.categoryName, row.merchant || '', row.receiptMerchant || '', row.description,
     row.transactionType, row.amount, row.currency, row.status, row.tags || ''
   ]));
   const csv = lines.map(row => row.map(cell => typeof sanitizeCsvCell === 'function' ? sanitizeCsvCell(cell) : '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"').join(',')).join('\n');
@@ -561,19 +825,94 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('statusFilter').value = '';
   document.getElementById('fromFilter').value = '';
   document.getElementById('toFilter').value = '';
+  selectedCategoryId = '';
+  selectedMerchantId = '';
   loadAll();
 });
 ['monthFilter', 'accountFilter', 'accountClassFilter', 'currencyFilter', 'typeFilter', 'statusFilter', 'fromFilter', 'toFilter'].forEach(id => {
   document.getElementById(id).addEventListener('change', loadAll);
 });
-document.getElementById('monthlyChartType').addEventListener('change', renderMonthly);
-document.querySelectorAll('.monthly-series').forEach(input => input.addEventListener('change', renderMonthly));
+['trendGroup', 'trendGrain', 'trendMeasure', 'trendChartType'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => renderMonthly());
+});
+['merchantTrendGrain', 'merchantTrendType'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => renderMerchantSummary());
+});
+['explorerGrain', 'explorerType'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => renderMonthly());
+});
+document.getElementById('categoryExplorerSelect').addEventListener('change', () => {
+  selectedCategoryId = document.getElementById('categoryExplorerSelect').value || '';
+  selectedMerchantId = '';
+  document.getElementById('merchantExplorerSelect').value = '';
+  document.getElementById('merchantSubSelect').value = '';
+  loadSearch();
+  renderMonthly();
+});
+document.getElementById('merchantExplorerSelect').addEventListener('change', () => {
+  selectedMerchantId = document.getElementById('merchantExplorerSelect').value || '';
+  loadSearch();
+  renderMonthly();
+});
+document.getElementById('merchantSubSelect').addEventListener('change', () => {
+  selectedMerchantId = document.getElementById('merchantSubSelect').value || '';
+  document.getElementById('merchantExplorerSelect').value = selectedMerchantId;
+  loadSearch();
+  renderMonthly();
+});
+document.getElementById('explorerRunBtn').addEventListener('click', () => {
+  document.getElementById('fromFilter').value = document.getElementById('explorerFrom').value;
+  document.getElementById('toFilter').value = document.getElementById('explorerTo').value;
+  document.getElementById('merchantTrendGrain').value = document.getElementById('explorerGrain').value;
+  document.getElementById('merchantTrendType').value = document.getElementById('explorerType').value;
+  loadSearch();
+  renderMonthly();
+});
+document.getElementById('explorerClearBtn').addEventListener('click', () => {
+  document.getElementById('categoryExplorerSelect').value = '';
+  document.getElementById('merchantExplorerSelect').value = '';
+  document.getElementById('explorerFrom').value = '';
+  document.getElementById('explorerTo').value = '';
+  selectedCategoryId = '';
+  selectedMerchantId = '';
+  loadSearch();
+  renderMonthly();
+});
+document.getElementById('trendRefreshBtn').addEventListener('click', () => renderMonthly());
 document.getElementById('searchFilter').addEventListener('keydown', event => {
   if (event.key === 'Enter') loadAll();
 });
 document.getElementById('seedBtn').addEventListener('click', seedSimulation);
 document.getElementById('clearBtn').addEventListener('click', clearSimulation);
 document.getElementById('exportBtn').addEventListener('click', exportCsv);
+document.getElementById('categorySpendChart').addEventListener('click', event => {
+  if (!categorySpendChart) return;
+  const points = categorySpendChart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+  if (!points.length) return;
+  const index = points[0].index;
+  const row = (overview.categoryTotals || [])[index];
+  if (!row) return;
+  selectedCategoryId = row.categoryId || '';
+  selectedMerchantId = '';
+  document.getElementById('merchantExplorerSelect').value = '';
+  document.getElementById('merchantSubSelect').value = '';
+  document.getElementById('trendGroup').value = 'category';
+  document.getElementById('trendMeasure').value = 'expense';
+  document.getElementById('searchFilter').value = row.name || '';
+  loadSearch();
+  renderMonthly();
+});
+document.getElementById('merchantRankList').addEventListener('click', event => {
+  const btn = event.target.closest('.merchant-jump');
+  if (!btn) return;
+  selectedMerchantId = btn.dataset.merchant || '';
+  selectedCategoryId = '';
+  document.getElementById('trendGroup').value = 'merchant';
+  document.getElementById('trendMeasure').value = 'expense';
+  if (!selectedMerchantId && btn.dataset.name) document.getElementById('searchFilter').value = btn.dataset.name;
+  loadSearch();
+  renderMonthly();
+});
 document.addEventListener('DOMContentLoaded', async function() {
   await loadLookups();
   await loadAll();

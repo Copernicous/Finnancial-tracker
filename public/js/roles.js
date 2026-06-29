@@ -6,6 +6,8 @@ var MODULE_DEFS = [
     { key: 'accounts',           label: 'Accounts',              group: 'Core',      hasUndo: false },
     { key: 'transactions',       label: 'Transactions',          group: 'Core',      hasUndo: false },
     { key: 'categories',         label: 'Categories',            group: 'Core',      hasUndo: false },
+    { key: 'merchants',          label: 'Official Merchants',    group: 'Core',      hasUndo: false },
+    { key: 'merchant_aliases',   label: 'Merchant Aliases',      group: 'Core',      hasUndo: false },
     { key: 'financial_institutions', label: 'Financial Institutions', group: 'Core', hasUndo: false },
     { key: 'reconciliations',    label: 'Reconciliations',       group: 'Core',      hasUndo: false },
     { key: 'proofs',             label: 'Proofs',                group: 'Core',      hasUndo: false },

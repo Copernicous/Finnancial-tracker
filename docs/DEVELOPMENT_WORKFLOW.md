@@ -38,7 +38,7 @@ npm run dev
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:3026
 ```
 
 ## Simulation Data
@@ -57,7 +57,7 @@ npm run smoke:local:seed
 Clear sample data from the UI or:
 
 ```powershell
-Invoke-RestMethod -Method Delete -Uri http://localhost:3000/api/simulation -Headers @{ Authorization = "Bearer <token>" }
+Invoke-RestMethod -Method Delete -Uri http://localhost:3026/api/simulation -Headers @{ Authorization = "Bearer <token>" }
 ```
 
 Only rows marked as simulation are deleted.

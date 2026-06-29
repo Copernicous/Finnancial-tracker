@@ -197,8 +197,8 @@ const loginLimiter = rateLimit({
 // SEC-01: CORS — locked to explicit origin allowlist.
 // APP_ORIGIN supports comma-separated values for multi-origin setups.
 // FortiGate origin: https://accounting.example.com:10443
-// Dev origin:       http://localhost:3000
-// Example .env:     APP_ORIGIN=https://accounting.example.com:10443,http://192.168.60.21:3000,http://localhost:3000
+// Dev origin:       http://localhost:3026
+// Example .env:     APP_ORIGIN=https://accounting.example.com:10443,http://192.168.60.21:3026,http://localhost:3026
 (function() {
     function isDevelopmentLanOrigin(origin) {
         if (process.env.NODE_ENV === 'production') return false;
@@ -235,7 +235,7 @@ const loginLimiter = rateLimit({
         console.error('  FATAL: APP_ORIGIN is not set in production mode.');
         console.error('  Refusing to start with open CORS (origin: true).');
         console.error('  Set APP_ORIGIN in .env, e.g.:');
-        console.error('    APP_ORIGIN=https://accounting.example.com:10443,http://192.168.60.21:3000');
+        console.error('    APP_ORIGIN=https://accounting.example.com:10443,http://192.168.60.21:3026');
         console.error('═══════════════════════════════════════════════════════════');
         console.error('');
         process.exit(1);
@@ -408,7 +408,7 @@ app.use(async (err, req, res, next) => {
     res.status(500).json({ error: 'Internal server error' });
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3026;
 
 // -- Auto-create database if it doesn't exist ----------------------------------
 // Connects to the always-present 'postgres' default database first, then issues
