@@ -1,5 +1,16 @@
 # Home Accounting Changelog
 
+## 0.4.0 - 2026-06-30
+
+- Added statement balance comparison in the Financial Workspace, including account-specific imported statement snapshot dates, balance chips, and dashboard-versus-statement differences.
+- Added statement cutoff reconciliation suggestions and drill-down detail showing prior balance, posted movement, book balance, statement balance, diff, posted ledger rows, and staged source rows.
+- Rebuilt Analytics & Export with granular filters for year/all-years, month, custom date ranges, account, merchant/text search, type, status, and day/week/month/year grouping.
+- Added top-merchant reporting focus and richer CSV export fields for merchant/category/account analysis.
+- Made Balance Snapshots and shared accounting tables searchable and sortable by column.
+- Added PostgreSQL-backed finance summary query paths and performance indexes for faster reporting/search.
+- Added PDF quick-view support from import batch review/history and safer import-year cleanup tooling.
+- Compactified several data-entry forms so transaction/account/admin workflows take less vertical space.
+
 ## 0.3.0 - 2026-06-30
 
 - Added KPI drill-down reports in the Financial Workspace so dashboard cards can show the transactions, accounts, merchants, transfer reasons, and source statement files behind each number.
