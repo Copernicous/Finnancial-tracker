@@ -1027,6 +1027,11 @@ async function updateCategory(ids, categoryId) {
   return data;
 }
 
+function learnedRuleSuffix(data) {
+  const count = data && data.learned ? Number(data.learned.learned || 0) : 0;
+  return count ? ' Learned ' + count + ' rule(s).' : '';
+}
+
 async function bulkApplyCategory() {
   const ids = selectedIds();
   if (!ids.length) return toast('Select transactions first.', 'warning');
@@ -1034,7 +1039,7 @@ async function bulkApplyCategory() {
   if (!categoryId) return toast('Choose a category.', 'warning');
   try {
     const data = await updateCategory(ids, categoryId);
-    toast(data.updated + ' transaction(s) updated.');
+    toast(data.updated + ' transaction(s) updated.' + learnedRuleSuffix(data));
     await loadRows();
     await loadTrend();
   } catch (err) {
@@ -1066,6 +1071,7 @@ async function suggestOne(row, onlineLookup) {
       merchant: merchantLabel(row) || row.merchant || row.description,
       description: row.description,
       transactionType: row.transactionType,
+      amount: row.amount,
       onlineLookup: !!onlineLookup
     })
   });
@@ -1251,8 +1257,8 @@ async function modalApplyCategory() {
   const categoryId = document.getElementById('modalCategorySelect').value;
   if (!categoryId) return toast('Choose a category.', 'warning');
   try {
-    await updateCategory(modalRows.map(row => row.id), categoryId);
-    toast('Category review rows updated.');
+    const data = await updateCategory(modalRows.map(row => row.id), categoryId);
+    toast('Category review rows updated.' + learnedRuleSuffix(data));
     categoryModal.hide();
     await loadRows();
     await loadTrend();
@@ -1317,8 +1323,8 @@ document.getElementById('ledgerRows').addEventListener('change', async event => 
   if (event.target.classList.contains('tx-row-check')) updateSelectedCount();
   if (event.target.classList.contains('row-category')) {
     try {
-      await updateCategory([Number(event.target.dataset.id)], event.target.value || null);
-      toast('Category updated.');
+      const data = await updateCategory([Number(event.target.dataset.id)], event.target.value || null);
+      toast('Category updated.' + learnedRuleSuffix(data));
       await loadRows();
       await loadTrend();
     } catch (err) {

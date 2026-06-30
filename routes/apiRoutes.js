@@ -17,6 +17,7 @@ const importController = require('../controllers/importController');
 const adminController = require('../controllers/adminController');
 const backupService = require('../services/backupService');
 const merchantResolver = require('../services/merchantResolver');
+const merchantRuleLearner = require('../services/merchantRuleLearner');
 
 router.get('/version', (req, res) => {
   res.json({
@@ -60,6 +61,17 @@ function crud(path, modelName, moduleKey, fields, options = {}) {
       payload.normalizedAlias = merchantResolver.normalizeMerchantKey(payload.normalizedAlias || payload.aliasText);
     }
     const row = await db[modelName].create(payload);
+    if (modelName === 'Transaction' && payload.categoryId) {
+      try {
+        await merchantRuleLearner.learnFromTransactions([row.id], {
+          userId: req.user && req.user.id,
+          source: 'user',
+          notes: 'Learned from manual transaction creation.'
+        });
+      } catch (err) {
+        console.warn('[MerchantRuleLearner] Transaction create learning skipped:', err.message);
+      }
+    }
     res.status(201).json(row);
   });
 
@@ -75,6 +87,17 @@ function crud(path, modelName, moduleKey, fields, options = {}) {
       payload.normalizedAlias = merchantResolver.normalizeMerchantKey(payload.normalizedAlias || payload.aliasText);
     }
     await row.update(payload);
+    if (modelName === 'Transaction' && Object.prototype.hasOwnProperty.call(payload, 'categoryId') && payload.categoryId) {
+      try {
+        await merchantRuleLearner.learnFromTransactions([row.id], {
+          userId: req.user && req.user.id,
+          source: 'user',
+          notes: 'Learned from manual transaction edit.'
+        });
+      } catch (err) {
+        console.warn('[MerchantRuleLearner] Transaction edit learning skipped:', err.message);
+      }
+    }
     res.json(row);
   });
 
@@ -152,6 +175,7 @@ router.get('/finance/years', rbac.requirePermission('reports', 'read'), financeC
 router.get('/finance/search', rbac.requirePermission('transactions', 'read'), financeController.search);
 router.get('/finance/kpi-detail', rbac.requirePermission('reports', 'read'), financeController.kpiDetail);
 router.get('/finance/trends', rbac.requirePermission('reports', 'read'), financeController.trends);
+router.get('/finance/credit-card-payment-proof', rbac.requirePermission('reports', 'read'), financeController.creditCardPaymentProof);
 router.get('/finance/statement-reconciliation-suggestions', rbac.requirePermission('reports', 'read'), financeController.statementReconciliationSuggestions);
 router.get('/finance/statement-reconciliation-detail', rbac.requirePermission('reports', 'read'), financeController.statementReconciliationDetail);
 router.post('/finance/transactions/bulk-category', rbac.requirePermission('transactions', 'edit'), financeController.bulkCategory);

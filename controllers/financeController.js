@@ -4,6 +4,7 @@ const db = require('../models');
 const { Op } = require('sequelize');
 const merchantCategorizer = require('../services/merchantCategorizer');
 const merchantResolver = require('../services/merchantResolver');
+const merchantRuleLearner = require('../services/merchantRuleLearner');
 
 function toNumber(value) {
   const n = Number(value);
@@ -180,6 +181,41 @@ function addIsoDays(value, days) {
   if (!date) return null;
   date.setUTCDate(date.getUTCDate() + days);
   return isoDay(date);
+}
+
+function daysBetween(a, b) {
+  const left = parseIsoDay(a);
+  const right = parseIsoDay(b);
+  if (!left || !right) return 999999;
+  return Math.round((left - right) / 86400000);
+}
+
+function cents(value) {
+  return Math.round(toNumber(value) * 100);
+}
+
+function dateBoundsFromQuery(query, defaultYear = 2026) {
+  if (query.from || query.to) {
+    return {
+      from: query.from ? cleanText(query.from).slice(0, 10) : null,
+      to: query.to ? cleanText(query.to).slice(0, 10) : null
+    };
+  }
+  if (isAllYears(query.year)) return { from: null, to: null };
+  const year = Number(query.year) || defaultYear;
+  const month = query.month ? Number(query.month) : null;
+  const [from, to] = dateRange(year, month);
+  return { from, to };
+}
+
+function accountLooksLikeCreditCard(account) {
+  const text = [
+    account && account.name,
+    account && account.accountClass,
+    account && account.accountSubtype,
+    account && account.accountType
+  ].filter(Boolean).join(' ').toLowerCase();
+  return /\bcredit\b|\bcard\b|advantage|aadvantage/.test(text);
 }
 
 function bucketDate(dateValue, grain) {
@@ -562,6 +598,19 @@ function classifyTransaction(row) {
   if (amount > 0) return 'income';
   if (amount < 0) return 'expense';
   return type || 'adjustment';
+}
+
+function isCreditCardPaymentRow(row) {
+  const text = [
+    row.description,
+    row.merchant,
+    row.normalizedMerchant,
+    row.receiptMerchant,
+    row.memo,
+    row.Category && row.Category.name
+  ].filter(Boolean).join(' ').toLowerCase();
+  return internalTransferReason(row) === 'credit_card_payment'
+    || /credit card payment|online payment, thank you|citi card online payment|payment thank you/.test(text);
 }
 
 function accountNetValue(account, balance) {
@@ -1354,6 +1403,135 @@ exports.trends = async (req, res, next) => {
   }
 };
 
+exports.creditCardPaymentProof = async (req, res, next) => {
+  try {
+    const accountId = cleanId(req.query.accountId);
+    const selectedAccount = accountId ? await db.Account.findByPk(accountId) : null;
+    const selectedIsCard = selectedAccount ? accountLooksLikeCreditCard(selectedAccount) : false;
+    const currency = req.query.currency && req.query.currency !== 'ALL' ? cleanText(req.query.currency).toUpperCase() : null;
+    const windowDays = Math.min(Math.max(Number(req.query.windowDays) || 7, 0), 31);
+    const bounds = dateBoundsFromQuery(req.query);
+
+    const cardWhere = {
+      status: { [Op.ne]: 'void' },
+      amount: { [Op.gt]: 0 },
+      [Op.or]: [
+        { transactionType: 'transfer' },
+        { description: { [Op.iLike]: '%payment%' } },
+        { memo: { [Op.iLike]: '%Payments, Credits%' } }
+      ]
+    };
+    if (bounds.from || bounds.to) {
+      cardWhere.transactionDate = {};
+      if (bounds.from) cardWhere.transactionDate[Op.gte] = bounds.from;
+      if (bounds.to) cardWhere.transactionDate[Op.lte] = bounds.to;
+    }
+    if (currency) cardWhere.currency = currency;
+    if (accountId && selectedIsCard) cardWhere.accountId = accountId;
+
+    const fundingWhere = {
+      status: { [Op.ne]: 'void' },
+      amount: { [Op.lt]: 0 },
+      [Op.or]: [
+        { transactionType: 'transfer' },
+        { description: { [Op.iLike]: '%payment%' } },
+        { memo: { [Op.iLike]: '%payment%' } }
+      ]
+    };
+    if (bounds.from || bounds.to) {
+      fundingWhere.transactionDate = {};
+      if (bounds.from) fundingWhere.transactionDate[Op.gte] = addIsoDays(bounds.from, -windowDays);
+      if (bounds.to) fundingWhere.transactionDate[Op.lte] = addIsoDays(bounds.to, windowDays);
+    }
+    if (currency) fundingWhere.currency = currency;
+    if (accountId && selectedAccount && !selectedIsCard) fundingWhere.accountId = accountId;
+
+    const [cardCandidates, fundingCandidates] = await Promise.all([
+      db.Transaction.findAll({
+        where: cardWhere,
+        include: [accountInclude(), categoryInclude(), merchantInclude()],
+        order: [['transactionDate', 'DESC'], ['id', 'DESC']],
+        limit: 3000
+      }),
+      db.Transaction.findAll({
+        where: fundingWhere,
+        include: [accountInclude(), categoryInclude(), merchantInclude()],
+        order: [['transactionDate', 'DESC'], ['id', 'DESC']],
+        limit: 5000
+      })
+    ]);
+
+    const cardPayments = cardCandidates.filter((row) => (
+      accountLooksLikeCreditCard(row.Account) && isCreditCardPaymentRow(row)
+    ));
+    const fundingPayments = fundingCandidates.filter((row) => (
+      !accountLooksLikeCreditCard(row.Account) && isCreditCardPaymentRow(row)
+    ));
+
+    const matchedFundingIds = new Set();
+    const proofRows = cardPayments.map((cardRow) => {
+      const amountCents = cents(cardRow.amount);
+      const matches = fundingPayments
+        .filter((fundingRow) => (
+          Math.abs(cents(fundingRow.amount)) === amountCents
+          && Math.abs(daysBetween(fundingRow.transactionDate, cardRow.transactionDate)) <= windowDays
+        ))
+        .sort((a, b) => Math.abs(daysBetween(a.transactionDate, cardRow.transactionDate)) - Math.abs(daysBetween(b.transactionDate, cardRow.transactionDate)) || a.id - b.id);
+      matches.forEach((row) => matchedFundingIds.add(row.id));
+      return {
+        cardRow,
+        matches,
+        status: matches.length === 0 ? 'missing_funding' : (matches.length === 1 ? 'matched' : 'multiple'),
+        dayGap: matches.length ? daysBetween(matches[0].transactionDate, cardRow.transactionDate) : null
+      };
+    });
+
+    const orphanFunding = fundingPayments.filter((row) => !matchedFundingIds.has(row.id));
+    const sourceMap = await importSourcesByTransactionId([
+      ...cardPayments.map((row) => row.id),
+      ...fundingPayments.map((row) => row.id)
+    ]);
+    const rowDto = (row) => transactionDetailDto(row, sourceMap, 'transfers');
+    const missingRows = proofRows.filter((row) => row.status === 'missing_funding');
+    const matchedRows = proofRows.filter((row) => row.status !== 'missing_funding');
+
+    res.json({
+      filterMode: selectedAccount ? (selectedIsCard ? 'card_account' : 'funding_account') : 'all_accounts',
+      windowDays,
+      selectedAccount: selectedAccount ? {
+        id: selectedAccount.id,
+        name: selectedAccount.name,
+        accountClass: selectedAccount.accountClass,
+        accountSubtype: selectedAccount.accountSubtype,
+        currency: selectedAccount.currency
+      } : null,
+      summary: {
+        cardPaymentCount: proofRows.length,
+        matchedCount: matchedRows.length,
+        cleanMatchCount: proofRows.filter((row) => row.status === 'matched').length,
+        multipleCandidateCount: proofRows.filter((row) => row.status === 'multiple').length,
+        missingFundingCount: missingRows.length,
+        fundingCandidateCount: fundingPayments.length,
+        orphanFundingCount: orphanFunding.length,
+        cardPaymentTotal: proofRows.reduce((sum, row) => sum + Math.abs(toNumber(row.cardRow.amount)), 0),
+        matchedCardPaymentTotal: matchedRows.reduce((sum, row) => sum + Math.abs(toNumber(row.cardRow.amount)), 0),
+        missingFundingTotal: missingRows.reduce((sum, row) => sum + Math.abs(toNumber(row.cardRow.amount)), 0),
+        orphanFundingTotal: orphanFunding.reduce((sum, row) => sum + Math.abs(toNumber(row.amount)), 0)
+      },
+      rows: proofRows.map((row) => ({
+        status: row.status,
+        amount: Math.abs(toNumber(row.cardRow.amount)),
+        dayGap: row.dayGap,
+        card: rowDto(row.cardRow),
+        fundingCandidates: row.matches.map(rowDto)
+      })),
+      orphanFundingRows: orphanFunding.slice(0, 80).map(rowDto)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.statementReconciliationSuggestions = async (req, res, next) => {
   try {
     const replacements = {
@@ -1569,16 +1747,26 @@ exports.bulkCategory = async (req, res, next) => {
     const ids = Array.isArray(req.body.ids) ? req.body.ids.map(cleanId).filter(Boolean) : [];
     if (!ids.length) return res.status(400).json({ error: 'Select at least one transaction.' });
     const categoryId = req.body.categoryId === null || req.body.categoryId === '' ? null : cleanId(req.body.categoryId);
+    let category = null;
     if (categoryId) {
-      const category = await db.Category.findByPk(categoryId);
+      category = await db.Category.findByPk(categoryId);
       if (!category) return res.status(404).json({ error: 'Category not found.' });
     }
     const payload = { categoryId };
     if (req.body.transactionType && ['income', 'expense', 'transfer', 'adjustment'].includes(req.body.transactionType)) {
       payload.transactionType = req.body.transactionType;
+    } else if (category && ['income', 'expense', 'transfer', 'adjustment'].includes(String(category.categoryType || '').toLowerCase())) {
+      payload.transactionType = String(category.categoryType).toLowerCase();
     }
     const [updated] = await db.Transaction.update(payload, { where: { id: { [Op.in]: ids } } });
-    res.json({ ok: true, updated });
+    const learned = categoryId
+      ? await merchantRuleLearner.learnFromTransactions(ids, {
+        userId: req.user && req.user.id,
+        source: 'user',
+        notes: 'Learned from transaction bulk category assignment.'
+      })
+      : { scanned: 0, learned: 0, created: 0, updated: 0, skipped: 0, rules: [], skippedReasons: {} };
+    res.json({ ok: true, updated, learned });
   } catch (err) {
     next(err);
   }
@@ -1615,7 +1803,8 @@ exports.autoCategorize = async (req, res, next) => {
             ].join(' '),
             categories,
             customRules,
-            transactionType: row.transactionType
+            transactionType: row.transactionType,
+            amount: row.amount
           });
           if (!suggestion || !suggestion.categoryId) {
           result.skipped += 1;

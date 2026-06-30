@@ -35,6 +35,9 @@
     .kpi-value { font-size: clamp(1.25rem, 2vw, 1.85rem); font-weight: 800; letter-spacing: 0; line-height: 1.15; }
     .finance-panel { border: 1px solid var(--border,#e5e7eb); border-radius: 8px; background: var(--surface,#fff); padding: 1rem; }
     .statement-toggle { min-height: var(--control-height); border: 1px solid var(--border,#e5e7eb); border-radius: 8px; padding: .45rem .65rem; display: inline-flex; align-items: center; gap: .42rem; white-space: nowrap; background: var(--surface-2,#f1f5f9); font-size: .82rem; font-weight: 700; }
+    .statement-period-strip { border: 1px solid rgba(13,110,253,.24); border-radius: 10px; padding: .55rem .7rem; background: rgba(13,110,253,.08); display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; font-size: .84rem; }
+    .statement-period-strip .statement-main { font-weight: 800; color: var(--text,#0f172a); }
+    .statement-period-strip .statement-divider { color: var(--text-muted,#64748b); }
     .statement-compare-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .65rem; align-items: stretch; }
     .statement-compare-item { border: 1px solid rgba(148,163,184,.18); border-radius: 10px; background: rgba(15,23,42,.22); padding: .65rem .75rem; min-width: 0; }
     .statement-compare-value { font-size: 1.05rem; font-weight: 800; line-height: 1.15; }
@@ -188,7 +191,6 @@
                   <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
                   <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
                 </select>
-                <div class="small-muted" id="monthStatementHint"></div>
               </div>
               <div>
                 <label class="form-label">Account</label>
@@ -227,6 +229,7 @@
             </div>
           </div>
         </div>
+        <div class="statement-period-strip d-none" id="statementPeriodStrip"></div>
       </section>
 
       <section class="finance-panel d-none" id="statementComparePanel">
@@ -476,6 +479,7 @@ let activeKpiMetric = '';
 let kpiDetailData = null;
 let availableYears = [];
 let defaultYear = String(new Date().getFullYear());
+let statementReconciliations = [];
 
 function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -551,6 +555,14 @@ function statementSnapshotForSelection(accountId) {
   }
   return snapshots[0];
 }
+function statementReconciliationForSelection(accountId) {
+  const snapshot = statementSnapshotForSelection(accountId);
+  if (!snapshot) return null;
+  return (statementReconciliations || []).find(row =>
+    String(row.accountId) === String(accountId || '') &&
+    String(row.periodEnd || '') === String(snapshot.snapshotDate || '')
+  ) || null;
+}
 function resetMonthLabels() {
   const monthFilter = document.getElementById('monthFilter');
   Array.from(monthFilter.options).forEach(option => {
@@ -564,8 +576,6 @@ function resetMonthLabels() {
 }
 function updateMonthStatementHints() {
   resetMonthLabels();
-  const hint = document.getElementById('monthStatementHint');
-  if (hint) hint.textContent = '';
   if (!overview) return;
   const accountId = document.getElementById('accountFilter').value;
   const year = document.getElementById('yearFilter').value;
@@ -582,13 +592,8 @@ function updateMonthStatementHints() {
     const key = String(option.value).padStart(2, '0');
     const snapshot = byMonth.get(key);
     if (!snapshot) return;
-    option.textContent = monthShortName(option.value) + ' | stmt ' + money(snapshot.balance, snapshot.currency) + ' ' + snapshot.snapshotDate;
     option.title = 'Statement balance ' + money(snapshot.balance, snapshot.currency) + ' on ' + snapshot.snapshotDate;
   });
-  const selectedSnapshot = statementSnapshotForSelection(accountId);
-  if (hint && selectedSnapshot) {
-    hint.textContent = 'Statement ' + money(selectedSnapshot.balance, selectedSnapshot.currency) + ' on ' + selectedSnapshot.snapshotDate;
-  }
 }
 function statementCompareItem(label, value, subtext, tone) {
   return '<div class="statement-compare-item">' +
@@ -596,6 +601,35 @@ function statementCompareItem(label, value, subtext, tone) {
     '<div class="statement-compare-value ' + (tone || '') + '">' + esc(value) + '</div>' +
     '<div class="small-muted mt-1">' + esc(subtext || '') + '</div>' +
   '</div>';
+}
+function renderStatementPeriodStrip() {
+  const strip = document.getElementById('statementPeriodStrip');
+  if (!strip || !overview) return;
+  const accountId = document.getElementById('accountFilter').value;
+  const account = selectedAccountSummary();
+  const snapshot = accountId ? statementSnapshotForSelection(accountId) : null;
+  if (!account || !snapshot) {
+    strip.classList.add('d-none');
+    strip.innerHTML = '';
+    return;
+  }
+  const reconciliation = statementReconciliationForSelection(accountId);
+  const statementBalance = Number(snapshot.balance || 0);
+  const bookBalance = reconciliation ? Number(reconciliation.bookBalance || 0) : Number(account.ledgerBalance || account.balance || 0);
+  const difference = reconciliation ? Number(reconciliation.difference || 0) : (statementBalance - bookBalance);
+  const diffTone = Math.abs(difference) <= 0.01 ? 'text-success' : 'text-warning';
+  const movementText = reconciliation
+    ? 'Movement ' + money(reconciliation.transactionSum || 0, account.currency) + ' from ' + Number(reconciliation.transactionCount || 0) + ' tx'
+    : 'No reconciliation period found';
+  strip.classList.remove('d-none');
+  strip.innerHTML =
+    '<span class="statement-main">Statement ' + esc(money(statementBalance, snapshot.currency)) + ' on ' + esc(snapshot.snapshotDate) + '</span>' +
+    '<span class="statement-divider">|</span>' +
+    '<span>Expected ' + esc(money(bookBalance, account.currency)) + '</span>' +
+    '<span class="statement-divider">|</span>' +
+    '<span class="' + diffTone + '">Recon diff ' + esc(money(difference, account.currency)) + '</span>' +
+    '<span class="small-muted">' + esc(movementText) + '</span>' +
+    '<button class="btn btn-outline-secondary btn-sm py-1 statement-strip-open ms-auto" type="button"><i class="fas fa-scale-balanced me-1"></i>Compare</button>';
 }
 function renderStatementComparison() {
   const panel = document.getElementById('statementComparePanel');
@@ -615,17 +649,20 @@ function renderStatementComparison() {
     return;
   }
   const snapshot = statementSnapshotForSelection(accountId);
-  const dashboardBalance = Number(account.balance || 0);
+  const reconciliation = statementReconciliationForSelection(accountId);
   const statementBalance = snapshot ? Number(snapshot.balance || 0) : null;
-  const difference = snapshot ? dashboardBalance - statementBalance : null;
+  const bookBalance = reconciliation ? Number(reconciliation.bookBalance || 0) : Number(account.ledgerBalance || account.balance || 0);
+  const difference = snapshot ? (reconciliation ? Number(reconciliation.difference || 0) : statementBalance - bookBalance) : null;
+  const movement = reconciliation ? Number(reconciliation.transactionSum || 0) : Number(account.periodMovement || 0);
+  const txCount = reconciliation ? Number(reconciliation.transactionCount || 0) : null;
   const diffTone = snapshot && Math.abs(difference) <= 0.01 ? 'text-success' : 'text-warning';
   panel.classList.remove('d-none');
   document.getElementById('statementCompareSubtitle').textContent = account.name + ' | dashboard period ' + (overview.filters && overview.filters.year ? overview.filters.year : '') + (overview.filters && overview.filters.month ? '-' + String(overview.filters.month).padStart(2, '0') : '');
   document.getElementById('statementCompareGrid').innerHTML = [
-    statementCompareItem('Dashboard balance', money(dashboardBalance, account.currency), 'Value currently used by the workspace.'),
     statementCompareItem('Statement snapshot', snapshot ? money(statementBalance, snapshot.currency) : 'No snapshot', snapshot ? ('Cutoff ' + snapshot.snapshotDate) : 'No statement checkpoint found.'),
-    statementCompareItem('Difference', snapshot ? money(difference, account.currency) : '-', snapshot ? 'Dashboard minus statement.' : 'Select a period with a statement.', diffTone),
-    statementCompareItem('Ledger movement', money(account.ledgerBalance == null ? 0 : account.ledgerBalance, account.currency), 'Current account balance plus selected-period movement.')
+    statementCompareItem('Expected book', snapshot ? money(bookBalance, account.currency) : '-', reconciliation ? 'Prior statement plus posted movement.' : 'Fallback ledger value.'),
+    statementCompareItem('Reconciliation diff', snapshot ? money(difference, account.currency) : '-', snapshot ? 'Statement minus expected book.' : 'Select a period with a statement.', diffTone),
+    statementCompareItem('Posted movement', money(movement, account.currency), reconciliation ? (txCount + ' transaction(s) in statement cutoff.') : 'Selected-period movement.')
   ].join('');
   const snapshots = accountStatementSnapshots(accountId).slice(0, 10);
   document.getElementById('statementSnapshotList').innerHTML = snapshots.length ? snapshots.map(item => (
@@ -772,6 +809,19 @@ async function loadOverview() {
   const response = await fetch('/api/finance/overview?' + qs(filters()), { headers: authHeaders() });
   if (!response.ok) throw new Error('Overview failed');
   overview = await response.json();
+  statementReconciliations = [];
+  const f = filters();
+  if (f.accountId) {
+    const recResponse = await fetch('/api/finance/statement-reconciliation-suggestions?' + qs({
+      accountId: f.accountId,
+      currency: f.currency,
+      limit: 160
+    }), { headers: authHeaders() });
+    if (recResponse.ok) {
+      const recData = await recResponse.json().catch(() => ({}));
+      statementReconciliations = recData.rows || [];
+    }
+  }
   if (overview.filters && overview.filters.currencies) {
     const selected = document.getElementById('currencyFilter').value || 'ALL';
     document.getElementById('currencyFilter').innerHTML = '<option value="USD">USD</option><option value="ALL">All</option>' + overview.filters.currencies.filter(currency => currency !== 'USD').map(currency => '<option value="' + esc(currency) + '">' + esc(currency) + '</option>').join('');
@@ -811,6 +861,7 @@ async function loadSearch() {
 }
 
 function renderKpis(summary) {
+  const statementCard = statementKpiCard();
   const cards = [
     { key: 'netWorth', label: 'Net Worth', value: summary.netWorth, icon: 'fa-wallet', hint: 'Includes eligible accounts and holdings' },
     { key: 'cashFlow', label: 'Cash Flow', value: summary.cashFlow, icon: 'fa-scale-balanced', hint: 'Income less expenses' },
@@ -818,7 +869,7 @@ function renderKpis(summary) {
     { key: 'expenses', label: 'Expenses', value: summary.expenses, icon: 'fa-arrow-trend-down', hint: 'Spend categories' },
     { key: 'savingsRate', label: 'Savings Rate', value: summary.savingsRatePct + '%', icon: 'fa-piggy-bank', hint: 'Cash flow over income', plain: true },
     { key: 'creditUtilization', label: 'Credit Utilization', value: summary.creditUtilizationPct + '%', icon: 'fa-credit-card', hint: 'Current card use', plain: true },
-    { key: 'investments', label: 'Investments', value: summary.investmentValue, icon: 'fa-chart-area', hint: 'Market value' },
+    statementCard,
     { key: 'budgetUsed', label: 'Budget Used', value: summary.budgetUsagePct + '%', icon: 'fa-clipboard-check', hint: 'Actual over plan', plain: true }
   ];
   document.getElementById('kpiGrid').innerHTML = cards.map(card => (
@@ -904,6 +955,45 @@ function renderCategories() {
       scales: { x: { beginAtZero: true } }
     }
   });
+}
+
+function statementKpiCard() {
+  const accountId = document.getElementById('accountFilter').value;
+  const account = selectedAccountSummary();
+  if (!accountId || !account) {
+    return {
+      key: 'statementSnapshot',
+      label: 'Statement Balance',
+      value: 'Select account',
+      icon: 'fa-file-invoice-dollar',
+      hint: 'Choose one account/month to compare cutoff.',
+      plain: true
+    };
+  }
+  const snapshot = statementSnapshotForSelection(accountId);
+  const reconciliation = statementReconciliationForSelection(accountId);
+  if (!snapshot) {
+    return {
+      key: 'statementSnapshot',
+      label: 'Statement Balance',
+      value: 'No snapshot',
+      icon: 'fa-file-circle-question',
+      hint: 'No imported statement balance for this selection.',
+      plain: true
+    };
+  }
+  const statementBalance = Number(snapshot.balance || 0);
+  const bookBalance = reconciliation ? Number(reconciliation.bookBalance || 0) : Number(account.ledgerBalance || account.balance || 0);
+  const difference = reconciliation ? Number(reconciliation.difference || 0) : (statementBalance - bookBalance);
+  const diffText = Math.abs(difference) <= 0.01 ? 'reconciled' : ('recon diff ' + money(difference, account.currency));
+  return {
+    key: 'statementSnapshot',
+    label: 'Statement Balance',
+    value: money(statementBalance, snapshot.currency),
+    icon: Math.abs(difference) <= 0.01 ? 'fa-circle-check' : 'fa-triangle-exclamation',
+    hint: 'Cutoff ' + snapshot.snapshotDate + ' | ' + diffText,
+    plain: true
+  };
 }
 
 function merchantVisibleSeries(data, selectedRow) {
@@ -1185,6 +1275,7 @@ function renderInvestments() {
 }
 
 function renderOverview() {
+  renderStatementPeriodStrip();
   renderKpis(overview.summary || {});
   renderMonthly();
   renderCategories();
@@ -1512,6 +1603,12 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
 });
 document.getElementById('runBtn').addEventListener('click', loadAll);
 document.getElementById('statementCompareToggle').addEventListener('change', renderStatementComparison);
+document.getElementById('statementPeriodStrip').addEventListener('click', event => {
+  if (!event.target.closest('.statement-strip-open')) return;
+  document.getElementById('statementCompareToggle').checked = true;
+  renderStatementComparison();
+  document.getElementById('statementComparePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
 document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('yearFilter').value = defaultYear;
   syncYearMode();
@@ -1617,6 +1714,14 @@ document.getElementById('exportBtn').addEventListener('click', exportCsv);
 document.getElementById('kpiGrid').addEventListener('click', event => {
   const card = event.target.closest('[data-kpi]');
   if (!card) return;
+  if (card.dataset.kpi === 'statementSnapshot') {
+    activeKpiMetric = '';
+    document.getElementById('statementCompareToggle').checked = true;
+    renderKpis(overview.summary || {});
+    renderStatementComparison();
+    document.getElementById('statementComparePanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
   openKpiDetail(card.dataset.kpi);
 });
 document.getElementById('kpiDetailCloseBtn').addEventListener('click', () => {

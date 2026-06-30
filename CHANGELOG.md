@@ -1,5 +1,14 @@
 # Home Accounting Changelog
 
+## 0.4.2 - 2026-06-30
+
+- Replaced the Financial Workspace investment KPI slot with a statement-balance card that uses the same statement cutoff reconciliation diff logic as the Reconciliation page.
+- Moved selected statement balance/date information out of the Month selector into a compact statement strip to prevent filter-row layout shifts.
+- Added credit-card payment proof reporting to match card-side payments with checking/savings funding transactions and expose missing payment evidence.
+- Added operation-aware categorization for Zelle, payroll, interest, deposits, cash withdrawals, savings transfers, and credit-card payments.
+- Added automatic learning from manual transaction category edits and a recent-category learning script for reusable merchant rules.
+- Expanded default category rules for utilities, medical, Disney/parks, BJs, rent, insurance, HOA, water/sewer, and related household merchant patterns.
+
 ## 0.4.1 - 2026-06-30
 
 - Added the Statement Lab concept page at `/statement-lab` under Reports as an in-app workbench for statement snapshot comparison, cutoff suggestions, and reconciliation diff inspection.

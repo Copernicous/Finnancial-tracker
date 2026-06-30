@@ -1042,6 +1042,7 @@ exports.suggestMerchantCategory = async (req, res) => {
   const receiptMerchant = cleanText(req.body.receiptMerchant);
   const description = cleanText(req.body.description);
   const transactionType = cleanText(req.body.transactionType).toLowerCase();
+  const amount = req.body.amount == null || req.body.amount === '' ? null : toNumber(req.body.amount);
   const onlineLookup = !!req.body.onlineLookup;
   if (!merchant && !description) return res.status(400).json({ error: 'Merchant or description is required.' });
 
@@ -1071,16 +1072,19 @@ exports.suggestMerchantCategory = async (req, res) => {
     text: [merchant, receiptMerchant, description].join(' '),
     categories,
     customRules,
-    transactionType
+    transactionType,
+    amount
   });
+  const operationSuggestion = localSuggestion && localSuggestion.source === 'operation_ai' ? localSuggestion : null;
   if (!onlineLookup) {
     return res.json({
       ok: true,
       merchant,
       canonicalMerchant: resolvedMerchant,
-      suggestion: merchantDefaultSuggestion || localSuggestion,
+      suggestion: operationSuggestion || merchantDefaultSuggestion || localSuggestion,
       merchantDefaultSuggestion,
       localSuggestion,
+      operationSuggestion,
       onlineSuggestion: null,
       onlineLookupUsed: false
     });
@@ -1095,9 +1099,10 @@ exports.suggestMerchantCategory = async (req, res) => {
       ok: true,
       merchant,
       canonicalMerchant: resolvedMerchant,
-      suggestion: merchantDefaultSuggestion || onlineSuggestion || localSuggestion,
+      suggestion: operationSuggestion || merchantDefaultSuggestion || onlineSuggestion || localSuggestion,
       merchantDefaultSuggestion,
       localSuggestion,
+      operationSuggestion,
       onlineSuggestion,
       onlineLookupUsed: true,
       lookupQuery: lookup.query,
@@ -1110,9 +1115,10 @@ exports.suggestMerchantCategory = async (req, res) => {
       ok: true,
       merchant,
       canonicalMerchant: resolvedMerchant,
-      suggestion: merchantDefaultSuggestion || localSuggestion,
+      suggestion: operationSuggestion || merchantDefaultSuggestion || localSuggestion,
       merchantDefaultSuggestion,
       localSuggestion,
+      operationSuggestion,
       onlineSuggestion: null,
       onlineLookupUsed: true,
       lookupError: err.message

@@ -90,10 +90,51 @@ module.exports = [
       "ZELLE",
       "VENMO",
       "CASH APP",
-      "PAYPAL",
+      "PAYPAL TRANSFER",
       "ACH TRANSFER",
       "BANK TRANSFER",
       "TRANSFER FROM"
+    ]
+  },
+  {
+    "categoryName": "Payments Received",
+    "categoryType": "transfer",
+    "groupName": "Transfers",
+    "budgetBehavior": "transfer",
+    "merchantKeywords": [
+      "ZELLE CREDIT",
+      "ZELLE RECEIVED",
+      "PAY ID",
+      "PAYMENT RECEIVED",
+      "PAYPAL TRANSFER",
+      "INCOMING WIRE TRANSFER",
+      "PERSON TO PERSON CREDIT"
+    ]
+  },
+  {
+    "categoryName": "Payments Sent",
+    "categoryType": "transfer",
+    "groupName": "Transfers",
+    "budgetBehavior": "transfer",
+    "merchantKeywords": [
+      "ZELLE DEBIT",
+      "ZELLE SENT",
+      "PAYPAL INST XFER",
+      "PAYPAL XFER",
+      "PAYMENT SENT",
+      "PERSON TO PERSON DEBIT"
+    ]
+  },
+  {
+    "categoryName": "Cash Deposit",
+    "categoryType": "transfer",
+    "groupName": "Cash",
+    "budgetBehavior": "transfer",
+    "merchantKeywords": [
+      "TELLER DEPOSIT",
+      "CASH DEPOSIT",
+      "DEPOSIT TELLER",
+      "MOBILE DEPOSIT"
     ]
   },
   {
@@ -109,7 +150,9 @@ module.exports = [
       "ZILLOW RENTALS",
       "GREYSTAR",
       "AVALONBAY",
-      "EQUITY RESIDENTIAL"
+      "EQUITY RESIDENTIAL",
+      "WEST20RENT",
+      "ETT WEST20RENT"
     ]
   },
   {
@@ -180,6 +223,7 @@ module.exports = [
       "ASHLEY FURNITURE",
       "MATTRESS FIRM",
       "AT HOME",
+      "IROBOT",
       "CRATE & BARREL",
       "WEST ELM",
       "POTTERY BARN"
@@ -231,7 +275,10 @@ module.exports = [
     "merchantKeywords": [
       "COSTCO",
       "SAM'S CLUB",
-      "BJ'S WHOLESALE"
+      "BJ'S WHOLESALE",
+      "BJS WHOLESALE",
+      "BJS.COM",
+      "BJS COM"
     ]
   },
   {
@@ -315,7 +362,8 @@ module.exports = [
       "PF CHANGS",
       "P F CHANG",
       "P F CHANGS",
-      "PFCHANG"
+      "PFCHANG",
+      "RESTAURANT/BAR"
     ]
   },
   {
@@ -354,6 +402,10 @@ module.exports = [
       "DUKE ENERGY",
       "SOUTHERN CALIFORNIA EDISON",
       "FPL",
+      "FPL DIRECT",
+      "FPL DIRECT DEBIT",
+      "ELEC PYMT",
+      "FLORIDA POWER",
       "DOMINION ENERGY",
       "ELECTRIC"
     ]
@@ -379,6 +431,8 @@ module.exports = [
     "budgetBehavior": "variable",
     "merchantKeywords": [
       "WATER DEPARTMENT",
+      "MIAMI DADE WATER",
+      "MDWASD",
       "CITY UTILITIES",
       "SEWER",
       "MUNICIPAL WATER",
@@ -407,6 +461,8 @@ module.exports = [
     "merchantKeywords": [
       "XFINITY",
       "COMCAST",
+      "COMCAST-XFINITY",
+      "CABLE SVCS",
       "SPECTRUM",
       "COX",
       "OPTIMUM",
@@ -424,6 +480,8 @@ module.exports = [
       "VERIZON",
       "AT&T",
       "T-MOBILE",
+      "TMOBILE",
+      "GOOGLE FI",
       "METRO BY T-MOBILE",
       "CRICKET",
       "MINT MOBILE",
@@ -574,6 +632,9 @@ module.exports = [
     "budgetBehavior": "fixed",
     "merchantKeywords": [
       "UNITEDHEALTHCARE",
+      "OSCARINSURANCECO",
+      "OSCAR INSURANCE",
+      "FLORIDA KID CARE",
       "AETNA",
       "CIGNA",
       "BLUE CROSS",
@@ -648,7 +709,13 @@ module.exports = [
       "PROVIDENCE",
       "MEDICAL",
       "CLINIC",
-      "HOSPITAL"
+      "HOSPITAL",
+      "DERMATOL",
+      "DERMATOLOGY",
+      "URGENT CARE",
+      "MDNOW",
+      "SANITAS",
+      "HEALTHC"
     ]
   },
   {
@@ -726,6 +793,7 @@ module.exports = [
     "merchantKeywords": [
       "NIKE",
       "ADIDAS",
+      "FILA ONLINE",
       "OLD NAVY",
       "GAP",
       "H&M",
@@ -787,7 +855,8 @@ module.exports = [
       "SEPHORA",
       "ULTA BEAUTY",
       "SALLY BEAUTY",
-      "BATH & BODY WORKS"
+      "BATH & BODY WORKS",
+      "BATHBODYWOR"
     ]
   },
   {
@@ -801,6 +870,7 @@ module.exports = [
       "SPORT CLIPS",
       "FANTASTIC SAMS",
       "BARBER",
+      "PRIMOS BARBER",
       "SALON"
     ]
   },
@@ -874,6 +944,23 @@ module.exports = [
       "TICKETMASTER",
       "SEATGEEK",
       "STUBHUB"
+    ]
+  },
+  {
+    "categoryName": "Theme Parks and Attractions",
+    "categoryType": "expense",
+    "groupName": "Entertainment",
+    "budgetBehavior": "discretionary",
+    "merchantKeywords": [
+      "WALT DISNEY",
+      "DISNEY WORLD",
+      "DISNEYWORLD",
+      "WDW",
+      "UNIVERSAL ORLANDO",
+      "SEA WORLD",
+      "SEAWORLD",
+      "THEME PARK",
+      "ATTRACTION"
     ]
   },
   {

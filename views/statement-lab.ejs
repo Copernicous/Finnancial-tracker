@@ -65,12 +65,21 @@
     .status-badge.baseline { background: rgba(100,116,139,.16); color: #94a3b8; border: 1px solid rgba(100,116,139,.28); }
     .suggestion-table-wrap,
     .detail-table-wrap { max-height: 420px; overflow: auto; }
+    .payment-proof-table-wrap { max-height: 360px; overflow: auto; }
     .suggestion-table-wrap th,
-    .detail-table-wrap th { position: sticky; top: 0; z-index: 1; background: var(--surface-2,#f1f5f9); white-space: nowrap; }
+    .detail-table-wrap th,
+    .payment-proof-table-wrap th { position: sticky; top: 0; z-index: 1; background: var(--surface-2,#f1f5f9); white-space: nowrap; }
     .clue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
     .clue-card { border: 1px solid rgba(148,163,184,.18); border-radius: 12px; padding: .65rem; background: rgba(148,163,184,.07); }
     .muted-mini { color: var(--text-muted,#64748b); font-size: .78rem; }
     .lab-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    .proof-summary { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .proof-chip { border: 1px solid rgba(148,163,184,.18); border-radius: 12px; padding: .5rem .65rem; background: rgba(148,163,184,.08); min-width: 132px; }
+    .proof-status { text-transform: capitalize; min-width: 96px; }
+    .proof-status.matched { background: rgba(25,135,84,.16); color: #198754; border: 1px solid rgba(25,135,84,.28); }
+    .proof-status.multiple { background: rgba(13,110,253,.16); color: #0d6efd; border: 1px solid rgba(13,110,253,.28); }
+    .proof-status.missing_funding { background: rgba(220,53,69,.16); color: #dc3545; border: 1px solid rgba(220,53,69,.28); }
+    .proof-source { min-width: 170px; max-width: 260px; }
     @media (max-width: 1180px) {
       .lab-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .lab-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -139,6 +148,23 @@
 
       <section class="lab-grid" id="comparisonCards"></section>
 
+      <section class="lab-card">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="mb-1">Credit Card Payment Proof</h5>
+            <div class="muted-mini">Pairs card statement payment credits with matching checking/savings funding debits by amount and nearby date.</div>
+          </div>
+          <span class="badge text-bg-secondary">7 day match window</span>
+        </div>
+        <div class="proof-summary mb-3" id="paymentProofSummary"></div>
+        <div class="table-responsive payment-proof-table-wrap">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead><tr><th>Status</th><th>Card Payment</th><th>Card Source</th><th>Funding Debit</th><th>Funding Source</th><th class="text-end">Gap</th></tr></thead>
+            <tbody id="paymentProofRows"><tr><td colspan="6" class="text-muted">Loading payment proof...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
       <section class="lab-layout">
         <div class="lab-card tint">
           <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
@@ -196,6 +222,7 @@
 let accounts = [];
 let overview = null;
 let suggestions = [];
+let paymentProof = null;
 let defaultYear = String(new Date().getFullYear());
 
 function authHeaders(){ const t=localStorage.getItem('haToken')||localStorage.getItem('token')||''; return t?{Authorization:'Bearer '+t}:{}; }
@@ -295,6 +322,45 @@ function renderTimeline() {
 function statusBadge(status) {
   return '<span class="badge rounded-pill status-badge ' + esc(status || 'review') + '">' + esc(status || 'review') + '</span>';
 }
+function proofBadge(status) {
+  const label = String(status || 'review').replace(/_/g, ' ');
+  return '<span class="badge rounded-pill proof-status ' + esc(status || 'review') + '">' + esc(label) + '</span>';
+}
+function proofChip(label, value, isMoney) {
+  return '<div class="proof-chip"><div class="muted-mini text-uppercase">' + esc(label) + '</div><div class="fw-semibold">' + (isMoney ? money(value) : esc(value)) + '</div></div>';
+}
+function proofSource(source) {
+  const name = source && (source.originalFileName || source.importBatchFileName) ? (source.originalFileName || source.importBatchFileName) : '';
+  const section = source && (source.statementSection || source.statementDate || source.cardholder) ? [source.statementDate, source.statementSection || source.cardholder].filter(Boolean).join(' - ') : '';
+  return '<div class="proof-source"><div class="fw-semibold text-truncate" title="' + attr(name) + '">' + esc(name || 'Not available') + '</div><div class="muted-mini text-truncate" title="' + attr(section) + '">' + esc(section) + '</div></div>';
+}
+function proofTx(row) {
+  if (!row) return '<span class="text-muted">No match</span>';
+  return '<div><div class="fw-semibold">' + esc(row.transactionDate || '') + ' ' + esc(money(row.amount, row.currency)) + '</div><div class="muted-mini text-truncate" title="' + attr(row.description || '') + '">' + esc(row.accountName || '') + ' - ' + esc(row.description || '') + '</div></div>';
+}
+function renderPaymentProof(data) {
+  paymentProof = data || {};
+  const s = paymentProof.summary || {};
+  document.getElementById('paymentProofSummary').innerHTML = [
+    proofChip('Card Payments', Number(s.cardPaymentCount || 0).toLocaleString(), false),
+    proofChip('Matched', Number(s.matchedCount || 0).toLocaleString(), false),
+    proofChip('Missing Funding', Number(s.missingFundingCount || 0).toLocaleString(), false),
+    proofChip('Card Total', s.cardPaymentTotal || 0, true),
+    proofChip('Missing Total', s.missingFundingTotal || 0, true)
+  ].join('');
+  const rows = paymentProof.rows || [];
+  document.getElementById('paymentProofRows').innerHTML = rows.length ? rows.map(row => {
+    const funding = (row.fundingCandidates || [])[0] || null;
+    return '<tr>' +
+      '<td>' + proofBadge(row.status) + '</td>' +
+      '<td>' + proofTx(row.card) + '</td>' +
+      '<td>' + proofSource(row.card && row.card.source) + '</td>' +
+      '<td>' + proofTx(funding) + (row.fundingCandidates && row.fundingCandidates.length > 1 ? '<div class="muted-mini">+' + esc(row.fundingCandidates.length - 1) + ' more candidates</div>' : '') + '</td>' +
+      '<td>' + proofSource(funding && funding.source) + '</td>' +
+      '<td class="text-end">' + (row.dayGap == null ? '<span class="text-muted">-</span>' : esc(row.dayGap + 'd')) + '</td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="6" class="text-muted">No credit-card payment rows found for this filter.</td></tr>';
+}
 function renderSuggestions() {
   const body = document.getElementById('suggestionRows');
   if (!suggestions.length) {
@@ -375,17 +441,21 @@ async function loadLab() {
     currency: document.getElementById('currencyFilter').value || 'USD'
   };
   document.getElementById('comparisonCards').innerHTML = cardHtml('Loading', '...', 'Gathering overview and snapshots.');
-  const [overviewRes, suggestionRes] = await Promise.all([
+  document.getElementById('paymentProofRows').innerHTML = '<tr><td colspan="6" class="text-muted">Loading payment proof...</td></tr>';
+  const [overviewRes, suggestionRes, proofRes] = await Promise.all([
     fetch('/api/finance/overview?' + qs(params), { headers: authHeaders() }),
-    fetch('/api/finance/statement-reconciliation-suggestions?' + qs({ accountId: params.accountId, currency: params.currency, limit: 100 }), { headers: authHeaders() })
+    fetch('/api/finance/statement-reconciliation-suggestions?' + qs({ accountId: params.accountId, currency: params.currency, limit: 100 }), { headers: authHeaders() }),
+    fetch('/api/finance/credit-card-payment-proof?' + qs({ ...params, windowDays: 7 }), { headers: authHeaders() })
   ]);
   overview = await overviewRes.json().catch(() => ({}));
   const suggestionPayload = await suggestionRes.json().catch(() => ({}));
+  const proofPayload = await proofRes.json().catch(() => ({}));
   if (!overviewRes.ok) {
     document.getElementById('comparisonCards').innerHTML = cardHtml('Error', 'Unable to load', 'Check login or finance permissions.', 'text-danger');
     return;
   }
   suggestions = suggestionRes.ok ? (suggestionPayload.rows || []) : [];
+  renderPaymentProof(proofRes.ok ? proofPayload : { rows: [], summary: {} });
   renderComparison();
   renderTimeline();
   renderSuggestions();

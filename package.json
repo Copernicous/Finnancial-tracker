@@ -1,6 +1,6 @@
 {
   "name": "home-accounting",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "description": "Home Accounting management system with roles, audit, reporting, uploads, staging, and deployment tooling",
   "main": "app.js",
   "scripts": {
@@ -19,6 +19,8 @@
     "accounts:sync-bank": "node scripts/sync-bank-statement-accounts.js",
     "reconcile:time-machine": "node scripts/time-machine-reconciliation.js",
     "transactions:reclassify-transfers": "node scripts/reclassify-internal-transfers.js",
+    "transactions:operation-audit": "node scripts/operation-category-audit.js",
+    "transactions:learn-recent-categories": "node scripts/learn-recent-transaction-categories.js",
     "reset:bank-imports": "node scripts/reset-bank-statement-imports.js",
     "remove:bank-years": "node scripts/remove-bank-statement-years.js",
     "normalize:statement-dates": "node scripts/normalize-statement-file-dates.js",
