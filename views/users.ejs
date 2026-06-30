@@ -8,6 +8,17 @@
   <link href="/assets/inter.css" rel="stylesheet">
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .user-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .5rem .65rem; align-items: end; }
+    .user-form-grid .form-label { margin-bottom: .18rem; font-size: .72rem; font-weight: 700; color: var(--text-muted, #64748b); }
+    .user-form-grid .form-control,
+    .user-form-grid .form-select { min-height: 36px; padding-top: .32rem; padding-bottom: .32rem; }
+    .user-form-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .user-form-wide { grid-column: span 2; }
+    @media (max-width: 768px) {
+      .user-form-wide { grid-column: span 1; }
+    }
+  </style>
 </head>
 <body>
 <div class="wrapper">
@@ -24,27 +35,33 @@
 
     <div class="container-fluid px-4">
       <div class="glass-card p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
           <h5 class="mb-0" id="formTitle">Add User</h5>
-          <button class="btn btn-outline-secondary btn-sm" onclick="resetForm()"><i class="fas fa-user-plus me-1"></i>New</button>
+          <div class="user-form-actions">
+            <button class="btn btn-outline-secondary btn-sm" id="userFormToggle" type="button" data-bs-toggle="collapse" data-bs-target="#userFormCollapse" aria-expanded="false" aria-controls="userFormCollapse"><i class="fas fa-chevron-down me-1"></i>Form</button>
+            <button class="btn btn-outline-primary btn-sm" type="button" onclick="startNewUser()"><i class="fas fa-user-plus me-1"></i>New</button>
+          </div>
         </div>
-        <form id="userForm">
-          <input type="hidden" id="userId">
-          <div class="row g-3">
-            <div class="col-md-3"><label class="form-label">First Name</label><input class="form-control" id="firstName" required></div>
-            <div class="col-md-3"><label class="form-label">Last Name</label><input class="form-control" id="lastName" required></div>
-            <div class="col-md-3"><label class="form-label">Username</label><input class="form-control" id="username" required></div>
-            <div class="col-md-3"><label class="form-label">Email</label><input class="form-control" id="email" type="email"></div>
-            <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" id="roleId" required></select></div>
-            <div class="col-md-4"><label class="form-label">Password</label><input class="form-control" id="password" type="password" autocomplete="new-password"><div class="text-muted small mt-1">Required for new users. Leave blank to keep current password.</div></div>
-            <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="isActive" checked><label class="form-check-label" for="isActive">Active login</label></div></div>
-            <div class="col-12"><label class="form-label">Notes</label><textarea class="form-control" id="notes" rows="2"></textarea></div>
-          </div>
-          <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-primary" type="submit"><i class="fas fa-save me-1"></i>Save User</button>
-            <button class="btn btn-outline-secondary" type="button" onclick="resetForm()">Cancel</button>
-          </div>
-        </form>
+        <div class="collapse" id="userFormCollapse">
+          <form id="userForm">
+            <input type="hidden" id="userId">
+            <div class="user-form-grid">
+              <div><label class="form-label">First Name</label><input class="form-control form-control-sm" id="firstName" required></div>
+              <div><label class="form-label">Last Name</label><input class="form-control form-control-sm" id="lastName" required></div>
+              <div><label class="form-label">Username</label><input class="form-control form-control-sm" id="username" required></div>
+              <div><label class="form-label">Email</label><input class="form-control form-control-sm" id="email" type="email"></div>
+              <div><label class="form-label">Role</label><select class="form-select form-select-sm" id="roleId" required></select></div>
+              <div><label class="form-label">Password</label><input class="form-control form-control-sm" id="password" type="password" autocomplete="new-password"></div>
+              <div class="d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="isActive" checked><label class="form-check-label" for="isActive">Active login</label></div></div>
+              <div class="user-form-wide"><label class="form-label">Notes</label><textarea class="form-control form-control-sm" id="notes" rows="1"></textarea></div>
+            </div>
+            <div class="text-muted small mt-2">Password is required only for new users; leave blank while editing to keep the current password.</div>
+            <div class="d-flex gap-2 mt-3">
+              <button class="btn btn-primary btn-sm" type="submit"><i class="fas fa-save me-1"></i>Save User</button>
+              <button class="btn btn-outline-secondary btn-sm" type="button" onclick="cancelUserForm()">Cancel</button>
+            </div>
+          </form>
+        </div>
       </div>
 
       <div class="glass-card p-4">
@@ -70,6 +87,7 @@
 <script>
 let users = [];
 let roles = [];
+let userFormCollapse = null;
 function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
   const headers = token ? { Authorization: 'Bearer ' + token } : {};
@@ -85,6 +103,24 @@ function toast(message, type) {
 function roleName(id) {
   const role = roles.find(r => Number(r.id) === Number(id));
   return role ? role.name : '';
+}
+function userFormController() {
+  if (!userFormCollapse) {
+    userFormCollapse = new bootstrap.Collapse(document.getElementById('userFormCollapse'), { toggle: false });
+  }
+  return userFormCollapse;
+}
+function setUserFormToggle(open) {
+  const btn = document.getElementById('userFormToggle');
+  if (!btn) return;
+  btn.innerHTML = open ? '<i class="fas fa-chevron-up me-1"></i>Hide' : '<i class="fas fa-chevron-down me-1"></i>Form';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function showUserForm() {
+  userFormController().show();
+}
+function hideUserForm() {
+  userFormController().hide();
 }
 async function loadRoles() {
   roles = await fetch('/api/roles', { headers: authHeaders() }).then(r => r.ok ? r.json() : []);
@@ -112,6 +148,15 @@ function resetForm() {
   document.getElementById('userForm').reset();
   document.getElementById('isActive').checked = true;
 }
+function startNewUser() {
+  resetForm();
+  showUserForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function cancelUserForm() {
+  resetForm();
+  hideUserForm();
+}
 function editUser(id) {
   const user = users.find(item => Number(item.id) === Number(id));
   if (!user) return;
@@ -121,6 +166,7 @@ function editUser(id) {
   document.getElementById('roleId').value = user.roleId || '';
   document.getElementById('password').value = '';
   document.getElementById('isActive').checked = !!user.isActive;
+  showUserForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 async function disableUser(id) {
@@ -164,9 +210,13 @@ document.getElementById('userForm').addEventListener('submit', async function(ev
   }
   toast('User saved.');
   resetForm();
+  hideUserForm();
   loadUsers();
 });
 document.addEventListener('DOMContentLoaded', async function() {
+  document.getElementById('userFormCollapse').addEventListener('shown.bs.collapse', () => setUserFormToggle(true));
+  document.getElementById('userFormCollapse').addEventListener('hidden.bs.collapse', () => setUserFormToggle(false));
+  userFormController();
   await loadRoles();
   await loadUsers();
 });

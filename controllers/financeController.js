@@ -175,6 +175,13 @@ function isoDay(date) {
   return date.toISOString().slice(0, 10);
 }
 
+function addIsoDays(value, days) {
+  const date = parseIsoDay(value);
+  if (!date) return null;
+  date.setUTCDate(date.getUTCDate() + days);
+  return isoDay(date);
+}
+
 function bucketDate(dateValue, grain) {
   const date = parseIsoDay(dateValue);
   if (!date) return String(dateValue || '').slice(0, 10);
@@ -293,6 +300,159 @@ function transactionQueryParts(query, options = {}) {
   if (query.accountType) accountWhere.accountType = cleanText(query.accountType);
 
   return { where, accountWhere, merchantWhere };
+}
+
+function financeSqlFilters(query, options = {}) {
+  const clauses = [];
+  const replacements = {};
+  const q = cleanText(query.q);
+  const dateWhere = pickDateWhere(query, options.defaultYear || 2026);
+
+  if (dateWhere) {
+    if (dateWhere[Op.between]) {
+      replacements.dateFrom = dateWhere[Op.between][0];
+      replacements.dateTo = dateWhere[Op.between][1];
+      clauses.push('t."transactionDate" BETWEEN :dateFrom AND :dateTo');
+    } else {
+      if (dateWhere[Op.gte]) {
+        replacements.dateFrom = dateWhere[Op.gte];
+        clauses.push('t."transactionDate" >= :dateFrom');
+      }
+      if (dateWhere[Op.lte]) {
+        replacements.dateTo = dateWhere[Op.lte];
+        clauses.push('t."transactionDate" <= :dateTo');
+      }
+    }
+  }
+
+  if (query.accountId) {
+    replacements.accountId = Number(query.accountId);
+    clauses.push('t."accountId" = :accountId');
+  }
+  const merchantKey = cleanText(query.merchantKey || query.merchantId);
+  if (merchantKey) {
+    if (merchantKey.startsWith('group:')) {
+      replacements.merchantGroupName = cleanText(merchantKey.slice('group:'.length));
+      clauses.push('m."merchantGroupName" = :merchantGroupName');
+    } else if (merchantKey.startsWith('merchant:')) {
+      replacements.merchantId = cleanId(merchantKey.slice('merchant:'.length));
+      if (replacements.merchantId) clauses.push('t."merchantId" = :merchantId');
+    } else {
+      replacements.merchantId = cleanId(merchantKey);
+      if (replacements.merchantId) clauses.push('t."merchantId" = :merchantId');
+    }
+  }
+  if (query.categoryId === 'uncategorized' || query.categoryId === 'none' || query.onlyUncategorized === 'true' || query.onlyUncategorized === true) {
+    clauses.push('t."categoryId" IS NULL');
+  } else if (query.categoryId) {
+    replacements.categoryId = Number(query.categoryId);
+    clauses.push('t."categoryId" = :categoryId');
+  }
+  if (query.type) {
+    replacements.transactionType = cleanText(query.type);
+    clauses.push('t."transactionType" = :transactionType');
+  }
+  if (query.status) {
+    replacements.status = cleanText(query.status);
+    clauses.push('t."status" = :status');
+  }
+  if (query.currency && query.currency !== 'ALL') {
+    replacements.currency = cleanText(query.currency).toUpperCase();
+    clauses.push('t."currency" = :currency');
+  }
+  if (query.sourceType) {
+    replacements.sourceType = cleanText(query.sourceType);
+    clauses.push('t."sourceType" = :sourceType');
+  }
+  if (query.min) {
+    replacements.minAmount = Number(query.min);
+    clauses.push('t."amount" >= :minAmount');
+  }
+  if (query.max) {
+    replacements.maxAmount = Number(query.max);
+    clauses.push('t."amount" <= :maxAmount');
+  }
+  if (query.tag) {
+    replacements.tagLike = `%${cleanText(query.tag)}%`;
+    clauses.push('t."tags" ILIKE :tagLike');
+  }
+  if (query.accountClass) {
+    replacements.accountClass = cleanText(query.accountClass);
+    clauses.push('a."accountClass" = :accountClass');
+  }
+  if (query.accountType) {
+    replacements.accountType = cleanText(query.accountType);
+    clauses.push('a."accountType" = :accountType');
+  }
+  if (q) {
+    replacements.qLike = `%${q}%`;
+    const searchFields = [
+      't."description"',
+      't."merchant"',
+      't."receiptMerchant"',
+      't."normalizedMerchant"',
+      'm."officialName"',
+      'm."normalizedName"',
+      'm."merchantGroupName"',
+      'm."merchantType"'
+    ];
+    if (query.searchScope !== 'entry') searchFields.push('t."referenceNumber"');
+    if (query.searchScope !== 'group') searchFields.push('t."memo"');
+    if (query.searchScope !== 'entry') searchFields.push('t."tags"');
+    clauses.push(`(${searchFields.map((field) => `${field} ILIKE :qLike`).join(' OR ')})`);
+  }
+
+  return {
+    replacements,
+    whereSql: clauses.length ? clauses.join(' AND ') : '1=1',
+    joinsSql: `
+      LEFT JOIN "Accounts" a ON a."id" = t."accountId"
+      LEFT JOIN "Categories" c ON c."id" = t."categoryId"
+      LEFT JOIN "Merchants" m ON m."id" = t."merchantId"
+    `
+  };
+}
+
+async function transactionSummarySql(query) {
+  const { whereSql, joinsSql, replacements } = financeSqlFilters(query);
+  const categorySql = `
+    SELECT
+      t."categoryId" AS "categoryId",
+      COALESCE(c."name", 'Uncategorized') AS "name",
+      COALESCE(c."groupName", 'Unassigned') AS "groupName",
+      SUM(ABS(t."amount"))::float AS "amount",
+      COUNT(*)::int AS "count"
+    FROM "Transactions" t
+    ${joinsSql}
+    WHERE ${whereSql}
+    GROUP BY t."categoryId", c."name", c."groupName"
+    ORDER BY COUNT(*) DESC, SUM(ABS(t."amount")) DESC
+    LIMIT 60
+  `;
+  const merchantSql = `
+    SELECT
+      CASE
+        WHEN NULLIF(TRIM(m."merchantGroupName"), '') IS NOT NULL THEN 'group:' || m."merchantGroupName"
+        WHEN t."merchantId" IS NOT NULL THEN 'merchant:' || t."merchantId"::text
+        ELSE 'text:' || COALESCE(NULLIF(REGEXP_REPLACE(LOWER(COALESCE(NULLIF(t."merchant", ''), NULLIF(t."normalizedMerchant", ''), NULLIF(t."description", ''), 'no merchant')), '[^a-z0-9]+', '-', 'g'), ''), 'no-merchant')
+      END AS "merchantKey",
+      CASE WHEN NULLIF(TRIM(m."merchantGroupName"), '') IS NOT NULL THEN NULL ELSE t."merchantId" END AS "merchantId",
+      NULLIF(TRIM(m."merchantGroupName"), '') AS "groupName",
+      COALESCE(NULLIF(TRIM(m."merchantGroupName"), ''), NULLIF(TRIM(m."officialName"), ''), NULLIF(TRIM(t."merchant"), ''), NULLIF(TRIM(t."normalizedMerchant"), ''), NULLIF(TRIM(t."description"), ''), 'No merchant') AS "name",
+      SUM(ABS(t."amount"))::float AS "amount",
+      COUNT(*)::int AS "count"
+    FROM "Transactions" t
+    ${joinsSql}
+    WHERE ${whereSql}
+    GROUP BY 1, 2, 3, 4
+    ORDER BY SUM(ABS(t."amount")) DESC
+    LIMIT 60
+  `;
+  const [categorySummary, merchantSummary] = await Promise.all([
+    db.sequelize.query(categorySql, { replacements, type: db.Sequelize.QueryTypes.SELECT }),
+    db.sequelize.query(merchantSql, { replacements, type: db.Sequelize.QueryTypes.SELECT })
+  ]);
+  return { categorySummary, merchantSummary };
 }
 
 function accountInclude(accountWhere = {}) {
@@ -420,26 +580,21 @@ function accountLabel(account) {
 
 exports.years = async (req, res, next) => {
   try {
-    const [transactions, budgets, snapshots, reconciliations, currencyRates] = await Promise.all([
-      db.Transaction.findAll({ attributes: ['transactionDate'], raw: true }),
-      db.Budget.findAll({ attributes: ['year'], raw: true }),
-      db.AccountBalanceSnapshot.findAll({ attributes: ['snapshotDate'], raw: true }),
-      db.Reconciliation.findAll({ attributes: ['periodStart', 'periodEnd'], raw: true }),
-      db.CurrencyRate.findAll({ attributes: ['rateDate'], raw: true })
-    ]);
-
-    const years = new Set();
-    transactions.forEach((row) => addYearFromValue(years, row.transactionDate));
-    budgets.forEach((row) => addYearFromValue(years, row.year));
-    snapshots.forEach((row) => addYearFromValue(years, row.snapshotDate));
-    reconciliations.forEach((row) => {
-      addYearFromValue(years, row.periodStart);
-      addYearFromValue(years, row.periodEnd);
-    });
-    currencyRates.forEach((row) => addYearFromValue(years, row.rateDate));
+    const rows = await db.sequelize.query(`
+      SELECT DISTINCT year FROM (
+        SELECT EXTRACT(YEAR FROM "transactionDate")::int AS year FROM "Transactions"
+        UNION ALL SELECT "year"::int AS year FROM "Budgets" WHERE "year" IS NOT NULL
+        UNION ALL SELECT EXTRACT(YEAR FROM "snapshotDate")::int AS year FROM "AccountBalanceSnapshots"
+        UNION ALL SELECT EXTRACT(YEAR FROM "periodStart")::int AS year FROM "Reconciliations" WHERE "periodStart" IS NOT NULL
+        UNION ALL SELECT EXTRACT(YEAR FROM "periodEnd")::int AS year FROM "Reconciliations" WHERE "periodEnd" IS NOT NULL
+        UNION ALL SELECT EXTRACT(YEAR FROM "rateDate")::int AS year FROM "CurrencyRates"
+      ) years
+      WHERE year BETWEEN 1900 AND 2200
+      ORDER BY year DESC
+    `, { type: db.Sequelize.QueryTypes.SELECT });
 
     const currentYear = new Date().getFullYear();
-    const sortedYears = Array.from(years).sort((a, b) => b - a);
+    const sortedYears = rows.map((row) => Number(row.year)).filter(Boolean);
     if (!sortedYears.length) sortedYears.push(currentYear);
 
     res.json({
@@ -614,15 +769,23 @@ exports.overview = async (req, res, next) => {
       .filter((account) => !currency || account.currency === currency)
       .map((account) => {
         const snapshot = latestSnapshotByAccount.get(account.id);
-        const balance = snapshot ? toNumber(snapshot.balance) : toNumber(account.currentBalance || account.openingBalance) + toNumber(accountMovement.get(account.id));
+        const ledgerBalance = toNumber(account.currentBalance || account.openingBalance) + toNumber(accountMovement.get(account.id));
+        const statementBalance = snapshot ? toNumber(snapshot.balance) : null;
+        const balance = snapshot ? statementBalance : ledgerBalance;
         return {
           id: account.id,
           name: accountLabel(account),
+          accountCode: account.accountCode,
           accountClass: account.accountClass || 'banking',
           accountSubtype: account.accountSubtype || '',
           currency: account.currency,
           status: account.status,
           balance,
+          ledgerBalance,
+          statementBalance,
+          statementDate: snapshot ? snapshot.snapshotDate : '',
+          statementSource: snapshot ? snapshot.source : '',
+          statementDifference: snapshot ? ledgerBalance - statementBalance : null,
           creditLimit: toNumber(account.creditLimit),
           interestRate: toNumber(account.interestRate),
           includeInNetWorth: account.includeInNetWorth !== false,
@@ -698,6 +861,15 @@ exports.overview = async (req, res, next) => {
         accountCount: accountSummaries.length
       },
       monthly,
+      statementSnapshots: snapshots.map((snapshot) => ({
+        id: snapshot.id,
+        accountId: snapshot.accountId,
+        snapshotDate: snapshot.snapshotDate,
+        balance: toNumber(snapshot.balance),
+        currency: snapshot.currency,
+        source: snapshot.source,
+        notes: snapshot.notes
+      })),
       categoryTotals: Array.from(categoryTotals.values()).sort((a, b) => b.amount - a.amount).slice(0, 20),
       accountTotals: accountSummaries.sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)),
       accountClasses: Array.from(accountClasses.values()).sort((a, b) => Math.abs(b.balance) - Math.abs(a.balance)),
@@ -787,47 +959,58 @@ exports.search = async (req, res, next) => {
       offset
     });
 
-    const summaryRows = await db.Transaction.findAll({
-      where,
-      include,
-      order: [['transactionDate', 'DESC'], ['id', 'DESC']],
-      limit: 10000
-    });
-    const categorySummary = new Map();
-    const merchantSummary = new Map();
-    summaryRows.forEach((row) => {
-      const amount = Math.abs(toNumber(row.amount));
-      const categoryKey = row.categoryId || 'uncategorized';
-      if (!categorySummary.has(categoryKey)) {
-        categorySummary.set(categoryKey, {
-          categoryId: row.categoryId,
-          name: row.Category ? row.Category.name : 'Uncategorized',
-          groupName: row.Category ? row.Category.groupName : 'Unassigned',
-          amount: 0,
-          count: 0
-        });
-      }
-      const category = categorySummary.get(categoryKey);
-      category.amount += amount;
-      category.count += 1;
+    let categorySummaryRows = [];
+    let merchantSummaryRows = [];
+    try {
+      const summaries = await transactionSummarySql(req.query);
+      categorySummaryRows = summaries.categorySummary;
+      merchantSummaryRows = summaries.merchantSummary;
+    } catch (summaryErr) {
+      console.warn('[Finance] PostgreSQL summary fast path failed; falling back to Sequelize rows:', summaryErr.message);
+      const summaryRows = await db.Transaction.findAll({
+        where,
+        include,
+        order: [['transactionDate', 'DESC'], ['id', 'DESC']],
+        limit: 10000
+      });
+      const categorySummary = new Map();
+      const merchantSummary = new Map();
+      summaryRows.forEach((row) => {
+        const amount = Math.abs(toNumber(row.amount));
+        const categoryKey = row.categoryId || 'uncategorized';
+        if (!categorySummary.has(categoryKey)) {
+          categorySummary.set(categoryKey, {
+            categoryId: row.categoryId,
+            name: row.Category ? row.Category.name : 'Uncategorized',
+            groupName: row.Category ? row.Category.groupName : 'Unassigned',
+            amount: 0,
+            count: 0
+          });
+        }
+        const category = categorySummary.get(categoryKey);
+        category.amount += amount;
+        category.count += 1;
 
-      const merchantName = merchantDisplayName(row);
-      const merchantKey = merchantFilterKey(row);
-      const groupName = cleanText(row.Merchant && row.Merchant.merchantGroupName);
-      if (!merchantSummary.has(merchantKey)) {
-        merchantSummary.set(merchantKey, {
-          merchantKey,
-          merchantId: groupName ? null : (row.merchantId || null),
-          groupName,
-          name: merchantName,
-          amount: 0,
-          count: 0
-        });
-      }
-      const merchant = merchantSummary.get(merchantKey);
-      merchant.amount += amount;
-      merchant.count += 1;
-    });
+        const merchantName = merchantDisplayName(row);
+        const merchantKey = merchantFilterKey(row);
+        const groupName = cleanText(row.Merchant && row.Merchant.merchantGroupName);
+        if (!merchantSummary.has(merchantKey)) {
+          merchantSummary.set(merchantKey, {
+            merchantKey,
+            merchantId: groupName ? null : (row.merchantId || null),
+            groupName,
+            name: merchantName,
+            amount: 0,
+            count: 0
+          });
+        }
+        const merchant = merchantSummary.get(merchantKey);
+        merchant.amount += amount;
+        merchant.count += 1;
+      });
+      categorySummaryRows = Array.from(categorySummary.values()).sort((a, b) => b.count - a.count || b.amount - a.amount).slice(0, 60);
+      merchantSummaryRows = Array.from(merchantSummary.values()).sort((a, b) => b.amount - a.amount).slice(0, 60);
+    }
 
     const total = typeof result.count === 'number' ? result.count : result.count.length;
     res.json({
@@ -837,8 +1020,8 @@ exports.search = async (req, res, next) => {
       limit,
       totalPages: Math.max(1, Math.ceil(total / limit)),
       rows: result.rows.map(transactionDto),
-      categorySummary: Array.from(categorySummary.values()).sort((a, b) => b.count - a.count || b.amount - a.amount).slice(0, 60),
-      merchantSummary: Array.from(merchantSummary.values()).sort((a, b) => b.amount - a.amount).slice(0, 60)
+      categorySummary: categorySummaryRows,
+      merchantSummary: merchantSummaryRows
     });
   } catch (err) {
     next(err);
@@ -936,18 +1119,32 @@ exports.kpiDetail = async (req, res, next) => {
     };
 
     if (metric === 'netWorth' || metric === 'creditUtilization') {
-      const [accounts, transactions] = await Promise.all([
+      const [accounts, transactions, snapshots] = await Promise.all([
         db.Account.findAll({ where: reportAccountWhere, order: [['accountClass', 'ASC'], ['name', 'ASC']] }),
-        db.Transaction.findAll({ where: txWhere, include: [accountInclude(accountClass ? { accountClass } : {})] })
+        db.Transaction.findAll({ where: txWhere, include: [accountInclude(accountClass ? { accountClass } : {})] }),
+        db.AccountBalanceSnapshot.findAll({
+          where: {
+            ...(allYears ? {} : { snapshotDate: { [Op.lte]: to } }),
+            ...(accountId ? { accountId } : {}),
+            ...(currency ? { currency } : {})
+          },
+          order: [['snapshotDate', 'DESC'], ['id', 'DESC']],
+          limit: 500
+        })
       ]);
       const movement = new Map();
       transactions.forEach((row) => {
         movement.set(row.accountId, toNumber(movement.get(row.accountId)) + toNumber(row.amount));
       });
+      const latestSnapshotByAccount = new Map();
+      snapshots.forEach((snapshot) => {
+        if (!latestSnapshotByAccount.has(snapshot.accountId)) latestSnapshotByAccount.set(snapshot.accountId, snapshot);
+      });
       const rows = accounts
         .filter((account) => !accountId || Number(account.id) === accountId)
         .map((account) => {
-          const balance = toNumber(account.currentBalance || account.openingBalance) + toNumber(movement.get(account.id));
+          const snapshot = latestSnapshotByAccount.get(account.id);
+          const balance = snapshot ? toNumber(snapshot.balance) : toNumber(account.currentBalance || account.openingBalance) + toNumber(movement.get(account.id));
           return {
             id: account.id,
             name: account.name,
@@ -957,6 +1154,8 @@ exports.kpiDetail = async (req, res, next) => {
             accountType: account.accountType,
             currency: account.currency,
             currentBalance: toNumber(account.currentBalance),
+            snapshotDate: snapshot ? snapshot.snapshotDate : '',
+            snapshotSource: snapshot ? snapshot.source : '',
             periodMovement: toNumber(movement.get(account.id)),
             balance,
             netWorthValue: accountNetValue(account, balance),
@@ -973,8 +1172,8 @@ exports.kpiDetail = async (req, res, next) => {
         detailType: 'accounts',
         title: metric === 'netWorth' ? 'Net Worth Detail' : 'Credit Utilization Detail',
         formula: metric === 'netWorth'
-          ? 'Eligible account balances plus period movement, using liability sign rules.'
-          : 'Credit used divided by credit limit for credit/liability accounts.',
+          ? 'Eligible account balances from the latest statement snapshot available for the selected period, using liability sign rules.'
+          : 'Credit used from the latest statement snapshot available for the selected period divided by credit limit.',
         filters: { year: allYears ? 'all' : year, month, accountId, accountClass, currency: currency || 'ALL' },
         summary: {
           total: metric === 'netWorth' ? rows.reduce((sum, row) => sum + toNumber(row.netWorthValue), 0) : (creditLimit > 0 ? pct((creditUsed / creditLimit) * 100) : 0),
@@ -1150,6 +1349,216 @@ exports.trends = async (req, res, next) => {
       .sort((a, b) => b.total - a.total)
       .slice(0, Math.min(Math.max(Number(req.query.top) || 8, 1), 15));
     res.json({ labels: labels.map(bucketLabel), groupBy, measure, grain, calendar: calendarMode, series });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.statementReconciliationSuggestions = async (req, res, next) => {
+  try {
+    const replacements = {
+      limit: Math.min(Math.max(Number(req.query.limit) || 80, 1), 300)
+    };
+    const clauses = [
+      `s."source" IN ('statement_sync', 'statement_import_checkpoint')`
+    ];
+    if (req.query.accountId) {
+      replacements.accountId = Number(req.query.accountId);
+      clauses.push('s."accountId" = :accountId');
+    }
+    if (req.query.currency && req.query.currency !== 'ALL') {
+      replacements.currency = cleanText(req.query.currency).toUpperCase();
+      clauses.push('s."currency" = :currency');
+    }
+    if (req.query.from) {
+      replacements.from = cleanText(req.query.from).slice(0, 10);
+      clauses.push('s."snapshotDate" >= :from');
+    }
+    if (req.query.to) {
+      replacements.to = cleanText(req.query.to).slice(0, 10);
+      clauses.push('s."snapshotDate" <= :to');
+    }
+    const sql = `
+      WITH checkpoints AS (
+        SELECT
+          s."id",
+          s."accountId",
+          a."name" AS "accountName",
+          a."accountCode",
+          a."accountClass",
+          s."snapshotDate",
+          s."balance"::numeric AS "statementBalance",
+          s."currency",
+          s."source",
+          s."notes",
+          LAG(s."snapshotDate") OVER (PARTITION BY s."accountId" ORDER BY s."snapshotDate", s."id") AS "priorDate",
+          LAG(s."balance"::numeric) OVER (PARTITION BY s."accountId" ORDER BY s."snapshotDate", s."id") AS "priorBalance"
+        FROM "AccountBalanceSnapshots" s
+        JOIN "Accounts" a ON a."id" = s."accountId"
+        WHERE ${clauses.join(' AND ')}
+      )
+      SELECT
+        c.*,
+        COALESCE(tx."transactionSum", 0)::float AS "transactionSum",
+        COALESCE(tx."transactionCount", 0)::int AS "transactionCount",
+        CASE WHEN c."priorDate" IS NULL THEN NULL ELSE (c."priorBalance" + COALESCE(tx."transactionSum", 0))::float END AS "bookBalance",
+        CASE WHEN c."priorDate" IS NULL THEN NULL ELSE (c."statementBalance" - (c."priorBalance" + COALESCE(tx."transactionSum", 0)))::float END AS "difference"
+      FROM checkpoints c
+      LEFT JOIN LATERAL (
+        SELECT SUM(t."amount"::numeric) AS "transactionSum", COUNT(*) AS "transactionCount"
+        FROM "Transactions" t
+        WHERE t."accountId" = c."accountId"
+          AND t."status" <> 'void'
+          AND c."priorDate" IS NOT NULL
+          AND t."transactionDate" > c."priorDate"
+          AND t."transactionDate" <= c."snapshotDate"
+      ) tx ON true
+      ORDER BY c."snapshotDate" DESC, c."accountName" ASC
+      LIMIT :limit
+    `;
+    const rows = await db.sequelize.query(sql, { replacements, type: db.Sequelize.QueryTypes.SELECT });
+    res.json({
+      count: rows.length,
+      rows: rows.map((row) => {
+        const notes = cleanText(row.notes);
+        const fileMatch = notes.match(/from\s+([^;]+?\.pdf)/i);
+        const batchMatch = notes.match(/batches\s+([0-9,\s]+)/i);
+        const hasPrior = !!row.priorDate;
+        const difference = row.difference == null ? null : toNumber(row.difference);
+        return {
+          accountId: row.accountId,
+          accountName: row.accountName,
+          accountCode: row.accountCode,
+          accountClass: row.accountClass,
+          periodStart: hasPrior ? addIsoDays(row.priorDate, 1) : '',
+          periodEnd: row.snapshotDate,
+          priorCutoffDate: row.priorDate || '',
+          priorBalance: row.priorBalance == null ? null : toNumber(row.priorBalance),
+          statementBalance: toNumber(row.statementBalance),
+          bookBalance: row.bookBalance == null ? null : toNumber(row.bookBalance),
+          difference,
+          transactionSum: toNumber(row.transactionSum),
+          transactionCount: Number(row.transactionCount || 0),
+          currency: row.currency,
+          source: row.source,
+          sourceFile: fileMatch ? fileMatch[1].trim() : '',
+          sourceBatches: batchMatch ? batchMatch[1].replace(/\s+/g, '') : '',
+          status: !hasPrior ? 'baseline' : Math.abs(difference) <= 0.01 ? 'matched' : 'review'
+        };
+      })
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+exports.statementReconciliationDetail = async (req, res, next) => {
+  try {
+    const accountId = cleanId(req.query.accountId);
+    const periodStart = cleanText(req.query.periodStart).slice(0, 10);
+    const periodEnd = cleanText(req.query.periodEnd).slice(0, 10);
+    if (!accountId || !/^\d{4}-\d{2}-\d{2}$/.test(periodStart) || !/^\d{4}-\d{2}-\d{2}$/.test(periodEnd)) {
+      return res.status(400).json({ error: 'accountId, periodStart, and periodEnd are required.' });
+    }
+
+    const account = await db.Account.findByPk(accountId);
+    if (!account) return res.status(404).json({ error: 'Account not found.' });
+
+    const [priorSnapshot, currentSnapshot, transactions] = await Promise.all([
+      db.AccountBalanceSnapshot.findOne({
+        where: {
+          accountId,
+          source: { [Op.in]: ['statement_sync', 'statement_import_checkpoint'] },
+          snapshotDate: { [Op.lt]: periodEnd }
+        },
+        order: [['snapshotDate', 'DESC'], ['id', 'DESC']]
+      }),
+      db.AccountBalanceSnapshot.findOne({
+        where: {
+          accountId,
+          source: { [Op.in]: ['statement_sync', 'statement_import_checkpoint'] },
+          snapshotDate: periodEnd
+        },
+        order: [['id', 'DESC']]
+      }),
+      db.Transaction.findAll({
+        where: {
+          accountId,
+          status: { [Op.ne]: 'void' },
+          transactionDate: { [Op.between]: [periodStart, periodEnd] }
+        },
+        include: [accountInclude(), categoryInclude(), merchantInclude()],
+        order: [['transactionDate', 'ASC'], ['id', 'ASC']]
+      })
+    ]);
+
+    const transactionSum = transactions.reduce((sum, row) => sum + toNumber(row.amount), 0);
+    const priorBalance = priorSnapshot ? toNumber(priorSnapshot.balance) : null;
+    const statementBalance = currentSnapshot ? toNumber(currentSnapshot.balance) : null;
+    const bookBalance = priorBalance == null ? null : priorBalance + transactionSum;
+    const difference = statementBalance == null || bookBalance == null ? null : statementBalance - bookBalance;
+    const sourceMap = await importSourcesByTransactionId(transactions.map((row) => row.id));
+
+    const notes = cleanText(currentSnapshot && currentSnapshot.notes);
+    const batchMatch = notes.match(/batches\s+([0-9,\s]+)/i);
+    const batchIds = batchMatch ? batchMatch[1].split(',').map((id) => cleanId(id)).filter(Boolean) : [];
+    const stagedRows = batchIds.length ? await db.ImportRow.findAll({
+      where: { importBatchId: { [Op.in]: batchIds } },
+      include: [{ model: db.ImportBatch, attributes: ['id', 'fileName', 'notes'], required: false }],
+      order: [['importBatchId', 'ASC'], ['rowNumber', 'ASC']],
+      limit: 1000
+    }) : [];
+
+    res.json({
+      account: {
+        id: account.id,
+        name: account.name,
+        accountCode: account.accountCode,
+        accountClass: account.accountClass,
+        currency: account.currency
+      },
+      periodStart,
+      periodEnd,
+      priorSnapshot: priorSnapshot ? {
+        snapshotDate: priorSnapshot.snapshotDate,
+        balance: priorBalance,
+        source: priorSnapshot.source
+      } : null,
+      currentSnapshot: currentSnapshot ? {
+        snapshotDate: currentSnapshot.snapshotDate,
+        balance: statementBalance,
+        source: currentSnapshot.source,
+        notes: currentSnapshot.notes
+      } : null,
+      summary: {
+        priorBalance,
+        transactionSum,
+        statementBalance,
+        bookBalance,
+        difference,
+        transactionCount: transactions.length,
+        stagedRowCount: stagedRows.length,
+        sourceBatchIds: batchIds
+      },
+      transactions: transactions.map((row) => transactionDetailDto(row, sourceMap, 'cashFlow')),
+      stagedRows: stagedRows.map((row) => {
+        const raw = row.rawData || {};
+        const normalized = row.normalizedData || {};
+        return {
+          id: row.id,
+          importBatchId: row.importBatchId,
+          batchFileName: row.ImportBatch ? row.ImportBatch.fileName : '',
+          rowNumber: row.rowNumber,
+          status: row.status,
+          date: raw.postDate || normalized.transactionDate || raw.transactionDate || '',
+          description: raw.description || normalized.description || '',
+          merchant: normalized.merchant || raw.merchant || '',
+          amount: raw.amount != null ? toNumber(raw.amount) : toNumber(normalized.amount),
+          postedTransactionId: row.postedTransactionId,
+          errorMessage: row.errorMessage || ''
+        };
+      })
+    });
   } catch (err) {
     next(err);
   }

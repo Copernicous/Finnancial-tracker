@@ -20,6 +20,7 @@
     "reconcile:time-machine": "node scripts/time-machine-reconciliation.js",
     "transactions:reclassify-transfers": "node scripts/reclassify-internal-transfers.js",
     "reset:bank-imports": "node scripts/reset-bank-statement-imports.js",
+    "remove:bank-years": "node scripts/remove-bank-statement-years.js",
     "normalize:statement-dates": "node scripts/normalize-statement-file-dates.js",
     "smoke:local": "node scripts/smoke-home-accounting.js",
     "smoke:local:seed": "node scripts/smoke-home-accounting.js --seed",

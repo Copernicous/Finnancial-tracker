@@ -9,9 +9,32 @@
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .bar-track { height: 18px; background: var(--surface-2,#eef2f7); border-radius: 4px; overflow: hidden; }
-    .bar-income { background: #198754; height: 18px; }
-    .bar-expense { background: #dc3545; height: 18px; }
+    .report-shell { display: grid; gap: 1rem; }
+    .report-filter-grid { display: grid; grid-template-columns: repeat(6, minmax(130px, 1fr)); gap: .65rem; align-items: end; }
+    .report-filter-grid .wide { grid-column: span 2; }
+    .report-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    .summary-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .85rem; }
+    .summary-card { border: 1px solid var(--border,#e5e7eb); border-radius: 10px; background: var(--surface,#fff); padding: 1rem; min-height: 106px; }
+    .summary-value { font-size: clamp(1.15rem, 2vw, 1.65rem); font-weight: 800; line-height: 1.15; }
+    .report-layout { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(300px, .75fr); gap: 1rem; align-items: start; }
+    .bar-row { display: grid; grid-template-columns: 96px minmax(160px, 1fr) 112px minmax(160px, 1fr) 112px; gap: .65rem; align-items: center; padding: .42rem 0; border-bottom: 1px solid var(--border,#e5e7eb); }
+    .bar-row:last-child { border-bottom: 0; }
+    .bar-track { height: 12px; background: var(--surface-2,#eef2f7); border-radius: 999px; overflow: hidden; }
+    .bar-income { height: 100%; background: #198754; border-radius: 999px; }
+    .bar-expense { height: 100%; background: #dc3545; border-radius: 999px; }
+    .merchant-focus-chip { display: inline-flex; gap: .4rem; align-items: center; border: 1px solid rgba(13,110,253,.35); border-radius: 999px; padding: .25rem .55rem; background: rgba(13,110,253,.1); font-size: .8rem; }
+    .detail-wrap { max-height: 560px; overflow: auto; }
+    .detail-wrap th { position: sticky; top: 0; z-index: 1; background: var(--surface-2,#f1f5f9); white-space: nowrap; }
+    .muted-small { color: var(--text-muted,#64748b); font-size: .78rem; }
+    @media (max-width: 1200px) {
+      .report-filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .report-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      .report-filter-grid, .summary-grid, .bar-row { grid-template-columns: 1fr; }
+      .report-filter-grid .wide { grid-column: span 1; }
+    }
   </style>
 </head>
 <body>
@@ -26,42 +49,141 @@
         <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
       </div>
     </nav>
-    <div class="container-fluid px-4">
-      <div class="glass-card p-4 mb-4">
-        <div class="row g-3 align-items-end">
-          <div class="col-md-3">
+    <div class="container-fluid px-4 report-shell">
+      <section class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="mb-1">Analytics & Export</h5>
+            <div class="muted-small">Granular reporting by account, statement month/date range, merchant, type, and status.</div>
+          </div>
+          <div class="report-actions">
+            <span class="merchant-focus-chip d-none" id="merchantFocusChip"></span>
+            <button class="btn btn-outline-secondary btn-sm" id="resetBtn" type="button"><i class="fas fa-undo me-1"></i>Reset</button>
+            <button class="btn btn-outline-success btn-sm" id="exportBtn" type="button"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+            <button class="btn btn-primary btn-sm" id="runBtn" type="button"><i class="fas fa-chart-bar me-1"></i>Run Report</button>
+          </div>
+        </div>
+        <div class="report-filter-grid">
+          <div>
             <label class="form-label">Report</label>
-            <select id="reportType" class="form-select" onchange="loadReport()">
+            <select id="reportType" class="form-select">
               <option value="activity">Account Activity</option>
               <option value="income_statement">Income Statement</option>
               <option value="cash_flow">Cash Flow</option>
+              <option value="merchant_spend">Merchant Spending</option>
             </select>
           </div>
-          <div class="col-md-4"><label class="form-label">Account</label><select id="accountSelect" class="form-select"><option value="">All accounts</option></select></div>
-          <div class="col-md-2"><label class="form-label">Year</label><select id="yearSelect" class="form-select"><option value="">Loading...</option></select></div>
-          <div class="col-md-3"><button class="btn btn-primary w-100" onclick="loadReport()"><i class="fas fa-chart-bar me-1"></i>Run Report</button></div>
+          <div class="wide">
+            <label class="form-label">Account</label>
+            <select id="accountSelect" class="form-select"><option value="">All accounts</option></select>
+          </div>
+          <div>
+            <label class="form-label">Year</label>
+            <select id="yearSelect" class="form-select"><option value="">Loading...</option></select>
+          </div>
+          <div>
+            <label class="form-label">Month</label>
+            <select id="monthSelect" class="form-select">
+              <option value="">All months</option>
+              <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+              <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+              <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+              <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Grain</label>
+            <select id="grainSelect" class="form-select">
+              <option value="month">Month</option>
+              <option value="week">Week</option>
+              <option value="day">Day</option>
+              <option value="year">Year</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">From</label>
+            <input id="fromDate" class="form-control" type="date">
+          </div>
+          <div>
+            <label class="form-label">To</label>
+            <input id="toDate" class="form-control" type="date">
+          </div>
+          <div class="wide">
+            <label class="form-label">Merchant / Text Search</label>
+            <input id="merchantSearch" class="form-control" placeholder="Merchant, description, tag, memo">
+          </div>
+          <div>
+            <label class="form-label">Type</label>
+            <select id="typeSelect" class="form-select">
+              <option value="">All types</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+              <option value="transfer">Transfer</option>
+              <option value="adjustment">Adjustment</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Status</label>
+            <select id="statusSelect" class="form-select">
+              <option value="">All statuses</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="reconciled">Reconciled</option>
+              <option value="draft">Draft</option>
+              <option value="void">Void</option>
+            </select>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="row g-3 mb-4" id="summaryCards"></div>
+      <section class="summary-grid" id="summaryCards"></section>
 
-      <div class="glass-card p-4 mb-4">
-        <h5 class="mb-3">Monthly Movement</h5>
-        <div id="bars"></div>
-      </div>
-
-      <div class="glass-card p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0">Report Detail</h5>
-          <button class="btn btn-outline-success btn-sm" onclick="exportCsv()"><i class="fas fa-file-csv me-1"></i>Export CSV</button>
+      <section class="report-layout">
+        <div class="glass-card p-4">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="mb-1">Movement by Period</h5>
+              <div class="muted-small" id="periodSubtitle">Run a report to view period movement.</div>
+            </div>
+            <div class="muted-small">Green = income, red = expenses</div>
+          </div>
+          <div id="bars"><div class="text-muted">Loading...</div></div>
         </div>
-        <div class="table-responsive">
-          <table class="table table-hover align-middle">
-            <thead><tr><th>Date</th><th>Account</th><th>Category</th><th>Description</th><th>Type</th><th class="text-end">Amount</th><th>Status</th></tr></thead>
-            <tbody id="detailRows"><tr><td colspan="7" class="text-muted">Loading...</td></tr></tbody>
+
+        <div class="glass-card p-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="mb-1">Top Merchants</h5>
+              <div class="muted-small">Click Focus to drill into a merchant/group.</div>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" id="clearMerchantFocusBtn" type="button">All</button>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead><tr><th>Merchant</th><th class="text-end">Amount</th><th class="text-end">Rows</th><th></th></tr></thead>
+              <tbody id="merchantRows"><tr><td colspan="4" class="text-muted">Loading...</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section class="glass-card p-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="mb-1">Report Detail</h5>
+            <div class="muted-small" id="detailCount">Loading rows...</div>
+          </div>
+        </div>
+        <div class="table-responsive detail-wrap">
+          <table class="table table-hover table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Date</th><th>Account</th><th>Merchant</th><th>Category</th><th>Description</th><th>Type</th><th class="text-end">Amount</th><th>Status</th><th>Reference</th>
+              </tr>
+            </thead>
+            <tbody id="detailRows"><tr><td colspan="9" class="text-muted">Loading...</td></tr></tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   </div>
 </div>
@@ -71,14 +193,41 @@
 <script src="/js/main.js"></script>
 <script>
 let accounts = [];
-let categories = [];
 let reportRows = [];
+let selectedMerchantKey = '';
+let selectedMerchantName = '';
 let defaultYear = String(new Date().getFullYear());
+
 function authHeaders(){ const t=localStorage.getItem('haToken')||localStorage.getItem('token')||''; return t?{Authorization:'Bearer '+t}:{}; }
 function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
-function money(v){ return Number(v||0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
-function accountName(id){ const a=accounts.find(x=>Number(x.id)===Number(id)); return a?a.name:''; }
-function categoryName(id){ const c=categories.find(x=>Number(x.id)===Number(id)); return c?c.name:''; }
+function attr(v){ return esc(v).replace(/`/g, '&#96;'); }
+function csvCell(v){ return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+function money(v, currency){ return Number(v||0).toLocaleString(undefined,{style:'currency',currency:currency||'USD'}); }
+function qs(params){ const p=new URLSearchParams(); Object.entries(params).forEach(([k,v])=>{ if(v!==undefined && v!==null && v!=='') p.set(k,v); }); return p.toString(); }
+function monthName(value){ return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(value)-1] || value; }
+function merchantLabel(row){ return row.merchantDisplayName || row.merchantOfficialName || row.merchant || row.rawMerchant || row.normalizedMerchant || row.description || 'No merchant'; }
+function rowKind(row){
+  const type = String(row.transactionType || '').toLowerCase();
+  if (type === 'transfer' || type === 'adjustment') return 'transfer';
+  if (type === 'income') return 'income';
+  if (type === 'expense') return 'expense';
+  return Number(row.amount || 0) >= 0 ? 'income' : 'expense';
+}
+function weekStart(value){
+  const date = new Date(String(value || '') + 'T00:00:00Z');
+  if (Number.isNaN(date.getTime())) return String(value || '').slice(0, 10);
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() - day + 1);
+  return date.toISOString().slice(0, 10);
+}
+function bucketFor(row){
+  const grain = document.getElementById('grainSelect').value;
+  const date = String(row.transactionDate || '');
+  if (grain === 'day') return date.slice(0, 10);
+  if (grain === 'week') return weekStart(date);
+  if (grain === 'year') return date.slice(0, 4);
+  return date.slice(0, 7);
+}
 function populateYearSelect(payload){
   const select=document.getElementById('yearSelect');
   const previous=select.value;
@@ -87,80 +236,236 @@ function populateYearSelect(payload){
   defaultYear=String((payload && payload.defaultYear) || years[0]);
   select.innerHTML='<option value="all">All years</option>'+years.map(year=>'<option value="'+esc(year)+'">'+esc(year)+'</option>').join('');
   select.value=previous==='all'?'all':(years.includes(previous)?previous:(years.includes(defaultYear)?defaultYear:years[0]));
+  syncMonthSelect();
+}
+function syncMonthSelect(){
+  const year = document.getElementById('yearSelect').value;
+  const month = document.getElementById('monthSelect');
+  if (year === 'all') month.value = '';
+  month.disabled = year === 'all';
 }
 async function loadLookups(){
-  const yearPayloadPromise=fetch('/api/finance/years',{headers:authHeaders()}).then(r=>r.ok?r.json():null);
-  let yearPayload;
-  [accounts,categories,yearPayload]=await Promise.all([
+  const [accountRows, yearPayload]=await Promise.all([
     fetch('/api/accounts',{headers:authHeaders()}).then(r=>r.ok?r.json():[]),
-    fetch('/api/categories',{headers:authHeaders()}).then(r=>r.ok?r.json():[]),
-    yearPayloadPromise
+    fetch('/api/finance/years',{headers:authHeaders()}).then(r=>r.ok?r.json():null)
   ]);
+  accounts = accountRows || [];
   populateYearSelect(yearPayload);
   document.getElementById('accountSelect').innerHTML='<option value="">All accounts</option>'+accounts.map(a=>'<option value="'+a.id+'">'+esc(a.name)+'</option>').join('');
 }
-function summarize(rows){
-  const income = rows.filter(r=>Number(r.amount)>0).reduce((s,r)=>s+Number(r.amount||0),0);
-  const expense = rows.filter(r=>Number(r.amount)<0).reduce((s,r)=>s+Number(r.amount||0),0);
-  const net = income + expense;
-  document.getElementById('summaryCards').innerHTML = [
-    ['Income', income, 'fa-arrow-trend-up'],
-    ['Expenses', expense, 'fa-arrow-trend-down'],
-    ['Net', net, 'fa-scale-balanced'],
-    ['Transactions', rows.length, 'fa-receipt', true]
-  ].map(c=>'<div class="col-md-3"><div class="glass-card p-4"><div class="text-muted small">'+c[0]+'</div><div class="fs-3 fw-bold"><i class="fas '+c[2]+' me-2"></i>'+(c[3]?c[1]:money(c[1]))+'</div></div></div>').join('');
-}
-function drawBars(rows, year){
-  const monthly = {};
-  if(year==='all'){
-    rows.forEach(r=>{
-      const bucket=String(r.transactionDate||'').slice(0,4);
-      if(!/^\d{4}$/.test(bucket)) return;
-      if(!monthly[bucket]) monthly[bucket]={income:0, expense:0};
-    });
-  } else {
-    for(let i=1;i<=12;i++) monthly[String(i).padStart(2,'0')]={income:0, expense:0};
-  }
-  rows.forEach(r=>{
-    const month=year==='all'?String(r.transactionDate||'').slice(0,4):String(r.transactionDate||'').slice(5,7);
-    const amount=Number(r.amount||0);
-    if(!monthly[month]) return;
-    if(amount>=0) monthly[month].income+=amount; else monthly[month].expense+=Math.abs(amount);
+function filteredForReport(rows){
+  const reportType = document.getElementById('reportType').value;
+  return (rows || []).filter(row => {
+    const kind = rowKind(row);
+    if (reportType === 'income_statement' || reportType === 'cash_flow') return kind === 'income' || kind === 'expense';
+    if (reportType === 'merchant_spend') return kind === 'expense';
+    return true;
   });
-  const max=Math.max(1,...Object.values(monthly).flatMap(v=>[v.income,v.expense]));
-  document.getElementById('bars').innerHTML=Object.keys(monthly).map(m=>{
-    const v=monthly[m], wi=Math.round(v.income/max*100), we=Math.round(v.expense/max*100);
-    const label=year==='all'?m:year+'-'+m;
-    return '<div class="row align-items-center g-2 mb-2"><div class="col-md-1 fw-semibold">'+label+'</div><div class="col-md-5"><div class="bar-track"><div class="bar-income" style="width:'+wi+'%"></div></div></div><div class="col-md-2 text-success">'+money(v.income)+'</div><div class="col-md-3"><div class="bar-track"><div class="bar-expense" style="width:'+we+'%"></div></div></div><div class="col-md-1 text-danger text-end">'+money(v.expense)+'</div></div>';
+}
+function summarize(rows){
+  let income = 0, expenses = 0, transfers = 0;
+  rows.forEach(row => {
+    const kind = rowKind(row);
+    const amount = Math.abs(Number(row.amount || 0));
+    if (kind === 'income') income += amount;
+    else if (kind === 'expense') expenses += amount;
+    else transfers += amount;
+  });
+  const net = income - expenses;
+  const currency = rows[0] && rows[0].currency || 'USD';
+  const cards = [
+    ['Income', money(income, currency), 'fa-arrow-trend-up', 'text-success'],
+    ['Expenses', money(expenses, currency), 'fa-arrow-trend-down', 'text-danger'],
+    ['Net', money(net, currency), 'fa-scale-balanced', net >= 0 ? 'text-success' : 'text-danger'],
+    ['Transfers', money(transfers, currency), 'fa-right-left', ''],
+    ['Rows', rows.length.toLocaleString(), 'fa-receipt', '']
+  ];
+  document.getElementById('summaryCards').innerHTML = cards.map(card => (
+    '<div class="summary-card"><div class="muted-small">' + esc(card[0]) + '</div>' +
+    '<div class="summary-value ' + card[3] + '"><i class="fas ' + card[2] + ' me-2"></i>' + esc(card[1]) + '</div></div>'
+  )).join('');
+}
+function drawBars(rows){
+  const buckets = new Map();
+  rows.forEach(row => {
+    const key = bucketFor(row);
+    if (!key) return;
+    if (!buckets.has(key)) buckets.set(key, { label: key, income: 0, expenses: 0 });
+    const bucket = buckets.get(key);
+    const amount = Math.abs(Number(row.amount || 0));
+    const kind = rowKind(row);
+    if (kind === 'income') bucket.income += amount;
+    if (kind === 'expense') bucket.expenses += amount;
+  });
+  const ordered = Array.from(buckets.values()).sort((a,b)=>String(a.label).localeCompare(String(b.label)));
+  if (!ordered.length) {
+    document.getElementById('bars').innerHTML = '<div class="text-muted">No movement for this report.</div>';
+    return;
+  }
+  const max = Math.max(1, ...ordered.flatMap(row => [row.income, row.expenses]));
+  const currency = rows[0] && rows[0].currency || 'USD';
+  document.getElementById('bars').innerHTML = ordered.map(row => {
+    const incomeWidth = Math.round(row.income / max * 100);
+    const expenseWidth = Math.round(row.expenses / max * 100);
+    return '<div class="bar-row">' +
+      '<div class="fw-semibold">' + esc(row.label) + '</div>' +
+      '<div class="bar-track"><div class="bar-income" style="width:' + incomeWidth + '%"></div></div>' +
+      '<div class="text-success text-end">' + money(row.income, currency) + '</div>' +
+      '<div class="bar-track"><div class="bar-expense" style="width:' + expenseWidth + '%"></div></div>' +
+      '<div class="text-danger text-end">' + money(row.expenses, currency) + '</div>' +
+    '</div>';
   }).join('');
+}
+function merchantSummary(rows){
+  const map = new Map();
+  rows.forEach(row => {
+    const key = row.merchantKey || (row.merchantId ? 'merchant:' + row.merchantId : 'text:' + merchantLabel(row).toLowerCase());
+    if (!map.has(key)) map.set(key, { key, name: merchantLabel(row), amount: 0, count: 0, currency: row.currency || 'USD' });
+    const item = map.get(key);
+    item.amount += Math.abs(Number(row.amount || 0));
+    item.count += 1;
+  });
+  return Array.from(map.values()).sort((a,b)=>b.amount-a.amount || b.count-a.count).slice(0, 25);
+}
+function renderMerchants(rows){
+  const body = document.getElementById('merchantRows');
+  const merchants = merchantSummary(rows);
+  if (!merchants.length) {
+    body.innerHTML = '<tr><td colspan="4" class="text-muted">No merchants in this report.</td></tr>';
+    return;
+  }
+  body.innerHTML = merchants.map(item => (
+    '<tr><td><div class="fw-semibold">' + esc(item.name) + '</div><div class="muted-small">' + esc(item.key) + '</div></td>' +
+    '<td class="text-end">' + money(item.amount, item.currency) + '</td>' +
+    '<td class="text-end">' + item.count.toLocaleString() + '</td>' +
+    '<td class="text-end"><button class="btn btn-outline-primary btn-sm merchant-focus" type="button" data-key="' + attr(item.key) + '" data-name="' + attr(item.name) + '">Focus</button></td></tr>'
+  )).join('');
 }
 function renderDetails(rows){
   const body=document.getElementById('detailRows');
-  if(!rows.length){ body.innerHTML='<tr><td colspan="7" class="text-muted">No rows for this report.</td></tr>'; return; }
-  body.innerHTML=rows.map(r=>'<tr><td>'+esc(r.transactionDate)+'</td><td>'+esc(accountName(r.accountId))+'</td><td>'+esc(categoryName(r.categoryId))+'</td><td>'+esc(r.description)+'</td><td>'+esc(r.transactionType)+'</td><td class="text-end">'+money(r.amount)+'</td><td>'+esc(r.status)+'</td></tr>').join('');
+  document.getElementById('detailCount').textContent = rows.length.toLocaleString() + ' rows shown';
+  if(!rows.length){ body.innerHTML='<tr><td colspan="9" class="text-muted">No rows for this report.</td></tr>'; return; }
+  body.innerHTML=rows.slice(0, 1000).map(row => (
+    '<tr><td>' + esc(row.transactionDate || '') + '</td>' +
+    '<td><div class="fw-semibold">' + esc(row.accountName || '') + '</div><div class="muted-small">' + esc(row.accountClass || '') + '</div></td>' +
+    '<td><div class="fw-semibold">' + esc(merchantLabel(row)) + '</div><div class="muted-small">' + esc(row.merchantGroupName || row.rawMerchant || '') + '</div></td>' +
+    '<td>' + esc(row.categoryName || 'Uncategorized') + '<div class="muted-small">' + esc(row.categoryGroup || '') + '</div></td>' +
+    '<td>' + esc(row.description || '') + '<div class="muted-small">' + esc(row.tags || row.memo || '') + '</div></td>' +
+    '<td>' + esc(row.transactionType || '') + '</td>' +
+    '<td class="text-end fw-semibold">' + money(row.amount, row.currency) + '</td>' +
+    '<td>' + esc(row.status || '') + '</td>' +
+    '<td>' + esc(row.referenceNumber || '') + '</td></tr>'
+  )).join('');
+  if (rows.length > 1000) {
+    body.innerHTML += '<tr><td colspan="9" class="text-muted">Showing first 1,000 rows. Use Export CSV for all ' + rows.length.toLocaleString() + ' filtered rows.</td></tr>';
+  }
+}
+function updateMerchantFocusChip(){
+  const chip = document.getElementById('merchantFocusChip');
+  if (!selectedMerchantKey) {
+    chip.classList.add('d-none');
+    chip.innerHTML = '';
+    return;
+  }
+  chip.classList.remove('d-none');
+  chip.innerHTML = '<span>Merchant: ' + esc(selectedMerchantName || selectedMerchantKey) + '</span><button class="btn-close btn-close-white btn-sm" type="button" aria-label="Clear merchant focus"></button>';
+  const close = chip.querySelector('button');
+  if (close) close.addEventListener('click', () => { selectedMerchantKey = ''; selectedMerchantName = ''; loadReport(); });
+}
+function reportSubtitle(){
+  const year = document.getElementById('yearSelect').value || defaultYear;
+  const month = document.getElementById('monthSelect').value;
+  const from = document.getElementById('fromDate').value;
+  const to = document.getElementById('toDate').value;
+  const grain = document.getElementById('grainSelect').value;
+  if (from || to) return 'Custom range ' + (from || 'start') + ' to ' + (to || 'end') + ' grouped by ' + grain + '.';
+  return (year === 'all' ? 'All years' : year + (month ? ' ' + monthName(month) : '')) + ' grouped by ' + grain + '.';
 }
 async function loadReport(){
-  const accountId=document.getElementById('accountSelect').value;
-  const year=document.getElementById('yearSelect').value || defaultYear;
-  const type=document.getElementById('reportType').value;
-  const all=await fetch('/api/transactions',{headers:authHeaders()}).then(r=>r.ok?r.json():[]);
-  reportRows=all.filter(r=>(year==='all' || String(r.transactionDate||'').startsWith(year)) && (!accountId || String(r.accountId)===String(accountId)));
-  if(type==='income_statement') reportRows=reportRows.filter(r=>['income','expense'].includes(r.transactionType));
-  if(type==='cash_flow') reportRows=reportRows.filter(r=>r.status!=='void');
+  updateMerchantFocusChip();
+  document.getElementById('detailRows').innerHTML = '<tr><td colspan="9" class="text-muted">Loading report rows...</td></tr>';
+  document.getElementById('merchantRows').innerHTML = '<tr><td colspan="4" class="text-muted">Loading merchants...</td></tr>';
+  document.getElementById('bars').innerHTML = '<div class="text-muted">Loading movement...</div>';
+  const params = {
+    year: document.getElementById('yearSelect').value || defaultYear,
+    month: document.getElementById('monthSelect').value,
+    accountId: document.getElementById('accountSelect').value,
+    q: document.getElementById('merchantSearch').value.trim(),
+    type: document.getElementById('typeSelect').value,
+    status: document.getElementById('statusSelect').value,
+    from: document.getElementById('fromDate').value,
+    to: document.getElementById('toDate').value,
+    merchantKey: selectedMerchantKey,
+    exportAll: 'true',
+    limit: 20000,
+    sort: 'date',
+    dir: 'desc'
+  };
+  const response = await fetch('/api/finance/search?' + qs(params), { headers: authHeaders() });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    document.getElementById('detailRows').innerHTML = '<tr><td colspan="9" class="text-danger">Unable to load report.</td></tr>';
+    return;
+  }
+  reportRows = filteredForReport(data.rows || []);
+  document.getElementById('periodSubtitle').textContent = reportSubtitle();
   summarize(reportRows);
-  drawBars(reportRows, year);
+  drawBars(reportRows);
+  renderMerchants(reportRows);
   renderDetails(reportRows);
 }
 function exportCsv(){
-  const headers=['Date','Account','Category','Description','Type','Amount','Status'];
-  const lines=[headers].concat(reportRows.map(r=>[r.transactionDate,accountName(r.accountId),categoryName(r.categoryId),r.description,r.transactionType,r.amount,r.status]));
-  const csv=lines.map(row=>row.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const headers=['Date','Account','Account Class','Merchant','Official Merchant','Merchant Group','Category','Category Group','Description','Type','Amount','Currency','Status','Reference','Tags','Memo'];
+  const lines=[headers].concat(reportRows.map(row=>[
+    row.transactionDate,row.accountName,row.accountClass,merchantLabel(row),row.merchantOfficialName || row.merchant || '',row.merchantGroupName || '',
+    row.categoryName || 'Uncategorized',row.categoryGroup || '',row.description,row.transactionType,row.amount,row.currency,row.status,row.referenceNumber || '',row.tags || '',row.memo || ''
+  ]));
+  const csv=lines.map(row=>row.map(csvCell).join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='home_accounting_report_'+((document.getElementById('yearSelect').value || defaultYear)==='all'?'all_years':(document.getElementById('yearSelect').value || defaultYear))+'.csv';
+  const year=(document.getElementById('yearSelect').value || defaultYear)==='all'?'all_years':(document.getElementById('yearSelect').value || defaultYear);
+  a.download='home_accounting_report_'+year+'.csv';
   a.click();
   URL.revokeObjectURL(a.href);
 }
+function resetReport(){
+  selectedMerchantKey = '';
+  selectedMerchantName = '';
+  document.getElementById('reportType').value = 'activity';
+  document.getElementById('accountSelect').value = '';
+  document.getElementById('yearSelect').value = defaultYear;
+  syncMonthSelect();
+  document.getElementById('monthSelect').value = '';
+  document.getElementById('grainSelect').value = 'month';
+  document.getElementById('fromDate').value = '';
+  document.getElementById('toDate').value = '';
+  document.getElementById('merchantSearch').value = '';
+  document.getElementById('typeSelect').value = '';
+  document.getElementById('statusSelect').value = '';
+  loadReport();
+}
+document.getElementById('runBtn').addEventListener('click', loadReport);
+document.getElementById('exportBtn').addEventListener('click', exportCsv);
+document.getElementById('resetBtn').addEventListener('click', resetReport);
+document.getElementById('yearSelect').addEventListener('change', () => { syncMonthSelect(); loadReport(); });
+['reportType','accountSelect','monthSelect','grainSelect','typeSelect','statusSelect','fromDate','toDate'].forEach(id => {
+  document.getElementById(id).addEventListener('change', loadReport);
+});
+document.getElementById('merchantSearch').addEventListener('keydown', event => {
+  if (event.key === 'Enter') loadReport();
+});
+document.getElementById('merchantRows').addEventListener('click', event => {
+  const btn = event.target.closest('.merchant-focus');
+  if (!btn) return;
+  selectedMerchantKey = btn.dataset.key || '';
+  selectedMerchantName = btn.dataset.name || '';
+  loadReport();
+});
+document.getElementById('clearMerchantFocusBtn').addEventListener('click', () => {
+  selectedMerchantKey = '';
+  selectedMerchantName = '';
+  loadReport();
+});
 document.addEventListener('DOMContentLoaded', async function(){ await loadLookups(); await loadReport(); });
 </script>
 </body>

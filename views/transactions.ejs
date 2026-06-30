@@ -27,19 +27,19 @@
       border-bottom: 1px solid var(--border);
       background: var(--surface-2);
     }
-    .tx-panel-body { padding: .85rem .9rem; }
+    .tx-panel-body { padding: .62rem .75rem; }
     .tx-title { font-size: 1rem; font-weight: 800; margin: 0; letter-spacing: 0; }
     .tx-muted { color: var(--text-muted); font-size: .76rem; }
     .tx-entry-grid {
       display: grid;
       grid-template-columns: repeat(12, minmax(0, 1fr));
-      gap: .55rem .65rem;
+      gap: .42rem .5rem;
       align-items: end;
     }
     .tx-field { min-width: 0; }
     .tx-field label {
       display: block;
-      margin-bottom: .22rem;
+      margin-bottom: .16rem;
       font-size: .72rem;
       font-weight: 750;
       color: var(--text-muted);
@@ -48,6 +48,8 @@
     .tx-field-wide { grid-column: span 4; }
     .tx-field-xwide { grid-column: span 5; }
     .tx-field-mini { grid-column: span 2; }
+    .tx-field-description { grid-column: span 3; }
+    .tx-field-status { grid-column: span 1; }
     .tx-entry-actions { grid-column: span 2; display: flex; gap: .4rem; align-items: end; }
     .tx-advanced-grid {
       display: grid;
@@ -188,18 +190,25 @@
     .tx-form-highlight {
       border-left: 4px solid var(--primary);
     }
+    .tx-entry-actions-top {
+      display: flex;
+      gap: .45rem;
+      align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
     [data-theme="dark"] .tx-category-chip.active,
     [data-theme="dark"] .tx-category-chip:hover {
       background: rgba(74,144,226,.16);
     }
     @media (max-width: 1500px) {
       .tx-filter-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-      .tx-field-main, .tx-field-wide, .tx-field-xwide { grid-column: span 4; }
-      .tx-field-mini, .tx-entry-actions { grid-column: span 3; }
+      .tx-field-main, .tx-field-wide, .tx-field-xwide, .tx-field-description { grid-column: span 4; }
+      .tx-field-mini, .tx-field-status, .tx-entry-actions { grid-column: span 3; }
     }
     @media (max-width: 900px) {
       .tx-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .tx-field-main, .tx-field-wide, .tx-field-xwide, .tx-field-mini, .tx-entry-actions { grid-column: span 12; }
+      .tx-field-main, .tx-field-wide, .tx-field-xwide, .tx-field-mini, .tx-field-description, .tx-field-status, .tx-entry-actions { grid-column: span 12; }
       .tx-entry-actions .btn { flex: 1 1 0; }
     }
     @media print {
@@ -231,23 +240,26 @@
             <h5 class="tx-title" id="entryTitle">New Transaction</h5>
             <div class="tx-muted">Ledger entry, correction, transfer, and category review.</div>
           </div>
-          <div class="d-flex gap-2 no-print">
-            <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedEntry">
+          <div class="tx-entry-actions-top no-print">
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="entryDetailsBtn" data-bs-toggle="collapse" data-bs-target="#advancedEntry">
               <i class="fas fa-sliders me-1"></i>Details
             </button>
             <button class="btn btn-outline-primary btn-sm" type="button" id="newEntryBtn">
               <i class="fas fa-plus me-1"></i>New
             </button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="entryFormToggle" data-bs-toggle="collapse" data-bs-target="#entryBody" aria-expanded="false" aria-controls="entryBody">
+              <i class="fas fa-chevron-down me-1"></i>Form
+            </button>
           </div>
         </div>
-        <div class="tx-panel-body">
+        <div class="tx-panel-body collapse" id="entryBody">
           <form id="transactionForm">
             <input type="hidden" id="txId">
             <input type="hidden" id="accountId">
             <input type="hidden" id="categoryId">
             <input type="hidden" id="relatedAccountId">
             <div class="tx-entry-grid">
-              <div class="tx-field tx-field-main">
+              <div class="tx-field tx-field-mini">
                 <label for="transactionDate">Date</label>
                 <input class="form-control form-control-sm" type="date" id="transactionDate" required>
               </div>
@@ -286,11 +298,11 @@
                 <label for="merchant">Merchant / Payee</label>
                 <input class="form-control form-control-sm" id="merchant" autocomplete="off">
               </div>
-              <div class="tx-field tx-field-xwide">
+              <div class="tx-field tx-field-description">
                 <label for="description">Description</label>
                 <input class="form-control form-control-sm" id="description" required>
               </div>
-              <div class="tx-field tx-field-mini">
+              <div class="tx-field tx-field-status">
                 <label for="status">Status</label>
                 <select class="form-select form-select-sm" id="status">
                   <option value="draft">Draft</option>
@@ -646,6 +658,7 @@ let categoryModal = null;
 let modalRows = [];
 let availableYears = [];
 let defaultYear = String(new Date().getFullYear());
+let entryBodyCollapse = null;
 
 function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -748,6 +761,25 @@ function bindCombo(inputId, hiddenId, collectionGetter, mapper, required) {
   });
 }
 
+function entryFormController() {
+  if (!entryBodyCollapse) {
+    entryBodyCollapse = new bootstrap.Collapse(document.getElementById('entryBody'), { toggle: false });
+  }
+  return entryBodyCollapse;
+}
+function setEntryFormToggle(open) {
+  const btn = document.getElementById('entryFormToggle');
+  if (!btn) return;
+  btn.innerHTML = open ? '<i class="fas fa-chevron-up me-1"></i>Hide' : '<i class="fas fa-chevron-down me-1"></i>Form';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function showEntryForm() {
+  entryFormController().show();
+}
+function hideEntryForm() {
+  entryFormController().hide();
+}
+
 async function loadLookups() {
   const [accountRows, categoryRows, yearPayload] = await Promise.all([
     fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
@@ -806,6 +838,7 @@ function editTransaction(id) {
   document.getElementById('tags').value = row.tags || '';
   document.getElementById('memo').value = row.memo || '';
   document.getElementById('isRecurring').value = row.isRecurring ? 'true' : 'false';
+  showEntryForm();
   document.getElementById('entryPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -862,6 +895,7 @@ async function saveEntry(event) {
   if (!res.ok) return toast(data.error || data.message || 'Unable to save transaction.', 'danger');
   toast(id ? 'Transaction updated.' : 'Transaction saved.');
   resetEntry();
+  hideEntryForm();
   await loadRows();
   await loadTrend();
 }
@@ -1238,7 +1272,12 @@ function resetFilters() {
 
 document.getElementById('transactionForm').addEventListener('submit', saveEntry);
 document.getElementById('clearEntryBtn').addEventListener('click', resetEntry);
-document.getElementById('newEntryBtn').addEventListener('click', resetEntry);
+document.getElementById('newEntryBtn').addEventListener('click', () => {
+  resetEntry();
+  showEntryForm();
+  document.getElementById('entryPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+document.getElementById('entryDetailsBtn').addEventListener('click', showEntryForm);
 document.getElementById('yearFilter').addEventListener('change', syncYearMode);
 document.getElementById('filterForm').addEventListener('change', () => { lastSearch.page = 1; loadRows(); loadTrend(); });
 document.getElementById('qFilter').addEventListener('keydown', event => {
@@ -1329,6 +1368,9 @@ document.getElementById('modalLookupCategory').addEventListener('click', () => o
 ['trendGroup', 'trendMeasure', 'trendChartType', 'trendVerticalGroup', 'trendVerticalGrain', 'trendVerticalMeasure'].forEach(id => document.getElementById(id).addEventListener('change', loadTrend));
 
 document.addEventListener('DOMContentLoaded', async function() {
+  document.getElementById('entryBody').addEventListener('shown.bs.collapse', () => setEntryFormToggle(true));
+  document.getElementById('entryBody').addEventListener('hidden.bs.collapse', () => setEntryFormToggle(false));
+  entryFormController();
   categoryModal = new bootstrap.Modal(document.getElementById('categoryModal'));
   bindCombo('accountCombo', 'accountId', activeAccounts, accountLabel, true);
   bindCombo('categoryCombo', 'categoryId', activeCategories, categoryLabel, false);
@@ -1336,7 +1378,10 @@ document.addEventListener('DOMContentLoaded', async function() {
   await loadLookups();
   resetEntry();
   resetFilters();
-  if (START_NEW) document.getElementById('entryPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  if (START_NEW) {
+    showEntryForm();
+    document.getElementById('entryPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   await loadRows();
   await loadTrend();
 });

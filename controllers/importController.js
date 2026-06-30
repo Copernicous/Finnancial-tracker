@@ -1,11 +1,14 @@
 const csv = require('csv-parser');
 const { Readable } = require('stream');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const { Op } = require('sequelize');
 const db = require('../models');
 const { parseBankStatement, PROFILE_CONFIG } = require('../services/bankStatementParser');
 const merchantCategorizer = require('../services/merchantCategorizer');
 const merchantResolver = require('../services/merchantResolver');
+const ROOT = path.resolve(__dirname, '..');
 
 const TEMPLATES = {
   accounts: ['name', 'accountCode', 'accountType', 'accountClass', 'accountSubtype', 'currency', 'financialInstitutionName', 'openingBalance', 'openingBalanceDate', 'currentBalance', 'creditLimit', 'interestRate', 'includeInNetWorth', 'status', 'notes'],
@@ -76,6 +79,23 @@ function parseJsonField(value, fallback) {
 
 function batchNotes(batch) {
   return parseJsonField(batch && batch.notes, {});
+}
+
+function batchPdfPath(batch) {
+  const notes = batchNotes(batch);
+  const sourceCopies = Array.isArray(notes.sourceCopies) ? notes.sourceCopies : [];
+  const candidates = [
+    notes.relativePath,
+    ...sourceCopies.map((copy) => copy && copy.relativePath)
+  ].filter((value) => /\.pdf$/i.test(String(value || '')));
+
+  for (const relativePath of candidates) {
+    const resolved = path.resolve(ROOT, relativePath);
+    const relativeToRoot = path.relative(ROOT, resolved);
+    if (!relativeToRoot || relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) continue;
+    if (fs.existsSync(resolved)) return resolved;
+  }
+  return null;
 }
 
 function batchArchiveMetadata(batch) {
@@ -558,6 +578,7 @@ exports.getBatches = async (req, res) => {
       rowCount: batch.rowCount,
       acceptedCount: batch.acceptedCount,
       rejectedCount: batch.rejectedCount,
+      pdfAvailable: !!batchPdfPath(batch),
       notes: batch.notes,
       createdAt: batch.createdAt,
       createdBy: batch.CreatedBy ? `${batch.CreatedBy.firstName || ''} ${batch.CreatedBy.lastName || ''}`.trim() || batch.CreatedBy.username : ''
@@ -620,6 +641,16 @@ async function setBatchArchiveState(req, res, archived) {
 exports.archiveBatches = async (req, res) => setBatchArchiveState(req, res, true);
 
 exports.unarchiveBatches = async (req, res) => setBatchArchiveState(req, res, false);
+
+exports.previewBatchPdf = async (req, res) => {
+  const batch = await db.ImportBatch.findByPk(req.params.id);
+  if (!batch) return res.status(404).json({ error: 'Import batch not found.' });
+  const filePath = batchPdfPath(batch);
+  if (!filePath) return res.status(404).json({ error: 'No source PDF is available for this batch.' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename="${path.basename(filePath).replace(/"/g, '')}"`);
+  res.sendFile(filePath);
+};
 
 exports.getBatchRows = async (req, res) => {
   const rows = await db.ImportRow.findAll({

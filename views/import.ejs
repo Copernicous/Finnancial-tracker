@@ -319,6 +319,7 @@
                 <button class="btn btn-outline-success btn-sm" id="suggestCategoriesBtn"><i class="fas fa-magic me-1"></i>Suggest Categories</button>
                 <button class="btn btn-outline-info btn-sm" id="lookupOnlineBtn"><i class="fas fa-search me-1"></i>Lookup Online</button>
                 <button class="btn btn-outline-secondary btn-sm" id="learnRulesBtn"><i class="fas fa-bookmark me-1"></i>Learn Selected</button>
+                <button class="btn btn-outline-secondary btn-sm d-none" id="reviewPdfBtn"><i class="fas fa-file-pdf me-1"></i>PDF</button>
                 <button class="btn btn-outline-primary btn-sm" id="saveReviewBtn"><i class="fas fa-save me-1"></i>Save Review</button>
                 <button class="btn btn-success btn-sm" id="postRowsBtn"><i class="fas fa-file-import me-1"></i>Post Selected</button>
               </div>
@@ -927,6 +928,11 @@ function renderBatchReview() {
   document.getElementById('reviewBatchLabel').textContent = selectedBatchId ? '#' + selectedBatchId : '';
   document.getElementById('reviewBatchMeta').textContent = batchRows.length + ' batch row(s). Duplicate and posted rows are locked.'
     + (currentBatch && currentBatch.fileName ? ' File: ' + currentBatch.fileName + '.' : '');
+  const pdfBtn = document.getElementById('reviewPdfBtn');
+  if (pdfBtn) {
+    pdfBtn.classList.toggle('d-none', !(currentBatch && currentBatch.pdfAvailable));
+    pdfBtn.onclick = () => openBatchPdf(selectedBatchId);
+  }
 
   const accountChoices = accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed');
   document.getElementById('reviewRows').innerHTML = batchRows.length ? batchRows.map(row => {
@@ -968,6 +974,10 @@ async function openBatch(id) {
   batchRows = res.ok ? await res.json() : [];
   renderBatchReview();
   renderHistoryRows();
+}
+function openBatchPdf(id) {
+  if (!id) return;
+  window.open('/api/import/batches/' + Number(id) + '/pdf', '_blank', 'noopener');
 }
 function collectReviewRows(selectedOnly) {
   return Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]')).map(tr => {
@@ -1466,6 +1476,9 @@ function renderHistoryRows() {
     const archiveAction = row.archived
       ? '<button class="btn btn-outline-secondary btn-sm" ' + disabled + ' onclick="unarchiveBatch(' + id + ')"><i class="fas fa-undo me-1"></i>Unarchive</button>'
       : '<button class="btn btn-outline-secondary btn-sm" ' + disabled + ' onclick="archiveBatch(' + id + ')"><i class="fas fa-archive me-1"></i>Archive</button>';
+    const pdfAction = row.pdfAvailable
+      ? '<button class="btn btn-outline-secondary btn-sm" onclick="openBatchPdf(' + id + ')"><i class="fas fa-file-pdf me-1"></i>PDF</button>'
+      : '';
     return '<tr' + selectedClass + '>' +
       '<td class="text-center"><input class="form-check-input history-batch-check" type="checkbox" data-batch-id="' + id + '"' + checked + disabled + ' aria-label="Select batch #' + id + '"></td>' +
       '<td>#' + esc(row.id) + '</td>' +
@@ -1477,6 +1490,7 @@ function renderHistoryRows() {
       '<td>' + esc(row.createdBy || '') + '</td>' +
       '<td class="text-end"><div class="d-inline-flex gap-2">' +
         '<button class="btn btn-outline-primary btn-sm" onclick="openBatch(' + Number(row.id) + ')"><i class="fas fa-clipboard-check me-1"></i>Open</button>' +
+        pdfAction +
         archiveAction +
         '<button class="btn btn-outline-danger btn-sm" ' + (row.status === 'removed' ? 'disabled' : '') + ' onclick="removeBatch(' + Number(row.id) + ', \'' + esc(String(row.fileName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')"><i class="fas fa-trash-alt me-1"></i>Remove</button>' +
       '</div></td>' +

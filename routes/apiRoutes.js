@@ -152,6 +152,8 @@ router.get('/finance/years', rbac.requirePermission('reports', 'read'), financeC
 router.get('/finance/search', rbac.requirePermission('transactions', 'read'), financeController.search);
 router.get('/finance/kpi-detail', rbac.requirePermission('reports', 'read'), financeController.kpiDetail);
 router.get('/finance/trends', rbac.requirePermission('reports', 'read'), financeController.trends);
+router.get('/finance/statement-reconciliation-suggestions', rbac.requirePermission('reports', 'read'), financeController.statementReconciliationSuggestions);
+router.get('/finance/statement-reconciliation-detail', rbac.requirePermission('reports', 'read'), financeController.statementReconciliationDetail);
 router.post('/finance/transactions/bulk-category', rbac.requirePermission('transactions', 'edit'), financeController.bulkCategory);
 router.post('/finance/transactions/auto-categorize', rbac.requirePermission('transactions', 'edit'), financeController.autoCategorize);
 router.post('/finance/merchant-suggest', rbac.requirePermission('transactions', 'edit'), importController.suggestMerchantCategory);

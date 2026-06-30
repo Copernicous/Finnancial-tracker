@@ -9,7 +9,11 @@
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
-    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.9rem; }
+    .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: .5rem .65rem; align-items: end; }
+    .form-grid .form-label { margin-bottom: .18rem; font-size: .72rem; color: var(--text-muted, #64748b); }
+    .form-grid .form-control,
+    .form-grid .form-select { min-height: 36px; padding-top: .32rem; padding-bottom: .32rem; }
+    .form-grid textarea.form-control { min-height: 36px; resize: vertical; }
     .table td, .table th { vertical-align: middle; }
     .muted-cell { color: var(--text-muted, #64748b); font-size: 0.86rem; }
     .crud-toolbar { display: grid; grid-template-columns: minmax(180px, auto) minmax(260px, 1fr) auto; gap: .75rem; align-items: end; }
@@ -22,6 +26,12 @@
     .crud-selected-badge { min-width: 86px; text-align: center; }
     .bulk-select-cell { width: 42px; text-align: center; }
     .row-actions { display: inline-flex; gap: .35rem; justify-content: flex-end; }
+    .crud-form-actions { display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; }
+    .crud-sort-btn { border: 0; background: transparent; color: inherit; font: inherit; font-weight: 700; padding: 0; display: inline-flex; align-items: center; gap: .25rem; }
+    .crud-sort-btn:hover { color: var(--primary, #0d6efd); }
+    .crud-sort-indicator { color: var(--text-muted, #64748b); font-size: .72rem; min-width: .8rem; }
+    .statement-reconcile-table { max-height: 300px; overflow: auto; }
+    .statement-reconcile-table .badge { min-width: 68px; }
     @media (max-width: 992px) {
       .crud-toolbar { grid-template-columns: 1fr; align-items: stretch; }
       .crud-toolbar-actions { justify-content: flex-start; }
@@ -48,18 +58,45 @@
         <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
           <div>
             <h5 class="mb-1" id="formTitle">Add Record</h5>
-            <div class="text-muted small">Manual 2026 accounting structure and operating data.</div>
+            <div class="text-muted small">Use New or edit a row to open the form.</div>
+          </div>
+          <div class="crud-form-actions">
+            <button class="btn btn-outline-secondary btn-sm" id="recordFormToggle" type="button" data-bs-toggle="collapse" data-bs-target="#recordFormCollapse" aria-expanded="false" aria-controls="recordFormCollapse">
+              <i class="fas fa-chevron-down me-1"></i>Form
+            </button>
+            <button class="btn btn-outline-primary btn-sm" type="button" onclick="startNewRecord()"><i class="fas fa-plus me-1"></i>New</button>
           </div>
         </div>
-        <form id="recordForm">
-          <input type="hidden" id="recordId">
-          <div class="form-grid" id="formFields"></div>
-          <div class="d-flex gap-2 mt-3">
-            <button class="btn btn-primary" type="submit"><i class="fas fa-save me-1"></i>Save</button>
-            <button class="btn btn-outline-secondary" type="button" onclick="resetForm()">Cancel</button>
-          </div>
-        </form>
+        <div class="collapse" id="recordFormCollapse">
+          <form id="recordForm">
+            <input type="hidden" id="recordId">
+            <div class="form-grid" id="formFields"></div>
+            <div class="d-flex gap-2 mt-3">
+              <button class="btn btn-primary" type="submit"><i class="fas fa-save me-1"></i>Save</button>
+              <button class="btn btn-outline-secondary" type="button" onclick="cancelRecordForm()">Cancel</button>
+            </div>
+          </form>
+        </div>
       </div>
+
+      <% if (module === 'reconciliations') { %>
+      <div class="glass-card p-3 mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <div>
+            <h5 class="mb-1">Statement Cutoff Suggestions</h5>
+            <div class="text-muted small">Uses actual PDF statement cutoff dates instead of calendar month ends.</div>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" id="loadStatementReconcileBtn" type="button"><i class="fas fa-scale-balanced me-1"></i>Load Cutoffs</button>
+        </div>
+        <div class="statement-reconcile-table table-responsive">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead><tr><th>Status</th><th>Account</th><th>Period</th><th class="text-end">Statement</th><th class="text-end">Book</th><th class="text-end">Diff</th><th>Source</th><th class="text-end">Action</th></tr></thead>
+            <tbody id="statementReconcileRows"><tr><td colspan="8" class="text-muted">Load statement cutoffs to review reconciliation periods.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="mt-3 d-none" id="statementReconcileDetail"></div>
+      </div>
+      <% } %>
 
       <div class="glass-card p-4">
         <div class="crud-toolbar mb-3">
@@ -113,6 +150,9 @@ const PAGE_TITLE = <%- JSON.stringify(title) %>;
 let rows = [];
 let selectedRowIds = new Set();
 let lookups = { accounts: [], categories: [], institutions: [], merchants: [] };
+let recordFormCollapse = null;
+let statementReconcileRows = [];
+let crudSort = { key: '', dir: 'asc' };
 
 const CONFIG = {
   'financial-institutions': {
@@ -348,6 +388,10 @@ function esc(value) {
 function toast(message, type) {
   if (typeof showToast === 'function') showToast(message, type || 'success');
 }
+function money(value, currency) {
+  const n = Number(value || 0);
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: currency || 'USD' }).format(n);
+}
 function selectionEnabled() {
   return MODULE === 'merchants';
 }
@@ -381,11 +425,31 @@ function searchText(row) {
   const keys = Array.from(new Set(['id'].concat(columns, fields.map(field => field.key))));
   return keys.map(key => searchValue(key, row[key])).join(' ').toLowerCase();
 }
+function sortValue(row, key) {
+  if (key === 'financialInstitutionId') return lookupLabel('institutions', row[key]);
+  if (key === 'accountId' || key === 'relatedAccountId') return lookupLabel('accounts', row[key]);
+  if (key === 'categoryId' || key === 'parentId' || key === 'defaultCategoryId') return lookupLabel('categories', row[key]);
+  if (key === 'merchantId') return lookupLabel('merchants', row[key]);
+  return row[key];
+}
+function compareRecordValues(a, b) {
+  const an = Number(a);
+  const bn = Number(b);
+  const aBlank = a == null || a === '';
+  const bBlank = b == null || b === '';
+  if (aBlank && bBlank) return 0;
+  if (aBlank) return 1;
+  if (bBlank) return -1;
+  if (Number.isFinite(an) && Number.isFinite(bn) && String(a).trim() !== '' && String(b).trim() !== '') return an - bn;
+  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' });
+}
 function filteredRows() {
   const input = document.getElementById('recordSearch');
   const q = input ? input.value.trim().toLowerCase() : '';
-  if (!q) return rows;
-  return rows.filter(row => searchText(row).includes(q));
+  const visible = q ? rows.filter(row => searchText(row).includes(q)) : rows.slice();
+  if (!crudSort.key) return visible;
+  const direction = crudSort.dir === 'desc' ? -1 : 1;
+  return visible.sort((a, b) => compareRecordValues(sortValue(a, crudSort.key), sortValue(b, crudSort.key)) * direction);
 }
 function pruneSelection() {
   const validIds = new Set(rows.map(row => String(row.id)));
@@ -422,6 +486,142 @@ function updateSelectionControls(visibleRows) {
     selectVisible.indeterminate = visibleSelected > 0 && visibleSelected < visible.length;
   }
   updateRecordCount(visible.length);
+}
+
+function statementStatusBadge(status) {
+  const map = {
+    matched: 'success',
+    review: 'warning',
+    baseline: 'secondary'
+  };
+  const cls = map[status] || 'secondary';
+  return '<span class="badge text-bg-' + cls + '">' + esc(status || 'review') + '</span>';
+}
+function renderStatementReconcileRows() {
+  const body = document.getElementById('statementReconcileRows');
+  if (!body) return;
+  if (!statementReconcileRows.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-muted">No statement cutoff suggestions found.</td></tr>';
+    return;
+  }
+  body.innerHTML = statementReconcileRows.map((row, index) => {
+    const period = row.periodStart ? (row.periodStart + ' -> ' + row.periodEnd) : ('Baseline ' + row.periodEnd);
+    const source = [row.sourceFile, row.sourceBatches ? ('Batch ' + row.sourceBatches) : ''].filter(Boolean).join(' | ');
+    return '<tr>' +
+      '<td>' + statementStatusBadge(row.status) + '</td>' +
+      '<td><div class="fw-semibold">' + esc(row.accountName || '') + '</div><div class="muted-cell">' + esc(row.accountCode || row.accountClass || '') + '</div></td>' +
+      '<td>' + esc(period) + '<div class="muted-cell">' + esc(row.transactionCount || 0) + ' tx | movement ' + esc(money(row.transactionSum, row.currency)) + '</div></td>' +
+      '<td class="text-end">' + esc(money(row.statementBalance, row.currency)) + '</td>' +
+      '<td class="text-end">' + (row.bookBalance == null ? '<span class="muted-cell">--</span>' : esc(money(row.bookBalance, row.currency))) + '</td>' +
+      '<td class="text-end">' + (row.difference == null ? '<span class="muted-cell">--</span>' : esc(money(row.difference, row.currency))) + '</td>' +
+      '<td><span class="small">' + esc(source || row.source || '') + '</span></td>' +
+      '<td class="text-end"><div class="d-inline-flex gap-1">' +
+        '<button class="btn btn-sm btn-outline-secondary statement-reconcile-detail-btn" type="button" data-reconcile-detail-index="' + index + '" onclick="openStatementReconcileDetail(' + index + ')">Detail</button>' +
+        '<button class="btn btn-sm btn-outline-primary" type="button" onclick="useStatementReconcile(' + index + ')">Use</button>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+async function loadStatementReconcileSuggestions() {
+  if (MODULE !== 'reconciliations') return;
+  const body = document.getElementById('statementReconcileRows');
+  if (body) body.innerHTML = '<tr><td colspan="8" class="text-muted">Loading statement cutoffs...</td></tr>';
+  const res = await fetch('/api/finance/statement-reconciliation-suggestions?limit=120', { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    if (body) body.innerHTML = '<tr><td colspan="8" class="text-danger">Unable to load statement cutoffs.</td></tr>';
+    return toast(data.error || data.message || 'Unable to load statement cutoff suggestions.', 'danger');
+  }
+  statementReconcileRows = data.rows || [];
+  renderStatementReconcileRows();
+}
+function useStatementReconcile(index) {
+  const row = statementReconcileRows[index];
+  if (!row || !row.periodStart) return toast('This checkpoint is a baseline; choose a full statement period.', 'warning');
+  resetForm();
+  showRecordForm();
+  document.getElementById('f_accountId').value = row.accountId || '';
+  document.getElementById('f_periodStart').value = row.periodStart || '';
+  document.getElementById('f_periodEnd').value = row.periodEnd || '';
+  document.getElementById('f_statementBalance').value = row.statementBalance == null ? '' : row.statementBalance;
+  document.getElementById('f_bookBalance').value = row.bookBalance == null ? '' : row.bookBalance;
+  document.getElementById('f_difference').value = row.difference == null ? '' : row.difference;
+  document.getElementById('f_status').value = row.status === 'matched' ? 'closed' : 'open';
+  document.getElementById('f_notes').value = [
+    'Statement cutoff suggestion from imported PDF checkpoints.',
+    row.sourceFile ? 'Source: ' + row.sourceFile : '',
+    row.sourceBatches ? 'Batch: ' + row.sourceBatches : ''
+  ].filter(Boolean).join(' ');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function renderStatementReconcileDetail(data) {
+  const panel = document.getElementById('statementReconcileDetail');
+  if (!panel) return;
+  const s = data.summary || {};
+  const txRows = data.transactions || [];
+  const stagedRows = data.stagedRows || [];
+  const transactionHtml = txRows.length ? txRows.map(row => (
+    '<tr>' +
+      '<td>' + esc(row.transactionDate || '') + '</td>' +
+      '<td>' + esc(row.metricKind || row.transactionType || '') + '</td>' +
+      '<td>' + esc(row.merchantDisplayName || row.merchant || row.description || '') + '</td>' +
+      '<td>' + esc(row.description || '') + '</td>' +
+      '<td class="text-end">' + esc(money(row.amount, row.currency || (data.account && data.account.currency) || 'USD')) + '</td>' +
+      '<td>' + esc(row.source && (row.source.originalFileName || row.source.importBatchFileName) || '') + '</td>' +
+    '</tr>'
+  )).join('') : '<tr><td colspan="6" class="text-muted">No posted ledger transactions found in this statement period.</td></tr>';
+  const stagedHtml = stagedRows.length ? stagedRows.slice(0, 60).map(row => (
+    '<tr>' +
+      '<td>#' + esc(row.importBatchId) + ' / ' + esc(row.rowNumber) + '</td>' +
+      '<td>' + esc(row.status || '') + '</td>' +
+      '<td>' + esc(row.date || '') + '</td>' +
+      '<td>' + esc(row.merchant || row.description || '') + '</td>' +
+      '<td class="text-end">' + esc(money(row.amount, data.account && data.account.currency)) + '</td>' +
+      '<td>' + esc(row.postedTransactionId || '') + '</td>' +
+    '</tr>'
+  )).join('') : '<tr><td colspan="6" class="text-muted">No staged source rows were found for the source batch metadata.</td></tr>';
+  panel.classList.remove('d-none');
+  panel.innerHTML =
+    '<div class="border rounded p-3">' +
+      '<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">' +
+        '<div><h6 class="mb-1">Reconciliation Detail: ' + esc(data.account && data.account.name || '') + '</h6>' +
+        '<div class="muted-cell">' + esc(data.periodStart || '') + ' -> ' + esc(data.periodEnd || '') + '</div></div>' +
+        '<button class="btn btn-outline-secondary btn-sm" type="button" id="statementReconcileDetailCloseBtn">Close</button>' +
+      '</div>' +
+      '<div class="row g-2 mb-3">' +
+        '<div class="col-md-2"><div class="muted-cell">Prior</div><div class="fw-semibold">' + esc(money(s.priorBalance, data.account && data.account.currency)) + '</div></div>' +
+        '<div class="col-md-2"><div class="muted-cell">Movement</div><div class="fw-semibold">' + esc(money(s.transactionSum, data.account && data.account.currency)) + '</div></div>' +
+        '<div class="col-md-2"><div class="muted-cell">Book</div><div class="fw-semibold">' + esc(money(s.bookBalance, data.account && data.account.currency)) + '</div></div>' +
+        '<div class="col-md-2"><div class="muted-cell">Statement</div><div class="fw-semibold">' + esc(money(s.statementBalance, data.account && data.account.currency)) + '</div></div>' +
+        '<div class="col-md-2"><div class="muted-cell">Difference</div><div class="fw-semibold ' + (Math.abs(Number(s.difference || 0)) > 0.01 ? 'text-warning' : 'text-success') + '">' + esc(money(s.difference, data.account && data.account.currency)) + '</div></div>' +
+        '<div class="col-md-2"><div class="muted-cell">Rows</div><div class="fw-semibold">' + esc(s.transactionCount || 0) + ' posted / ' + esc(s.stagedRowCount || 0) + ' staged</div></div>' +
+      '</div>' +
+      '<div class="alert alert-secondary py-2 small">Diff = statement balance minus (prior statement balance plus posted ledger movement inside this cutoff period). If it is not zero, look for missing source rows, duplicate/misdated transactions, an opening-balance jump, or rows posted to the wrong account.</div>' +
+      '<h6 class="mt-3">Posted Ledger Transactions</h6>' +
+      '<div class="table-responsive" style="max-height:280px;overflow:auto"><table class="table table-sm align-middle"><thead><tr><th>Date</th><th>Kind</th><th>Merchant</th><th>Description</th><th class="text-end">Amount</th><th>Source</th></tr></thead><tbody>' + transactionHtml + '</tbody></table></div>' +
+      '<h6 class="mt-3">Source/Staged Rows</h6>' +
+      '<div class="table-responsive" style="max-height:220px;overflow:auto"><table class="table table-sm align-middle"><thead><tr><th>Batch / Row</th><th>Status</th><th>Date</th><th>Merchant</th><th class="text-end">Amount</th><th>Posted Tx</th></tr></thead><tbody>' + stagedHtml + '</tbody></table></div>' +
+    '</div>';
+  const closeBtn = document.getElementById('statementReconcileDetailCloseBtn');
+  if (closeBtn) closeBtn.addEventListener('click', () => panel.classList.add('d-none'));
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+async function openStatementReconcileDetail(index) {
+  const row = statementReconcileRows[index];
+  if (!row || !row.periodStart) return toast('This checkpoint is a baseline; choose a full statement period.', 'warning');
+  const panel = document.getElementById('statementReconcileDetail');
+  if (panel) {
+    panel.classList.remove('d-none');
+    panel.innerHTML = '<div class="border rounded p-3 text-muted">Loading reconciliation detail...</div>';
+  }
+  const res = await fetch('/api/finance/statement-reconciliation-detail?' + new URLSearchParams({
+    accountId: row.accountId,
+    periodStart: row.periodStart,
+    periodEnd: row.periodEnd
+  }).toString(), { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return toast(data.error || data.message || 'Unable to load reconciliation detail.', 'danger');
+  renderStatementReconcileDetail(data);
 }
 function toggleRowSelection(id, selected) {
   const key = String(id);
@@ -498,19 +698,19 @@ async function loadLookups() {
 function fieldHtml(field) {
   const label = `<label class="form-label small fw-semibold" for="f_${field.key}">${esc(field.label)}</label>`;
   if (field.type === 'textarea') {
-    return `<div><div>${label}<textarea class="form-control" id="f_${field.key}" rows="2"></textarea></div></div>`;
+    return `<div>${label}<textarea class="form-control form-control-sm" id="f_${field.key}" rows="1"></textarea></div>`;
   }
   if (field.type === 'checkbox') {
     return `<div class="d-flex align-items-end"><div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="f_${field.key}" ${field.checked === false ? '' : 'checked'}><label class="form-check-label" for="f_${field.key}">${esc(field.label)}</label></div></div>`;
   }
   if (field.type === 'select') {
-    return `<div>${label}<select class="form-select" id="f_${field.key}">${field.options.map(opt => `<option value="${esc(opt)}">${esc(opt)}</option>`).join('')}</select></div>`;
+    return `<div>${label}<select class="form-select form-select-sm" id="f_${field.key}">${field.options.map(opt => `<option value="${esc(opt)}">${esc(opt)}</option>`).join('')}</select></div>`;
   }
   if (field.type === 'lookup') {
     const options = field.optional ? '<option value="">-- None --</option>' : '';
-    return `<div>${label}<select class="form-select" id="f_${field.key}" ${field.required ? 'required' : ''}>${options}</select></div>`;
+    return `<div>${label}<select class="form-select form-select-sm" id="f_${field.key}" ${field.required ? 'required' : ''}>${options}</select></div>`;
   }
-  return `<div>${label}<input class="form-control" id="f_${field.key}" type="${field.type || 'text'}" ${field.step ? `step="${field.step}"` : ''} ${field.required ? 'required' : ''}></div>`;
+  return `<div>${label}<input class="form-control form-control-sm" id="f_${field.key}" type="${field.type || 'text'}" ${field.step ? `step="${field.step}"` : ''} ${field.required ? 'required' : ''}></div>`;
 }
 function fillLookupOptions() {
   CONFIG[MODULE].fields.filter(f => f.type === 'lookup').forEach(field => {
@@ -525,6 +725,24 @@ function fillLookupOptions() {
 function buildForm() {
   document.getElementById('formFields').innerHTML = CONFIG[MODULE].fields.map(fieldHtml).join('');
   fillLookupOptions();
+}
+function recordFormController() {
+  if (!recordFormCollapse) {
+    recordFormCollapse = new bootstrap.Collapse(document.getElementById('recordFormCollapse'), { toggle: false });
+  }
+  return recordFormCollapse;
+}
+function setRecordFormToggle(open) {
+  const btn = document.getElementById('recordFormToggle');
+  if (!btn) return;
+  btn.innerHTML = open ? '<i class="fas fa-chevron-up me-1"></i>Hide' : '<i class="fas fa-chevron-down me-1"></i>Form';
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+}
+function showRecordForm() {
+  recordFormController().show();
+}
+function hideRecordForm() {
+  recordFormController().hide();
 }
 function readForm() {
   const payload = {};
@@ -551,7 +769,12 @@ function resetForm() {
 }
 function startNewRecord() {
   resetForm();
+  showRecordForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function cancelRecordForm() {
+  resetForm();
+  hideRecordForm();
 }
 function editRow(id) {
   const row = rows.find(item => Number(item.id) === Number(id));
@@ -564,6 +787,7 @@ function editRow(id) {
     if (field.type === 'checkbox') el.checked = !!row[field.key];
     else el.value = row[field.key] == null ? '' : row[field.key];
   });
+  showRecordForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 async function disableRow(id) {
@@ -609,7 +833,11 @@ function renderRows() {
   const selectHead = selectEnabled
     ? '<th class="bulk-select-cell"><input class="form-check-input" id="selectVisibleRows" type="checkbox" aria-label="Select visible records" onchange="toggleVisibleSelection(this.checked)"></th>'
     : '';
-  head.innerHTML = '<tr>' + selectHead + columns.map(col => '<th>' + esc(columnLabel(col)) + '</th>').join('') + '<th class="text-end">Actions</th></tr>';
+  head.innerHTML = '<tr>' + selectHead + columns.map(col => {
+    const active = crudSort.key === col;
+    const icon = active ? (crudSort.dir === 'asc' ? 'asc' : 'desc') : 'sort';
+    return '<th><button class="crud-sort-btn" type="button" data-sort-column="' + esc(col) + '">' + esc(columnLabel(col)) + '<span class="crud-sort-indicator">' + icon + '</span></button></th>';
+  }).join('') + '<th class="text-end">Actions</th></tr>';
   updateRecordCount(visibleRows.length);
   updateSelectionControls(visibleRows);
   const colspan = columns.length + 1 + (selectEnabled ? 1 : 0);
@@ -637,6 +865,14 @@ function renderRows() {
   }).join('');
   updateSelectionControls(visibleRows);
 }
+function sortByColumn(key) {
+  if (crudSort.key === key) {
+    crudSort.dir = crudSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    crudSort = { key, dir: 'asc' };
+  }
+  renderRows();
+}
 document.getElementById('recordSearch').placeholder = 'Search ' + PAGE_TITLE.toLowerCase();
 document.getElementById('recordSearch').addEventListener('input', renderRows);
 document.getElementById('clearSearchBtn').addEventListener('click', function() {
@@ -648,6 +884,11 @@ document.getElementById('tableBody').addEventListener('change', function(event) 
   const checkbox = event.target.closest('.row-select-checkbox');
   if (!checkbox) return;
   toggleRowSelection(checkbox.dataset.id, checkbox.checked);
+});
+document.getElementById('tableHead').addEventListener('click', function(event) {
+  const btn = event.target.closest('[data-sort-column]');
+  if (!btn) return;
+  sortByColumn(btn.dataset.sortColumn);
 });
 document.getElementById('selectFilteredBtn').addEventListener('click', selectFilteredRows);
 document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
@@ -674,9 +915,15 @@ document.getElementById('recordForm').addEventListener('submit', async function(
   await loadLookups();
   fillLookupOptions();
   resetForm();
+  hideRecordForm();
   loadRows();
 });
 document.addEventListener('DOMContentLoaded', async function() {
+  document.getElementById('recordFormCollapse').addEventListener('shown.bs.collapse', () => setRecordFormToggle(true));
+  document.getElementById('recordFormCollapse').addEventListener('hidden.bs.collapse', () => setRecordFormToggle(false));
+  recordFormController();
+  const reconcileBtn = document.getElementById('loadStatementReconcileBtn');
+  if (reconcileBtn) reconcileBtn.addEventListener('click', loadStatementReconcileSuggestions);
   await loadLookups();
   buildForm();
   resetForm();
