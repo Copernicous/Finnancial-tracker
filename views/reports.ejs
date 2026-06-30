@@ -38,7 +38,7 @@
             </select>
           </div>
           <div class="col-md-4"><label class="form-label">Account</label><select id="accountSelect" class="form-select"><option value="">All accounts</option></select></div>
-          <div class="col-md-2"><label class="form-label">Year</label><select id="yearSelect" class="form-select"><option>2026</option></select></div>
+          <div class="col-md-2"><label class="form-label">Year</label><select id="yearSelect" class="form-select"><option value="">Loading...</option></select></div>
           <div class="col-md-3"><button class="btn btn-primary w-100" onclick="loadReport()"><i class="fas fa-chart-bar me-1"></i>Run Report</button></div>
         </div>
       </div>
@@ -73,16 +73,30 @@
 let accounts = [];
 let categories = [];
 let reportRows = [];
+let defaultYear = String(new Date().getFullYear());
 function authHeaders(){ const t=localStorage.getItem('haToken')||localStorage.getItem('token')||''; return t?{Authorization:'Bearer '+t}:{}; }
 function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 function money(v){ return Number(v||0).toLocaleString(undefined,{style:'currency',currency:'USD'}); }
 function accountName(id){ const a=accounts.find(x=>Number(x.id)===Number(id)); return a?a.name:''; }
 function categoryName(id){ const c=categories.find(x=>Number(x.id)===Number(id)); return c?c.name:''; }
+function populateYearSelect(payload){
+  const select=document.getElementById('yearSelect');
+  const previous=select.value;
+  const years=(payload && Array.isArray(payload.years) ? payload.years : []).map(year=>String(year)).filter(year=>/^\d{4}$/.test(year));
+  if(!years.length) years.push(String(new Date().getFullYear()));
+  defaultYear=String((payload && payload.defaultYear) || years[0]);
+  select.innerHTML='<option value="all">All years</option>'+years.map(year=>'<option value="'+esc(year)+'">'+esc(year)+'</option>').join('');
+  select.value=previous==='all'?'all':(years.includes(previous)?previous:(years.includes(defaultYear)?defaultYear:years[0]));
+}
 async function loadLookups(){
-  [accounts,categories]=await Promise.all([
+  const yearPayloadPromise=fetch('/api/finance/years',{headers:authHeaders()}).then(r=>r.ok?r.json():null);
+  let yearPayload;
+  [accounts,categories,yearPayload]=await Promise.all([
     fetch('/api/accounts',{headers:authHeaders()}).then(r=>r.ok?r.json():[]),
-    fetch('/api/categories',{headers:authHeaders()}).then(r=>r.ok?r.json():[])
+    fetch('/api/categories',{headers:authHeaders()}).then(r=>r.ok?r.json():[]),
+    yearPayloadPromise
   ]);
+  populateYearSelect(yearPayload);
   document.getElementById('accountSelect').innerHTML='<option value="">All accounts</option>'+accounts.map(a=>'<option value="'+a.id+'">'+esc(a.name)+'</option>').join('');
 }
 function summarize(rows){
@@ -98,9 +112,17 @@ function summarize(rows){
 }
 function drawBars(rows, year){
   const monthly = {};
-  for(let i=1;i<=12;i++) monthly[String(i).padStart(2,'0')]={income:0, expense:0};
+  if(year==='all'){
+    rows.forEach(r=>{
+      const bucket=String(r.transactionDate||'').slice(0,4);
+      if(!/^\d{4}$/.test(bucket)) return;
+      if(!monthly[bucket]) monthly[bucket]={income:0, expense:0};
+    });
+  } else {
+    for(let i=1;i<=12;i++) monthly[String(i).padStart(2,'0')]={income:0, expense:0};
+  }
   rows.forEach(r=>{
-    const month=String(r.transactionDate||'').slice(5,7);
+    const month=year==='all'?String(r.transactionDate||'').slice(0,4):String(r.transactionDate||'').slice(5,7);
     const amount=Number(r.amount||0);
     if(!monthly[month]) return;
     if(amount>=0) monthly[month].income+=amount; else monthly[month].expense+=Math.abs(amount);
@@ -108,7 +130,8 @@ function drawBars(rows, year){
   const max=Math.max(1,...Object.values(monthly).flatMap(v=>[v.income,v.expense]));
   document.getElementById('bars').innerHTML=Object.keys(monthly).map(m=>{
     const v=monthly[m], wi=Math.round(v.income/max*100), we=Math.round(v.expense/max*100);
-    return '<div class="row align-items-center g-2 mb-2"><div class="col-md-1 fw-semibold">'+year+'-'+m+'</div><div class="col-md-5"><div class="bar-track"><div class="bar-income" style="width:'+wi+'%"></div></div></div><div class="col-md-2 text-success">'+money(v.income)+'</div><div class="col-md-3"><div class="bar-track"><div class="bar-expense" style="width:'+we+'%"></div></div></div><div class="col-md-1 text-danger text-end">'+money(v.expense)+'</div></div>';
+    const label=year==='all'?m:year+'-'+m;
+    return '<div class="row align-items-center g-2 mb-2"><div class="col-md-1 fw-semibold">'+label+'</div><div class="col-md-5"><div class="bar-track"><div class="bar-income" style="width:'+wi+'%"></div></div></div><div class="col-md-2 text-success">'+money(v.income)+'</div><div class="col-md-3"><div class="bar-track"><div class="bar-expense" style="width:'+we+'%"></div></div></div><div class="col-md-1 text-danger text-end">'+money(v.expense)+'</div></div>';
   }).join('');
 }
 function renderDetails(rows){
@@ -118,10 +141,10 @@ function renderDetails(rows){
 }
 async function loadReport(){
   const accountId=document.getElementById('accountSelect').value;
-  const year=document.getElementById('yearSelect').value;
+  const year=document.getElementById('yearSelect').value || defaultYear;
   const type=document.getElementById('reportType').value;
   const all=await fetch('/api/transactions',{headers:authHeaders()}).then(r=>r.ok?r.json():[]);
-  reportRows=all.filter(r=>String(r.transactionDate||'').startsWith(year) && (!accountId || String(r.accountId)===String(accountId)));
+  reportRows=all.filter(r=>(year==='all' || String(r.transactionDate||'').startsWith(year)) && (!accountId || String(r.accountId)===String(accountId)));
   if(type==='income_statement') reportRows=reportRows.filter(r=>['income','expense'].includes(r.transactionType));
   if(type==='cash_flow') reportRows=reportRows.filter(r=>r.status!=='void');
   summarize(reportRows);
@@ -134,7 +157,7 @@ function exportCsv(){
   const csv=lines.map(row=>row.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
-  a.download='home_accounting_report_2026.csv';
+  a.download='home_accounting_report_'+((document.getElementById('yearSelect').value || defaultYear)==='all'?'all_years':(document.getElementById('yearSelect').value || defaultYear))+'.csv';
   a.click();
   URL.revokeObjectURL(a.href);
 }

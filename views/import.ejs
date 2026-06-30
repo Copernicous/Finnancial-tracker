@@ -30,6 +30,12 @@
     .statement-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; align-items: end; }
     .statement-result-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .5rem; }
     .review-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; align-items: end; }
+    .compact-controls { gap: .45rem; }
+    .compact-controls.review-grid { grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+    .compact-controls.filter-grid { grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); }
+    .batch-control-row { display: grid; grid-template-columns: minmax(145px, 1.1fr) minmax(145px, 1.1fr) minmax(170px, 1.25fr) minmax(105px, .75fr) minmax(190px, 1.35fr) minmax(118px, .85fr) minmax(118px, .85fr) minmax(92px, .7fr) minmax(86px, auto) auto auto; gap: .45rem; align-items: end; }
+    .compact-controls .form-label { font-size: .72rem; margin-bottom: .2rem; color: var(--text-muted,#64748b); }
+    .compact-controls .form-control, .compact-controls .form-select, .compact-controls .btn { font-size: .8rem; padding: .25rem .5rem; min-height: calc(1.5em + .5rem + 2px); }
     .review-wrap { max-height: 520px; overflow: auto; border: 1px solid var(--border,#e2e8f0); border-radius: 8px; max-width: 100%; }
     .review-wrap table { margin: 0; min-width: 1080px; width: 100%; }
     .review-wrap .form-control, .review-wrap .form-select { min-width: 0; width: 100%; }
@@ -38,6 +44,15 @@
     .row-status { text-transform: capitalize; }
     .row-status.duplicate, .row-status.error { color: #dc3545; font-weight: 700; }
     .row-status.posted { color: #198754; font-weight: 700; }
+    .review-counts { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
+    .review-count-chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--border,#e2e8f0); border-radius: 999px; padding: .2rem .5rem; font-size: .74rem; line-height: 1.1; background: var(--surface,#fff); color: var(--text-muted,#64748b); }
+    .review-count-chip strong { color: var(--text,#0f172a); }
+    .review-count-chip.status-posted { border-color: rgba(25,135,84,.35); background: rgba(25,135,84,.08); }
+    .review-count-chip.status-ready { border-color: rgba(13,110,253,.35); background: rgba(13,110,253,.08); }
+    .review-count-chip.status-error, .review-count-chip.status-duplicate, .review-count-chip.status-rejected { border-color: rgba(220,53,69,.35); background: rgba(220,53,69,.08); }
+    .review-count-chip.status-categorized { border-color: rgba(25,135,84,.3); }
+    .review-count-chip.status-uncategorized { border-color: rgba(255,193,7,.45); background: rgba(255,193,7,.1); }
+    [data-theme="dark"] .review-count-chip strong { color: var(--text,#e2e8f0); }
     .filter-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .75rem; align-items: end; }
     .sort-btn { border: 0; background: transparent; padding: 0; color: inherit; font: inherit; font-weight: 700; white-space: nowrap; }
     .sort-btn:hover { color: var(--primary,#0d6efd); }
@@ -49,15 +64,18 @@
     [data-theme="dark"] .lookup-note strong { color: var(--text,#e2e8f0); }
     @media (max-width: 992px) {
       .statement-grid { grid-template-columns: 1fr 1fr; }
+      .batch-control-row { grid-template-columns: repeat(4, minmax(130px, 1fr)); }
       .review-wrap table { min-width: 940px; }
     }
     @media (max-width: 768px) {
       .dataset-card { flex-basis: 170px; }
       .statement-grid, .review-grid { grid-template-columns: 1fr; }
+      .compact-controls.review-grid, .compact-controls.filter-grid, .batch-control-row { grid-template-columns: 1fr 1fr; }
       .preview-wrap table { min-width: 560px; }
       .review-wrap table { min-width: 860px; }
     }
     @media (max-width: 576px) {
+      .compact-controls.review-grid, .compact-controls.filter-grid, .batch-control-row { grid-template-columns: 1fr; }
       .review-wrap table { min-width: 780px; }
     }
   </style>
@@ -225,6 +243,13 @@
                 <div class="text-muted small">Uploaded rows waiting for future curated mapping and review.</div>
               </div>
               <div class="d-flex flex-wrap gap-2 align-items-center">
+                <button class="btn btn-outline-secondary btn-sm" id="archiveSelectedBatchesBtn" disabled><i class="fas fa-archive me-1"></i>Archive Selected</button>
+                <button class="btn btn-outline-secondary btn-sm" id="unarchiveSelectedBatchesBtn" disabled><i class="fas fa-undo me-1"></i>Unarchive Selected</button>
+                <span class="text-muted small" id="historySelectedCount">0 selected</span>
+                <div class="form-check form-switch mb-0">
+                  <input class="form-check-input" type="checkbox" id="showArchivedBatches">
+                  <label class="form-check-label small" for="showArchivedBatches">Show Archived</label>
+                </div>
                 <div class="form-check form-switch mb-0">
                   <input class="form-check-input" type="checkbox" id="showRemovedBatches">
                   <label class="form-check-label small" for="showRemovedBatches">Show Removed</label>
@@ -245,6 +270,7 @@
                   <option value="needs_review">needs_review</option>
                   <option value="partially_posted">partially_posted</option>
                   <option value="posted">posted</option>
+                  <option value="archived">archived</option>
                   <option value="removed">removed</option>
                   <option value="closed">closed</option>
                 </select>
@@ -261,6 +287,7 @@
             <div class="table-responsive">
               <table class="table table-hover align-middle">
                 <thead><tr>
+                  <th class="text-center" style="width: 42px;"><input class="form-check-input" type="checkbox" id="selectAllHistoryBatches" aria-label="Select visible staged documents"></th>
                   <th><button class="sort-btn" data-history-sort="id">Batch <span class="sort-indicator"></span></button></th>
                   <th><button class="sort-btn" data-history-sort="importType">Dataset <span class="sort-indicator"></span></button></th>
                   <th><button class="sort-btn" data-history-sort="fileName">File <span class="sort-indicator"></span></button></th>
@@ -270,7 +297,7 @@
                   <th><button class="sort-btn" data-history-sort="createdBy">User <span class="sort-indicator"></span></button></th>
                   <th></th>
                 </tr></thead>
-                <tbody id="historyRows"><tr><td colspan="8" class="text-muted">Loading...</td></tr></tbody>
+                <tbody id="historyRows"><tr><td colspan="9" class="text-muted">Loading...</td></tr></tbody>
               </table>
             </div>
           </section>
@@ -280,8 +307,14 @@
               <div>
                 <h5 class="mb-1">Review & Post Batch <span id="reviewBatchLabel"></span></h5>
                 <div class="text-muted small" id="reviewBatchMeta">Edit staged rows, reject duplicates, then post selected rows to the ledger.</div>
+                <div class="review-counts" id="reviewBatchCounts"></div>
               </div>
               <div class="d-flex flex-wrap gap-2">
+                <div class="btn-group btn-group-sm" role="group" aria-label="Batch navigation">
+                  <button class="btn btn-outline-secondary" id="prevBatchBtn"><i class="fas fa-chevron-left me-1"></i>Previous</button>
+                  <button class="btn btn-outline-secondary" id="nextBatchBtn">Next<i class="fas fa-chevron-right ms-1"></i></button>
+                </div>
+                <span class="small text-muted align-self-center" id="batchNavPosition"></span>
                 <button class="btn btn-outline-secondary btn-sm" id="selectPostableBtn"><i class="fas fa-check-square me-1"></i>Select Postable</button>
                 <button class="btn btn-outline-success btn-sm" id="suggestCategoriesBtn"><i class="fas fa-magic me-1"></i>Suggest Categories</button>
                 <button class="btn btn-outline-info btn-sm" id="lookupOnlineBtn"><i class="fas fa-search me-1"></i>Lookup Online</button>
@@ -291,43 +324,34 @@
               </div>
             </div>
 
-            <div class="review-grid mb-3">
+            <div class="batch-control-row compact-controls mb-2">
               <div>
                 <label class="form-label">Default Account</label>
-                <select class="form-select" id="reviewDefaultAccount"><option value="">No default</option></select>
+                <select class="form-select form-select-sm" id="reviewDefaultAccount"><option value="">No default</option></select>
               </div>
               <div>
                 <label class="form-label">Default Category</label>
-                <select class="form-select" id="reviewDefaultCategory"><option value="">No default</option></select>
+                <select class="form-select form-select-sm" id="reviewDefaultCategory"><option value="">No default</option></select>
               </div>
               <div>
                 <label class="form-label">Category Search</label>
-                <input class="form-control" id="reviewCategorySearch" placeholder="Type to filter categories">
+                <input class="form-control form-control-sm" id="reviewCategorySearch" placeholder="Type to filter categories">
               </div>
               <div>
                 <label class="form-label">Ledger Status</label>
-                <select class="form-select" id="reviewDefaultStatus">
+                <select class="form-select form-select-sm" id="reviewDefaultStatus">
                   <option value="draft">draft</option>
                   <option value="reviewed">reviewed</option>
                   <option value="reconciled">reconciled</option>
                 </select>
               </div>
-              <div class="d-grid">
-                <button class="btn btn-outline-primary" id="applyDefaultsBtn"><i class="fas fa-magic me-1"></i>Apply Defaults</button>
-              </div>
-              <div class="d-grid">
-                <button class="btn btn-outline-secondary" id="reloadReviewBtn"><i class="fas fa-sync-alt me-1"></i>Reload Rows</button>
-              </div>
-            </div>
-
-            <div class="filter-grid mb-3">
               <div>
                 <label class="form-label">Search Rows</label>
-                <input class="form-control" id="reviewSearchFilter" placeholder="Description, merchant, note">
+                <input class="form-control form-control-sm" id="reviewSearchFilter" placeholder="Description, merchant, note">
               </div>
               <div>
                 <label class="form-label">Row Status</label>
-                <select class="form-select" id="reviewStatusFilter">
+                <select class="form-select form-select-sm" id="reviewStatusFilter">
                   <option value="">All statuses</option>
                   <option value="staged">staged</option>
                   <option value="ready">ready</option>
@@ -339,7 +363,7 @@
               </div>
               <div>
                 <label class="form-label">Category</label>
-                <select class="form-select" id="reviewCategoryFilter">
+                <select class="form-select form-select-sm" id="reviewCategoryFilter">
                   <option value="">All categories</option>
                   <option value="missing">Missing category</option>
                   <option value="present">Has category</option>
@@ -347,7 +371,7 @@
               </div>
               <div>
                 <label class="form-label">Type</label>
-                <select class="form-select" id="reviewTypeFilter">
+                <select class="form-select form-select-sm" id="reviewTypeFilter">
                   <option value="">All types</option>
                   <option value="expense">expense</option>
                   <option value="income">income</option>
@@ -358,6 +382,12 @@
               <div>
                 <label class="form-label">Visible</label>
                 <div class="fw-semibold" id="reviewVisibleCount">0 rows</div>
+              </div>
+              <div class="d-grid">
+                <button class="btn btn-outline-primary btn-sm" id="applyDefaultsBtn"><i class="fas fa-magic me-1"></i>Apply</button>
+              </div>
+              <div class="d-grid">
+                <button class="btn btn-outline-secondary btn-sm" id="reloadReviewBtn"><i class="fas fa-sync-alt me-1"></i>Reload</button>
               </div>
             </div>
 
@@ -488,6 +518,7 @@ let categoryRows = [];
 let selectedBatchId = null;
 let batchRows = [];
 let historyRowsCache = [];
+let selectedHistoryBatchIds = new Set();
 let historySort = { key: 'createdAt', direction: 'desc' };
 let reviewSort = { key: 'rowNumber', direction: 'asc' };
 let rowLookupNotes = {};
@@ -754,6 +785,52 @@ function refreshCategoryDropdowns() {
 function rowDraft(row) {
   return row && row.normalizedData ? row.normalizedData : {};
 }
+function reviewBatchRowsForCounting() {
+  const domRows = Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]'));
+  if (domRows.length) {
+    return domRows.map(tr => ({
+      status: tr.querySelector('.review-row-status') ? tr.querySelector('.review-row-status').value : 'staged',
+      categoryId: tr.querySelector('.review-category') ? tr.querySelector('.review-category').value : ''
+    }));
+  }
+  return batchRows.map(row => {
+    const draft = rowDraft(row);
+    return {
+      status: row.status || 'staged',
+      categoryId: draft.categoryId || row.matchedCategoryId || ''
+    };
+  });
+}
+function updateReviewBatchCounts() {
+  const target = document.getElementById('reviewBatchCounts');
+  if (!target) return;
+  const rows = reviewBatchRowsForCounting();
+  if (!rows.length) {
+    target.innerHTML = '';
+    return;
+  }
+  const counts = rows.reduce((acc, row) => {
+    const status = String(row.status || 'staged').toLowerCase();
+    acc.status[status] = (acc.status[status] || 0) + 1;
+    if (row.categoryId) acc.categorized += 1;
+    else acc.uncategorized += 1;
+    return acc;
+  }, { total: rows.length, categorized: 0, uncategorized: 0, status: {} });
+  const chips = [
+    ['Total', counts.total, 'total'],
+    ['Posted', counts.status.posted || 0, 'posted'],
+    ['Ready', counts.status.ready || 0, 'ready'],
+    ['Staged', counts.status.staged || 0, 'staged'],
+    ['Error', counts.status.error || 0, 'error'],
+    ['Duplicate', counts.status.duplicate || 0, 'duplicate'],
+    ['Rejected', counts.status.rejected || 0, 'rejected'],
+    ['Categorized', counts.categorized, 'categorized'],
+    ['No category', counts.uncategorized, 'uncategorized']
+  ];
+  target.innerHTML = chips.map(([label, count, key]) =>
+    '<span class="review-count-chip status-' + esc(key) + '"><span>' + esc(label) + '</span><strong>' + esc(count) + '</strong></span>'
+  ).join('');
+}
 function postableStatus(status) {
   return ['staged', 'ready', 'error'].includes(String(status || 'staged'));
 }
@@ -833,6 +910,7 @@ function applyReviewFilters() {
     if (show) visible += 1;
   });
   document.getElementById('reviewVisibleCount').textContent = visible + ' of ' + rows.length + ' rows';
+  updateReviewBatchCounts();
 }
 function sortReviewRows(applyFiltersAfter) {
   const tbody = document.getElementById('reviewRows');
@@ -845,8 +923,10 @@ function sortReviewRows(applyFiltersAfter) {
 function renderBatchReview() {
   const panel = document.getElementById('batchReviewPanel');
   panel.classList.remove('d-none');
+  const currentBatch = historyRowsCache.find(row => Number(row.id) === Number(selectedBatchId));
   document.getElementById('reviewBatchLabel').textContent = selectedBatchId ? '#' + selectedBatchId : '';
-  document.getElementById('reviewBatchMeta').textContent = batchRows.length + ' staged row(s). Duplicate and posted rows are locked.';
+  document.getElementById('reviewBatchMeta').textContent = batchRows.length + ' batch row(s). Duplicate and posted rows are locked.'
+    + (currentBatch && currentBatch.fileName ? ' File: ' + currentBatch.fileName + '.' : '');
 
   const accountChoices = accountRows.filter(account => account.status !== 'inactive' && account.status !== 'closed');
   document.getElementById('reviewRows').innerHTML = batchRows.length ? batchRows.map(row => {
@@ -876,6 +956,7 @@ function renderBatchReview() {
   }).join('') : '<tr><td colspan="11" class="text-muted">No rows in this batch.</td></tr>';
   sortReviewRows(false);
   applyReviewFilters();
+  updateBatchNavigation();
   document.getElementById('batchReviewPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 async function openBatch(id) {
@@ -886,6 +967,7 @@ async function openBatch(id) {
   const res = await fetch('/api/import/batches/' + selectedBatchId + '/rows', { headers: authHeaders() });
   batchRows = res.ok ? await res.json() : [];
   renderBatchReview();
+  renderHistoryRows();
 }
 function collectReviewRows(selectedOnly) {
   return Array.from(document.querySelectorAll('#reviewRows tr[data-row-id]')).map(tr => {
@@ -1277,39 +1359,189 @@ function filteredHistoryRows() {
   const status = document.getElementById('historyStatusFilter').value;
   const type = document.getElementById('historyTypeFilter').value;
   return historyRowsCache.filter(row => {
-    const haystack = plain([row.id, row.importType, row.fileName, row.status, row.createdBy, row.createdAt].join(' '));
+    const displayStatus = historyDisplayStatus(row);
+    const haystack = plain([row.id, row.importType, row.fileName, row.status, displayStatus, row.createdBy, row.createdAt, row.archiveReason].join(' '));
     if (search && !haystack.includes(search)) return false;
-    if (status && row.status !== status) return false;
+    if (status && displayStatus !== status) return false;
     if (type && row.importType !== type) return false;
     return true;
-  }).sort((a, b) => compareValues(a[historySort.key], b[historySort.key], historySort.direction));
+  }).sort((a, b) => compareValues(historySortValue(a), historySortValue(b), historySort.direction));
+}
+function sortedHistoryRows(rows) {
+  return rows.slice().sort((a, b) => compareValues(historySortValue(a), historySortValue(b), historySort.direction));
+}
+function historyDisplayStatus(row) {
+  return row && row.archived ? 'archived' : (row && row.status ? row.status : '');
+}
+function historySortValue(row) {
+  return historySort.key === 'status' ? historyDisplayStatus(row) : row[historySort.key];
+}
+function historyStatusBadgeClass(row) {
+  if (row.status === 'removed') return 'bg-danger';
+  if (row.archived) return 'bg-warning text-dark';
+  return 'bg-secondary';
+}
+function historySelectableRows(rows) {
+  return rows.filter(row => row.status !== 'removed');
+}
+function pruneHistorySelection() {
+  const validIds = new Set(historySelectableRows(historyRowsCache).map(row => Number(row.id)));
+  selectedHistoryBatchIds = new Set(Array.from(selectedHistoryBatchIds).filter(id => validIds.has(Number(id))));
+}
+function updateHistorySelectionControls(rows) {
+  pruneHistorySelection();
+  const visibleRows = historySelectableRows(rows || filteredHistoryRows());
+  const visibleIds = visibleRows.map(row => Number(row.id));
+  const selectedRows = historyRowsCache.filter(row => selectedHistoryBatchIds.has(Number(row.id)) && row.status !== 'removed');
+  const selectedVisible = visibleIds.filter(id => selectedHistoryBatchIds.has(Number(id))).length;
+  const selectAll = document.getElementById('selectAllHistoryBatches');
+  const count = document.getElementById('historySelectedCount');
+  const archiveBtn = document.getElementById('archiveSelectedBatchesBtn');
+  const unarchiveBtn = document.getElementById('unarchiveSelectedBatchesBtn');
+  if (count) count.textContent = selectedRows.length + ' selected';
+  if (archiveBtn) archiveBtn.disabled = !selectedRows.some(row => !row.archived);
+  if (unarchiveBtn) unarchiveBtn.disabled = !selectedRows.some(row => row.archived);
+  if (selectAll) {
+    selectAll.checked = visibleRows.length > 0 && selectedVisible === visibleRows.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visibleRows.length;
+    selectAll.disabled = !visibleRows.length;
+  }
+}
+function toggleVisibleHistorySelection(checked) {
+  historySelectableRows(filteredHistoryRows()).forEach(row => {
+    const id = Number(row.id);
+    if (checked) selectedHistoryBatchIds.add(id);
+    else selectedHistoryBatchIds.delete(id);
+  });
+  renderHistoryRows();
+}
+function batchNavigationState() {
+  if (!selectedBatchId) return { rows: [], index: -1, usesFilteredList: true };
+  let rows = filteredHistoryRows();
+  let index = rows.findIndex(row => Number(row.id) === Number(selectedBatchId));
+  let usesFilteredList = true;
+  if (index < 0) {
+    rows = sortedHistoryRows(historyRowsCache);
+    index = rows.findIndex(row => Number(row.id) === Number(selectedBatchId));
+    usesFilteredList = false;
+  }
+  return { rows, index, usesFilteredList };
+}
+function updateBatchNavigation() {
+  const previous = document.getElementById('prevBatchBtn');
+  const next = document.getElementById('nextBatchBtn');
+  const label = document.getElementById('batchNavPosition');
+  if (!previous || !next || !label) return;
+  const state = batchNavigationState();
+  const hasPosition = state.index >= 0;
+  previous.disabled = !hasPosition || state.index === 0;
+  next.disabled = !hasPosition || state.index >= state.rows.length - 1;
+  if (!selectedBatchId) {
+    label.textContent = '';
+    return;
+  }
+  if (!hasPosition) {
+    label.textContent = 'Not in current batch list';
+    return;
+  }
+  const suffix = state.usesFilteredList ? 'in current list' : 'in all loaded batches';
+  label.textContent = (state.index + 1) + ' of ' + state.rows.length + ' ' + suffix;
+}
+async function openAdjacentBatch(direction) {
+  const state = batchNavigationState();
+  if (state.index < 0) return;
+  const target = state.rows[state.index + direction];
+  if (!target) return;
+  await openBatch(target.id);
 }
 function renderHistoryRows() {
   const rows = filteredHistoryRows();
   updateSortIndicators('history', historySort);
   document.getElementById('historyVisibleCount').textContent = rows.length + ' of ' + historyRowsCache.length + ' batches';
-  document.getElementById('historyRows').innerHTML = rows.length ? rows.map(row =>
-    '<tr>' +
+  document.getElementById('historyRows').innerHTML = rows.length ? rows.map(row => {
+    const selectedClass = Number(row.id) === Number(selectedBatchId) ? ' class="table-primary"' : '';
+    const id = Number(row.id);
+    const checked = selectedHistoryBatchIds.has(id) ? ' checked' : '';
+    const disabled = row.status === 'removed' ? ' disabled' : '';
+    const archiveAction = row.archived
+      ? '<button class="btn btn-outline-secondary btn-sm" ' + disabled + ' onclick="unarchiveBatch(' + id + ')"><i class="fas fa-undo me-1"></i>Unarchive</button>'
+      : '<button class="btn btn-outline-secondary btn-sm" ' + disabled + ' onclick="archiveBatch(' + id + ')"><i class="fas fa-archive me-1"></i>Archive</button>';
+    return '<tr' + selectedClass + '>' +
+      '<td class="text-center"><input class="form-check-input history-batch-check" type="checkbox" data-batch-id="' + id + '"' + checked + disabled + ' aria-label="Select batch #' + id + '"></td>' +
       '<td>#' + esc(row.id) + '</td>' +
       '<td>' + esc(row.importType) + '</td>' +
       '<td>' + esc(row.fileName || '') + '</td>' +
       '<td>' + esc(row.rowCount) + '<div class="small text-muted">' + esc(row.acceptedCount || 0) + ' posted / ' + esc(row.rejectedCount || 0) + ' blocked</div></td>' +
-      '<td><span class="badge ' + (row.status === 'removed' ? 'bg-danger' : 'bg-secondary') + '">' + esc(row.status) + '</span></td>' +
+      '<td><span class="badge ' + historyStatusBadgeClass(row) + '">' + esc(historyDisplayStatus(row)) + '</span></td>' +
       '<td>' + esc(row.createdAt ? String(row.createdAt).slice(0, 19).replace('T', ' ') : '') + '</td>' +
       '<td>' + esc(row.createdBy || '') + '</td>' +
       '<td class="text-end"><div class="d-inline-flex gap-2">' +
         '<button class="btn btn-outline-primary btn-sm" onclick="openBatch(' + Number(row.id) + ')"><i class="fas fa-clipboard-check me-1"></i>Open</button>' +
+        archiveAction +
         '<button class="btn btn-outline-danger btn-sm" ' + (row.status === 'removed' ? 'disabled' : '') + ' onclick="removeBatch(' + Number(row.id) + ', \'' + esc(String(row.fileName || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'")) + '\')"><i class="fas fa-trash-alt me-1"></i>Remove</button>' +
       '</div></td>' +
-    '</tr>'
-  ).join('') : '<tr><td colspan="8" class="text-muted">No staged batches match the current filters.</td></tr>';
+    '</tr>';
+  }).join('') : '<tr><td colspan="9" class="text-muted">No staged batches match the current filters.</td></tr>';
+  updateHistorySelectionControls(rows);
+  updateBatchNavigation();
 }
 async function loadBatches() {
   const includeRemoved = document.getElementById('showRemovedBatches').checked;
-  const res = await fetch('/api/import/batches' + (includeRemoved ? '?includeRemoved=1' : ''), { headers: authHeaders() });
+  const includeArchived = document.getElementById('showArchivedBatches').checked;
+  const params = new URLSearchParams();
+  if (includeRemoved) params.set('includeRemoved', '1');
+  if (includeArchived) params.set('includeArchived', '1');
+  const res = await fetch('/api/import/batches' + (params.toString() ? '?' + params.toString() : ''), { headers: authHeaders() });
   historyRowsCache = res.ok ? await res.json() : [];
   renderHistoryTypeFilter();
   renderHistoryRows();
+}
+async function setBatchArchiveState(ids, archived) {
+  const cleanIds = Array.from(new Set(ids.map(id => Number(id)).filter(id => Number.isInteger(id) && id > 0)));
+  if (!cleanIds.length) return;
+  const res = await fetch('/api/import/batches/' + (archived ? 'archive' : 'unarchive'), {
+    method: 'POST',
+    headers: authHeaders(true),
+    body: JSON.stringify({
+      ids: cleanIds,
+      reason: archived ? 'Archived from import screen.' : 'Unarchived from import screen.'
+    })
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    reviewMessage(data.error || data.message || 'Unable to update staged document archive state.', 'danger');
+    return;
+  }
+  if (archived && cleanIds.includes(Number(selectedBatchId)) && !document.getElementById('showArchivedBatches').checked) {
+    selectedBatchId = null;
+    batchRows = [];
+    document.getElementById('batchReviewPanel').classList.add('d-none');
+  }
+  cleanIds.forEach(id => selectedHistoryBatchIds.delete(Number(id)));
+  await loadBatches();
+  const result = document.getElementById('statementResult');
+  result.className = 'alert alert-success mt-3';
+  result.textContent = data.message || (archived ? 'Selected staged documents archived.' : 'Selected staged documents unarchived.');
+}
+async function archiveSelectedBatches() {
+  const ids = Array.from(selectedHistoryBatchIds);
+  if (!ids.length) return;
+  if (!window.confirm('Archive ' + ids.length + ' selected staged document(s)? They will be hidden unless Show Archived is on.')) return;
+  await setBatchArchiveState(ids, true);
+}
+async function unarchiveSelectedBatches() {
+  const ids = Array.from(selectedHistoryBatchIds);
+  if (!ids.length) return;
+  await setBatchArchiveState(ids, false);
+}
+async function archiveBatch(id) {
+  if (!id) return;
+  if (!window.confirm('Archive batch #' + id + '? It will be hidden unless Show Archived is on.')) return;
+  await setBatchArchiveState([id], true);
+}
+async function unarchiveBatch(id) {
+  if (!id) return;
+  await setBatchArchiveState([id], false);
 }
 async function removeBatch(id, fileName) {
   if (!id) return;
@@ -1352,8 +1584,28 @@ document.getElementById('merchantKeySearch').addEventListener('keydown', event =
 document.getElementById('statementStageBtn').addEventListener('click', stageStatementFile);
 document.getElementById('refreshHistoryBtn').addEventListener('click', loadBatches);
 document.getElementById('showRemovedBatches').addEventListener('change', loadBatches);
+document.getElementById('showArchivedBatches').addEventListener('change', loadBatches);
+document.getElementById('archiveSelectedBatchesBtn').addEventListener('click', archiveSelectedBatches);
+document.getElementById('unarchiveSelectedBatchesBtn').addEventListener('click', unarchiveSelectedBatches);
+document.getElementById('selectAllHistoryBatches').addEventListener('change', event => toggleVisibleHistorySelection(event.target.checked));
+document.getElementById('historyRows').addEventListener('change', event => {
+  if (!event.target.classList.contains('history-batch-check')) return;
+  const id = Number(event.target.dataset.batchId);
+  if (!id) return;
+  if (event.target.checked) selectedHistoryBatchIds.add(id);
+  else selectedHistoryBatchIds.delete(id);
+  updateHistorySelectionControls(filteredHistoryRows());
+});
 document.getElementById('historySearchFilter').addEventListener('input', renderHistoryRows);
-document.getElementById('historyStatusFilter').addEventListener('change', renderHistoryRows);
+document.getElementById('historyStatusFilter').addEventListener('change', () => {
+  const showArchived = document.getElementById('showArchivedBatches');
+  if (document.getElementById('historyStatusFilter').value === 'archived' && !showArchived.checked) {
+    showArchived.checked = true;
+    loadBatches();
+    return;
+  }
+  renderHistoryRows();
+});
 document.getElementById('historyTypeFilter').addEventListener('change', renderHistoryRows);
 document.querySelectorAll('[data-history-sort]').forEach(btn => btn.addEventListener('click', () => {
   const key = btn.dataset.historySort;
@@ -1369,6 +1621,8 @@ document.getElementById('learnRulesBtn').addEventListener('click', learnSelected
 document.getElementById('saveReviewBtn').addEventListener('click', saveReview);
 document.getElementById('postRowsBtn').addEventListener('click', postSelectedRows);
 document.getElementById('reloadReviewBtn').addEventListener('click', () => openBatch(selectedBatchId));
+document.getElementById('prevBatchBtn').addEventListener('click', () => openAdjacentBatch(-1));
+document.getElementById('nextBatchBtn').addEventListener('click', () => openAdjacentBatch(1));
 document.getElementById('datasetToggleBtn').addEventListener('click', toggleDatasetPanel);
 document.getElementById('reviewSearchFilter').addEventListener('input', applyReviewFilters);
 document.getElementById('reviewStatusFilter').addEventListener('change', applyReviewFilters);

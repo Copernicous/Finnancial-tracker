@@ -12,6 +12,22 @@
     .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.9rem; }
     .table td, .table th { vertical-align: middle; }
     .muted-cell { color: var(--text-muted, #64748b); font-size: 0.86rem; }
+    .crud-toolbar { display: grid; grid-template-columns: minmax(180px, auto) minmax(260px, 1fr) auto; gap: .75rem; align-items: end; }
+    .crud-toolbar-title { min-width: 0; }
+    .crud-toolbar-actions { display: flex; gap: .5rem; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+    .crud-search .input-group { min-width: 260px; }
+    .crud-count { color: var(--text-muted, #64748b); font-size: .85rem; }
+    .crud-bulk-group { display: none; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .crud-bulk-group .input-group { width: 320px; }
+    .crud-selected-badge { min-width: 86px; text-align: center; }
+    .bulk-select-cell { width: 42px; text-align: center; }
+    .row-actions { display: inline-flex; gap: .35rem; justify-content: flex-end; }
+    @media (max-width: 992px) {
+      .crud-toolbar { grid-template-columns: 1fr; align-items: stretch; }
+      .crud-toolbar-actions { justify-content: flex-start; }
+      .crud-search .input-group { min-width: 0; }
+      .crud-bulk-group .input-group { width: min(100%, 360px); }
+    }
   </style>
 </head>
 <body>
@@ -34,7 +50,6 @@
             <h5 class="mb-1" id="formTitle">Add Record</h5>
             <div class="text-muted small">Manual 2026 accounting structure and operating data.</div>
           </div>
-          <button class="btn btn-outline-secondary btn-sm" type="button" onclick="resetForm()"><i class="fas fa-plus me-1"></i>New</button>
         </div>
         <form id="recordForm">
           <input type="hidden" id="recordId">
@@ -47,9 +62,33 @@
       </div>
 
       <div class="glass-card p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h5 class="mb-0"><%= title %></h5>
-          <button class="btn btn-outline-primary btn-sm" onclick="loadRows()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+        <div class="crud-toolbar mb-3">
+          <div class="crud-toolbar-title">
+            <h5 class="mb-1"><%= title %></h5>
+            <div class="crud-count" id="recordCount">Loading records...</div>
+          </div>
+          <div class="crud-search">
+            <label class="form-label small fw-semibold mb-1" for="recordSearch">Search</label>
+            <div class="input-group input-group-sm">
+              <span class="input-group-text"><i class="fas fa-search"></i></span>
+              <input class="form-control" id="recordSearch" type="search" placeholder="Search records">
+              <button class="btn btn-outline-secondary" id="clearSearchBtn" type="button">Clear</button>
+            </div>
+          </div>
+          <div class="crud-toolbar-actions">
+            <div class="crud-bulk-group" id="merchantBulkGroupControls">
+              <span class="badge text-bg-secondary crud-selected-badge" id="bulkSelectedBadge">0 selected</span>
+              <button class="btn btn-outline-secondary btn-sm" id="selectFilteredBtn" type="button">Select results</button>
+              <button class="btn btn-outline-secondary btn-sm" id="clearSelectionBtn" type="button">Clear selected</button>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text">Group</span>
+                <input class="form-control" id="bulkMerchantGroupName" type="text" placeholder="Display group name">
+                <button class="btn btn-primary" id="applyBulkGroupBtn" type="button">Apply</button>
+              </div>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" type="button" onclick="startNewRecord()"><i class="fas fa-plus me-1"></i>New</button>
+            <button class="btn btn-outline-primary btn-sm" type="button" onclick="loadRows()"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+          </div>
         </div>
         <div class="table-responsive">
           <table class="table table-hover align-middle">
@@ -70,7 +109,9 @@
 <script>
 const MODULE = '<%= module %>';
 const API_ENDPOINT = '<%= apiEndpoint %>';
+const PAGE_TITLE = <%- JSON.stringify(title) %>;
 let rows = [];
+let selectedRowIds = new Set();
 let lookups = { accounts: [], categories: [], institutions: [], merchants: [] };
 
 const CONFIG = {
@@ -121,10 +162,11 @@ const CONFIG = {
     disable: { field: 'isActive', value: false }
   },
   merchants: {
-    columns: ['officialName', 'merchantType', 'defaultCategoryId', 'defaultTransactionType', 'isActive'],
+    columns: ['officialName', 'merchantGroupName', 'merchantType', 'defaultCategoryId', 'defaultTransactionType', 'isActive'],
     fields: [
       { key: 'officialName', label: 'Official Merchant Name', required: true },
       { key: 'normalizedName', label: 'Normalized Key' },
+      { key: 'merchantGroupName', label: 'Display Group / Reporting Name' },
       { key: 'merchantType', label: 'Merchant Type', type: 'select', options: ['retailer', 'grocery', 'restaurant', 'fuel', 'utility', 'subscription', 'bank', 'travel', 'health', 'service', 'other'] },
       { key: 'website', label: 'Website' },
       { key: 'defaultCategoryId', label: 'Default Category', type: 'lookup', source: 'categories', optional: true },
@@ -306,10 +348,18 @@ function esc(value) {
 function toast(message, type) {
   if (typeof showToast === 'function') showToast(message, type || 'success');
 }
+function selectionEnabled() {
+  return MODULE === 'merchants';
+}
 function lookupLabel(source, id) {
   if (!id) return '';
   const row = (lookups[source] || []).find(item => Number(item.id) === Number(id));
   return row ? row.name : id;
+}
+function columnLabel(key) {
+  const field = (CONFIG[MODULE].fields || []).find(item => item.key === key);
+  if (field && field.label) return field.label;
+  return String(key || '').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/^./, ch => ch.toUpperCase());
 }
 function displayValue(key, value) {
   if (key === 'financialInstitutionId') return lookupLabel('institutions', value);
@@ -320,6 +370,116 @@ function displayValue(key, value) {
   if (typeof value === 'boolean') return value ? 'Yes' : 'No';
   if (value && typeof value === 'object') return value.name || JSON.stringify(value);
   return value == null || value === '' ? '<span class="muted-cell">--</span>' : esc(value);
+}
+function searchValue(key, value) {
+  const displayed = displayValue(key, value).replace(/<[^>]+>/g, ' ');
+  return String(value == null ? '' : value) + ' ' + displayed;
+}
+function searchText(row) {
+  const columns = CONFIG[MODULE].columns || [];
+  const fields = CONFIG[MODULE].fields || [];
+  const keys = Array.from(new Set(['id'].concat(columns, fields.map(field => field.key))));
+  return keys.map(key => searchValue(key, row[key])).join(' ').toLowerCase();
+}
+function filteredRows() {
+  const input = document.getElementById('recordSearch');
+  const q = input ? input.value.trim().toLowerCase() : '';
+  if (!q) return rows;
+  return rows.filter(row => searchText(row).includes(q));
+}
+function pruneSelection() {
+  const validIds = new Set(rows.map(row => String(row.id)));
+  selectedRowIds = new Set(Array.from(selectedRowIds).filter(id => validIds.has(String(id))));
+}
+function updateRecordCount(visibleCount) {
+  const count = document.getElementById('recordCount');
+  if (!count) return;
+  const total = rows.length;
+  const selectionText = selectionEnabled() && selectedRowIds.size ? ` | ${selectedRowIds.size} selected` : '';
+  count.textContent = (visibleCount === total ? `${total} records` : `${visibleCount} of ${total} records`) + selectionText;
+}
+function updateSelectionControls(visibleRows) {
+  const enabled = selectionEnabled();
+  const controls = document.getElementById('merchantBulkGroupControls');
+  if (controls) controls.style.display = enabled ? 'flex' : 'none';
+  if (!enabled) return;
+
+  const selectedCount = selectedRowIds.size;
+  const badge = document.getElementById('bulkSelectedBadge');
+  const applyBtn = document.getElementById('applyBulkGroupBtn');
+  const clearBtn = document.getElementById('clearSelectionBtn');
+  const selectBtn = document.getElementById('selectFilteredBtn');
+  const visible = visibleRows || filteredRows();
+  const visibleSelected = visible.filter(row => selectedRowIds.has(String(row.id))).length;
+  const selectVisible = document.getElementById('selectVisibleRows');
+
+  if (badge) badge.textContent = `${selectedCount} selected`;
+  if (applyBtn) applyBtn.disabled = selectedCount === 0;
+  if (clearBtn) clearBtn.disabled = selectedCount === 0;
+  if (selectBtn) selectBtn.disabled = visible.length === 0;
+  if (selectVisible) {
+    selectVisible.checked = visible.length > 0 && visibleSelected === visible.length;
+    selectVisible.indeterminate = visibleSelected > 0 && visibleSelected < visible.length;
+  }
+  updateRecordCount(visible.length);
+}
+function toggleRowSelection(id, selected) {
+  const key = String(id);
+  if (selected) selectedRowIds.add(key);
+  else selectedRowIds.delete(key);
+  renderRows();
+}
+function toggleVisibleSelection(selected) {
+  filteredRows().forEach(row => {
+    const key = String(row.id);
+    if (selected) selectedRowIds.add(key);
+    else selectedRowIds.delete(key);
+  });
+  renderRows();
+}
+function selectFilteredRows() {
+  toggleVisibleSelection(true);
+}
+function clearSelection() {
+  selectedRowIds.clear();
+  renderRows();
+}
+async function applyBulkMerchantGroup() {
+  if (!selectionEnabled()) return;
+  const ids = Array.from(selectedRowIds);
+  if (!ids.length) return toast('Select at least one merchant first.', 'warning');
+
+  const input = document.getElementById('bulkMerchantGroupName');
+  const groupName = input.value.trim();
+  if (!groupName) return toast('Type the display group name to assign.', 'warning');
+  if (!confirm(`Assign "${groupName}" to ${ids.length} selected merchant(s)?`)) return;
+
+  const button = document.getElementById('applyBulkGroupBtn');
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = 'Applying...';
+
+  let updated = 0;
+  let failed = 0;
+  for (const id of ids) {
+    const response = await fetch(API_ENDPOINT + '/' + id, {
+      method: 'PUT',
+      headers: authHeaders(true),
+      body: JSON.stringify({ merchantGroupName: groupName })
+    });
+    if (response.status === 401) {
+      window.location.href = '/login';
+      return;
+    }
+    if (response.ok) updated += 1;
+    else failed += 1;
+  }
+
+  button.textContent = originalText;
+  selectedRowIds.clear();
+  await loadLookups();
+  await loadRows();
+  toast(failed ? `Updated ${updated}; ${failed} failed.` : `Assigned "${groupName}" to ${updated} merchant(s).`, failed ? 'warning' : 'success');
 }
 async function loadLookups() {
   const [accounts, categories, institutions, merchants] = await Promise.all([
@@ -389,6 +549,10 @@ function resetForm() {
     }
   });
 }
+function startNewRecord() {
+  resetForm();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 function editRow(id) {
   const row = rows.find(item => Number(item.id) === Number(id));
   if (!row) return;
@@ -424,8 +588,8 @@ async function removeRow(id) {
 }
 async function loadRows() {
   const body = document.getElementById('tableBody');
-  const head = document.getElementById('tableHead');
   body.innerHTML = '<tr><td class="text-muted">Loading...</td></tr>';
+  document.getElementById('recordCount').textContent = 'Loading records...';
   const response = await fetch(API_ENDPOINT, { headers: authHeaders() });
   if (response.status === 401) return window.location.href = '/login';
   if (!response.ok) {
@@ -433,21 +597,67 @@ async function loadRows() {
     return;
   }
   rows = await response.json();
+  pruneSelection();
+  renderRows();
+}
+function renderRows() {
+  const body = document.getElementById('tableBody');
+  const head = document.getElementById('tableHead');
   const columns = CONFIG[MODULE].columns;
-  head.innerHTML = '<tr>' + columns.map(col => '<th>' + esc(col) + '</th>').join('') + '<th class="text-end">Actions</th></tr>';
+  const visibleRows = filteredRows();
+  const selectEnabled = selectionEnabled();
+  const selectHead = selectEnabled
+    ? '<th class="bulk-select-cell"><input class="form-check-input" id="selectVisibleRows" type="checkbox" aria-label="Select visible records" onchange="toggleVisibleSelection(this.checked)"></th>'
+    : '';
+  head.innerHTML = '<tr>' + selectHead + columns.map(col => '<th>' + esc(columnLabel(col)) + '</th>').join('') + '<th class="text-end">Actions</th></tr>';
+  updateRecordCount(visibleRows.length);
+  updateSelectionControls(visibleRows);
+  const colspan = columns.length + 1 + (selectEnabled ? 1 : 0);
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="' + (columns.length + 1) + '" class="text-muted">No records yet.</td></tr>';
+    body.innerHTML = '<tr><td colspan="' + colspan + '" class="text-muted">No records yet.</td></tr>';
     return;
   }
-  body.innerHTML = rows.map(row => {
+  if (!visibleRows.length) {
+    body.innerHTML = '<tr><td colspan="' + colspan + '" class="text-muted">No records match the search.</td></tr>';
+    return;
+  }
+  body.innerHTML = visibleRows.map(row => {
+    const selected = selectedRowIds.has(String(row.id));
+    const selectCell = selectEnabled
+      ? '<td class="bulk-select-cell"><input class="form-check-input row-select-checkbox" type="checkbox" data-id="' + row.id + '" aria-label="Select record ' + row.id + '" ' + (selected ? 'checked' : '') + '></td>'
+      : '';
     const cells = columns.map(col => '<td>' + displayValue(col, row[col]) + '</td>').join('');
     const action = `<td class="text-end">
-      <button class="btn btn-sm btn-outline-primary me-1" onclick="editRow(${row.id})"><i class="fas fa-edit"></i></button>
-      <button class="btn btn-sm btn-outline-danger" onclick="${CONFIG[MODULE].disable ? 'disableRow' : 'removeRow'}(${row.id})"><i class="fas fa-${CONFIG[MODULE].disable ? 'ban' : 'trash'}"></i></button>
+      <span class="row-actions">
+        <button class="btn btn-sm btn-outline-primary" type="button" onclick="editRow(${row.id})"><i class="fas fa-edit"></i></button>
+        <button class="btn btn-sm btn-outline-danger" type="button" onclick="${CONFIG[MODULE].disable ? 'disableRow' : 'removeRow'}(${row.id})"><i class="fas fa-${CONFIG[MODULE].disable ? 'ban' : 'trash'}"></i></button>
+      </span>
     </td>`;
-    return '<tr>' + cells + action + '</tr>';
+    return '<tr class="' + (selected ? 'table-active' : '') + '">' + selectCell + cells + action + '</tr>';
   }).join('');
+  updateSelectionControls(visibleRows);
 }
+document.getElementById('recordSearch').placeholder = 'Search ' + PAGE_TITLE.toLowerCase();
+document.getElementById('recordSearch').addEventListener('input', renderRows);
+document.getElementById('clearSearchBtn').addEventListener('click', function() {
+  document.getElementById('recordSearch').value = '';
+  renderRows();
+  document.getElementById('recordSearch').focus();
+});
+document.getElementById('tableBody').addEventListener('change', function(event) {
+  const checkbox = event.target.closest('.row-select-checkbox');
+  if (!checkbox) return;
+  toggleRowSelection(checkbox.dataset.id, checkbox.checked);
+});
+document.getElementById('selectFilteredBtn').addEventListener('click', selectFilteredRows);
+document.getElementById('clearSelectionBtn').addEventListener('click', clearSelection);
+document.getElementById('applyBulkGroupBtn').addEventListener('click', applyBulkMerchantGroup);
+document.getElementById('bulkMerchantGroupName').addEventListener('keydown', function(event) {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    applyBulkMerchantGroup();
+  }
+});
 document.getElementById('recordForm').addEventListener('submit', async function(event) {
   event.preventDefault();
   const id = document.getElementById('recordId').value;

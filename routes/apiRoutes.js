@@ -99,7 +99,7 @@ crud('/categories', 'Category', 'categories', [
   'name', 'categoryType', 'groupName', 'budgetBehavior', 'parentId', 'taxRelevant', 'isActive'
 ]);
 crud('/merchants', 'Merchant', 'merchants', [
-  'officialName', 'normalizedName', 'merchantType', 'website', 'defaultCategoryId',
+  'officialName', 'normalizedName', 'merchantGroupName', 'merchantType', 'website', 'defaultCategoryId',
   'defaultTransactionType', 'notes', 'isActive', 'lastSeenAt'
 ], { order: [['officialName', 'ASC']] });
 crud('/merchant-aliases', 'MerchantAlias', 'merchant_aliases', [
@@ -148,7 +148,9 @@ crud('/account-balance-snapshots', 'AccountBalanceSnapshot', 'balance_snapshots'
 ], { order: [['snapshotDate', 'DESC'], ['accountId', 'ASC']] });
 
 router.get('/finance/overview', rbac.requirePermission('reports', 'read'), financeController.overview);
+router.get('/finance/years', rbac.requirePermission('reports', 'read'), financeController.years);
 router.get('/finance/search', rbac.requirePermission('transactions', 'read'), financeController.search);
+router.get('/finance/kpi-detail', rbac.requirePermission('reports', 'read'), financeController.kpiDetail);
 router.get('/finance/trends', rbac.requirePermission('reports', 'read'), financeController.trends);
 router.post('/finance/transactions/bulk-category', rbac.requirePermission('transactions', 'edit'), financeController.bulkCategory);
 router.post('/finance/transactions/auto-categorize', rbac.requirePermission('transactions', 'edit'), financeController.autoCategorize);

@@ -14,6 +14,7 @@ yarn-error.log*
 secrets/
 config/google-drive-oauth-client.json
 config/google-drive-token.json
+config/bank-statement-accounts.json
 
 # Logs
 logs/
@@ -50,6 +51,7 @@ Thumbs.db
 backups/
 uploads/
 legacy-python-prototype/
+reports/
 
 # Coverage
 coverage/

@@ -9,13 +9,37 @@
   <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
   <link rel="stylesheet" href="/css/style.css">
   <style>
+    .finance-shell { --control-height: 42px; }
     .finance-shell { display: grid; gap: 1rem; }
-    .filter-grid { display: grid; grid-template-columns: repeat(8, minmax(118px, 1fr)); gap: .75rem; align-items: end; }
+    .finance-shell .form-select,
+    .finance-shell .form-control,
+    .finance-shell .btn {
+      min-height: var(--control-height);
+    }
+    .finance-shell .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .filter-grid { display: grid; grid-template-columns: 72px 88px minmax(150px, 1fr) 120px 96px minmax(160px, 1fr) auto; gap: .6rem; align-items: end; }
+    .console-toolbar { display: grid; grid-template-columns: minmax(240px, auto) minmax(0, 1fr); gap: .85rem; align-items: end; }
+    .console-toolbar-left { min-width: 0; display: block; white-space: normal; }
+    .console-toolbar-right { min-width: 0; }
+    .console-toolbar-right .filter-grid { grid-template-columns: 72px 88px minmax(150px, 1fr) 120px 96px minmax(170px, 1fr) auto; }
+    .console-actions { display: flex; gap: .5rem; align-items: end; }
     .kpi-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
     .kpi-card { border: 1px solid var(--border,#e5e7eb); border-radius: 8px; background: var(--surface,#fff); padding: 1rem; min-height: 116px; }
+    .kpi-card-action { width: 100%; color: inherit; text-align: left; cursor: pointer; transition: border-color .18s ease, transform .18s ease, background .18s ease; }
+    .kpi-card-action:hover, .kpi-card-action.is-active { border-color: rgba(13,110,253,.5); background: rgba(13,110,253,.08); transform: translateY(-1px); }
     .kpi-card .kpi-icon { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; background: var(--surface-2,#f1f5f9); color: var(--primary,#0d6efd); }
     .kpi-value { font-size: clamp(1.25rem, 2vw, 1.85rem); font-weight: 800; letter-spacing: 0; line-height: 1.15; }
     .finance-panel { border: 1px solid var(--border,#e5e7eb); border-radius: 8px; background: var(--surface,#fff); padding: 1rem; }
+    .kpi-detail-summary { display: flex; flex-wrap: wrap; gap: .5rem; }
+    .kpi-detail-chip { border: 1px solid rgba(148,163,184,.18); border-radius: 10px; background: rgba(15,23,42,.24); padding: .45rem .65rem; min-width: 138px; }
+    .kpi-detail-table-wrap { max-height: 520px; overflow: auto; }
+    .kpi-detail-table { font-size: .82rem; }
+    .kpi-detail-table th { position: sticky; top: 0; z-index: 1; background: var(--surface-2,#f1f5f9); white-space: nowrap; }
+    .source-file-cell { min-width: 180px; max-width: 260px; }
     .bar-track { height: 10px; border-radius: 999px; background: var(--surface-2,#eef2f7); overflow: hidden; }
     .bar-fill { height: 100%; border-radius: 999px; }
     .bar-income { background: #198754; }
@@ -44,23 +68,77 @@
     .split-layout { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, .9fr); gap: 1rem; align-items: stretch; }
     .split-layout > .finance-panel { height: 100%; }
     .split-layout > .finance-panel:last-child { display: flex; flex-direction: column; }
-    .merchant-summary-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
-    .merchant-summary-item { border: 1px solid rgba(148,163,184,.16); border-radius: 10px; padding: .75rem .85rem; background: rgba(15,23,42,.35); min-height: 68px; }
-    .merchant-summary-item .fw-semibold { line-height: 1.15; }
+    .merchant-toolbar { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+    .merchant-toolbar-left { min-width: 0; }
+    .merchant-toolbar-right { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+    .merchant-toolbar-right .form-select,
+    .merchant-toolbar-right .form-control { width: 160px; }
+    .merchant-stat-chip { border: 1px solid rgba(148,163,184,.16); border-radius: 10px; padding: .38rem .65rem; background: rgba(15,23,42,.35); min-width: 120px; min-height: var(--control-height); display: flex; flex-direction: column; justify-content: center; }
+    .merchant-stat-chip .small-muted { line-height: 1; margin-bottom: .18rem; }
+    .merchant-stat-chip .fw-semibold { line-height: 1.05; }
+    .merchant-range-group { display: flex; align-items: end; gap: .5rem; }
+    .merchant-range-group.is-inactive { opacity: .6; }
+    .merchant-date-field { min-width: 160px; }
+    .merchant-date-field label { display: none; }
+    .merchant-apply-btn { min-width: 92px; }
+    .merchant-chart-stack { display: grid; gap: .75rem; min-width: 0; }
+    .merchant-content-layout { align-items: stretch; min-height: 300px; }
+    .merchant-content-layout .finance-chart-frame.compact { height: 260px; min-height: 260px; flex: 0 0 auto; }
+    .merchant-content-layout .rank-list { height: 535px; min-height: 535px; overflow-y: auto; align-content: start; padding-right: .25rem; }
+    .merchant-empty-state { min-height: 300px; display: flex; align-items: center; justify-content: center; text-align: center; }
+    .merchant-rank-btn {
+      width: 100%;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: inherit;
+      text-decoration: none;
+      transition: background-color .18s ease, border-color .18s ease;
+    }
+    .merchant-rank-btn:hover {
+      background: rgba(148,163,184,.08);
+      border-color: rgba(148,163,184,.22);
+      text-decoration: none;
+    }
+    .merchant-rank-btn.active {
+      background: rgba(13,110,253,.10);
+      border-color: rgba(13,110,253,.28);
+    }
+    .merchant-rank-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: .15rem;
+    }
+    .merchant-summary-strip { display: grid; grid-template-columns: repeat(2, minmax(170px, 220px)); gap: .5rem; align-items: stretch; justify-content: start; }
+    .merchant-summary-item { border: 1px solid rgba(148,163,184,.16); border-radius: 10px; padding: .5rem .65rem; background: rgba(15,23,42,.35); min-height: 60px; min-width: 0; max-width: 240px; }
+    .merchant-summary-item .fw-semibold { line-height: 1.1; font-size: .95rem; }
     .merchant-summary-item .text-truncate { max-width: 100%; }
+    .merchant-summary-item .form-select { min-width: 0; font-size: .9rem; padding-top: .25rem; padding-bottom: .25rem; }
     .three-layout { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
     .small-muted { color: var(--text-muted,#64748b); font-size: .78rem; }
     @media (max-width: 1200px) {
       .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .console-toolbar { flex-wrap: wrap; }
+      .console-toolbar-left { white-space: normal; }
+      .console-toolbar { grid-template-columns: 1fr; }
+      .console-toolbar-right .filter-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .split-layout, .three-layout { grid-template-columns: 1fr; }
+      .merchant-toolbar { align-items: flex-start; }
+      .merchant-toolbar-right { width: 100%; }
+      .merchant-toolbar-right .form-select, .merchant-toolbar-right .form-control { width: 100%; }
+      .merchant-range-group, .merchant-range-group.is-visible { width: 100%; }
       .merchant-summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .split-layout > .finance-panel:last-child { display: block; }
     }
     @media (max-width: 640px) {
       .filter-grid, .kpi-grid { grid-template-columns: 1fr; }
+      .console-toolbar-right .filter-grid { grid-template-columns: 1fr; }
+      .console-actions { width: 100%; }
       .bar-row, .stack-row { grid-template-columns: 1fr; gap: .25rem; }
       .split-layout, .three-layout { grid-template-columns: 1fr; }
+      .merchant-toolbar-right { flex-direction: column; }
       .merchant-summary-strip { grid-template-columns: 1fr; }
       .split-layout > .finance-panel:last-child { display: block; }
     }
@@ -82,108 +160,84 @@
 
     <div class="container-fluid px-4 finance-shell">
       <section class="finance-panel">
-        <div class="d-flex justify-content-between flex-wrap gap-3 mb-3">
-          <div>
-            <h5 class="mb-1">2026 Accounting Console</h5>
+        <div class="console-toolbar mb-3">
+          <div class="console-toolbar-left">
+            <h5 class="mb-0">Accounting Console</h5>
             <div class="small-muted">Account, currency, period, budget, and ledger selectors.</div>
           </div>
-          <div class="d-flex flex-wrap gap-2">
-            <button class="btn btn-outline-primary btn-sm d-none" id="seedBtn"><i class="fas fa-chart-line me-1"></i>Load Sample</button>
-            <button class="btn btn-outline-danger btn-sm d-none" id="clearBtn"><i class="fas fa-trash-alt me-1"></i>Clear Sample</button>
-            <button class="btn btn-outline-success btn-sm" id="exportBtn"><i class="fas fa-file-csv me-1"></i>Export</button>
-            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="fas fa-print me-1"></i>Print</button>
-          </div>
-        </div>
-        <div class="filter-grid">
-          <div>
-            <label class="form-label">Year</label>
-            <select id="yearFilter" class="form-select"><option value="2026">2026</option></select>
-          </div>
-          <div>
-            <label class="form-label">Month</label>
-            <select id="monthFilter" class="form-select">
-              <option value="">All</option>
-              <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
-              <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
-              <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
-              <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label">Account</label>
-            <select id="accountFilter" class="form-select"><option value="">All accounts</option></select>
-          </div>
-          <div>
-            <label class="form-label">Account Type</label>
-            <select id="accountClassFilter" class="form-select">
-              <option value="">All types</option>
-              <option value="checking">Checking</option>
-              <option value="savings">Savings</option>
-              <option value="credit_card">Credit Card</option>
-              <option value="investment">Investment</option>
-              <option value="retirement">Retirement</option>
-              <option value="cash">Cash</option>
-              <option value="foreign_currency">Foreign Currency</option>
-            </select>
-          </div>
-          <div>
-            <label class="form-label">Currency</label>
-            <select id="currencyFilter" class="form-select"><option value="USD">USD</option><option value="ALL">All</option><option value="COP">COP</option><option value="EUR">EUR</option></select>
-          </div>
-          <div>
-            <label class="form-label">Search</label>
-            <input id="searchFilter" class="form-control" placeholder="merchant, tag, memo">
-          </div>
-          <div class="d-flex gap-2">
-            <button class="btn btn-primary flex-fill" id="runBtn"><i class="fas fa-search me-1"></i>Run</button>
-            <button class="btn btn-outline-secondary" id="resetBtn" title="Reset filters"><i class="fas fa-undo"></i></button>
+          <div class="console-toolbar-right">
+            <div class="filter-grid">
+              <div>
+                <label class="form-label">Year</label>
+                <select id="yearFilter" class="form-select"><option value="">Loading...</option></select>
+              </div>
+              <div>
+                <label class="form-label">Month</label>
+                <select id="monthFilter" class="form-select">
+                  <option value="">All</option>
+                  <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+                  <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+                  <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+                  <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Account</label>
+                <select id="accountFilter" class="form-select"><option value="">All accounts</option></select>
+              </div>
+              <div>
+                <label class="form-label">Account Type</label>
+                <select id="accountClassFilter" class="form-select">
+                  <option value="">All types</option>
+                  <option value="checking">Checking</option>
+                  <option value="savings">Savings</option>
+                  <option value="credit_card">Credit Card</option>
+                  <option value="investment">Investment</option>
+                  <option value="retirement">Retirement</option>
+                  <option value="cash">Cash</option>
+                  <option value="foreign_currency">Foreign Currency</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Currency</label>
+                <select id="currencyFilter" class="form-select"><option value="USD">USD</option><option value="ALL">All</option><option value="COP">COP</option><option value="EUR">EUR</option></select>
+              </div>
+              <div>
+                <label class="form-label">Search</label>
+                <input id="searchFilter" class="form-control" placeholder="merchant, tag, memo">
+              </div>
+              <div class="console-actions">
+                <button class="btn btn-outline-primary btn-sm d-none" id="seedBtn"><i class="fas fa-chart-line me-1"></i>Load Sample</button>
+                <button class="btn btn-outline-danger btn-sm d-none" id="clearBtn"><i class="fas fa-trash-alt me-1"></i>Clear Sample</button>
+                <button class="btn btn-primary flex-fill" id="runBtn"><i class="fas fa-search me-1"></i>Run</button>
+                <button class="btn btn-outline-secondary" id="resetBtn" title="Reset filters"><i class="fas fa-undo"></i></button>
+                <button class="btn btn-outline-success btn-sm" id="exportBtn"><i class="fas fa-file-csv me-1"></i>Export</button>
+                <button class="btn btn-outline-secondary btn-sm" onclick="window.print()"><i class="fas fa-print me-1"></i>Print</button>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       <section class="kpi-grid" id="kpiGrid"></section>
 
-      <section class="finance-panel">
-        <div class="d-flex justify-content-between align-items-center mb-3">
+      <section class="finance-panel d-none" id="kpiDetailPanel">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
           <div>
-            <h5 class="mb-1">Explorer</h5>
-            <div class="small-muted">Jump across all categories and merchants.</div>
+            <h5 class="mb-1" id="kpiDetailTitle">KPI Detail Report</h5>
+            <div class="small-muted" id="kpiDetailFormula">Click a KPI card to inspect the rows behind it.</div>
           </div>
           <div class="d-flex gap-2 flex-wrap">
-            <select id="explorerGrain" class="form-select form-select-sm" style="width:110px">
-              <option value="month">Month</option>
-              <option value="week">Week</option>
-              <option value="day">Day</option>
-              <option value="year">Year</option>
-            </select>
-            <select id="explorerType" class="form-select form-select-sm" style="width:110px">
-              <option value="bar">Bars</option>
-              <option value="line">Line</option>
-              <option value="area">Area</option>
-            </select>
+            <button class="btn btn-outline-success btn-sm" type="button" id="kpiDetailExportBtn"><i class="fas fa-file-csv me-1"></i>Export Detail</button>
+            <button class="btn btn-outline-secondary btn-sm" type="button" id="kpiDetailCloseBtn"><i class="fas fa-times me-1"></i>Close</button>
           </div>
         </div>
-        <div class="filter-grid">
-          <div>
-            <label class="form-label">Category</label>
-            <select id="categoryExplorerSelect" class="form-select"></select>
-          </div>
-          <div>
-            <label class="form-label">Merchant</label>
-            <select id="merchantExplorerSelect" class="form-select"></select>
-          </div>
-          <div>
-            <label class="form-label">From</label>
-            <input id="explorerFrom" type="date" class="form-control">
-          </div>
-          <div>
-            <label class="form-label">To</label>
-            <input id="explorerTo" type="date" class="form-control">
-          </div>
-          <div class="d-flex align-items-end gap-2">
-            <button id="explorerRunBtn" class="btn btn-primary flex-fill"><i class="fas fa-search me-1"></i>Show</button>
-            <button id="explorerClearBtn" class="btn btn-outline-secondary" type="button"><i class="fas fa-undo"></i></button>
-          </div>
+        <div class="kpi-detail-summary mb-3" id="kpiDetailSummary"></div>
+        <div class="kpi-detail-table-wrap table-responsive">
+          <table class="table table-sm table-hover align-middle kpi-detail-table">
+            <thead id="kpiDetailHead"></thead>
+            <tbody id="kpiDetailRows"><tr><td class="text-muted">No KPI selected.</td></tr></tbody>
+          </table>
         </div>
       </section>
 
@@ -192,7 +246,7 @@
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0">Trend Explorer</h5>
             <div class="d-flex align-items-center gap-2 flex-wrap">
-              <span class="small-muted" id="periodLabel">2026</span>
+              <span class="small-muted" id="periodLabel">Loading...</span>
               <select id="trendGroup" class="form-select form-select-sm" style="width:132px">
                 <option value="category">Category</option>
                 <option value="merchant">Merchant</option>
@@ -231,55 +285,61 @@
       </section>
 
       <section class="finance-panel">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <div>
+        <div class="merchant-toolbar mb-3">
+          <div class="merchant-toolbar-left">
             <h5 class="mb-1">Usage by Official Merchant</h5>
             <div class="small-muted">Canonical merchant names from aliases and import review.</div>
           </div>
-          <div class="d-flex align-items-center gap-2 flex-wrap">
-            <select id="merchantTrendGrain" class="form-select form-select-sm" style="width:110px">
+          <div class="merchant-toolbar-right">
+            <select id="merchantCategorySelect" class="form-select form-select-sm">
+              <option value="">All categories</option>
+            </select>
+            <select id="merchantSummarySelect" class="form-select form-select-sm">
+              <option value="">All merchants</option>
+            </select>
+            <select id="merchantRangeMode" class="form-select form-select-sm">
+              <option value="page">Page dates</option>
+              <option value="custom">Custom dates</option>
+            </select>
+            <select id="merchantTrendGrain" class="form-select form-select-sm">
               <option value="month">Month</option>
               <option value="week">Week</option>
               <option value="day">Day</option>
               <option value="year">Year</option>
-              <option value="custom">Custom</option>
             </select>
-            <select id="merchantTrendType" class="form-select form-select-sm" style="width:116px">
+            <select id="merchantTrendType" class="form-select form-select-sm">
               <option value="bar">Bars</option>
               <option value="line">Line</option>
               <option value="area">Area</option>
             </select>
-            <a class="btn btn-outline-secondary btn-sm" href="/merchants"><i class="fas fa-store me-1"></i>Manage Merchants</a>
+            <div id="merchantRangeGroup" class="merchant-range-group">
+              <div class="merchant-date-field">
+                <label for="merchantFromDate">From</label>
+                <input id="merchantFromDate" class="form-control form-control-sm" type="date" aria-label="Merchant custom start date">
+              </div>
+              <div class="merchant-date-field">
+                <label for="merchantToDate">To</label>
+                <input id="merchantToDate" class="form-control form-control-sm" type="date" aria-label="Merchant custom end date">
+              </div>
+            </div>
+            <button id="merchantDateApplyBtn" class="btn btn-primary btn-sm merchant-apply-btn" type="button">Enter</button>
+            <div class="merchant-stat-chip">
+              <div class="small-muted text-uppercase">Spend</div>
+              <div id="merchantSummaryAmount" class="fw-semibold">-</div>
+            </div>
+            <div class="merchant-stat-chip">
+              <div class="small-muted text-uppercase">Transactions</div>
+              <div id="merchantSummaryCount" class="fw-semibold">-</div>
+            </div>
+            <button id="merchantHeaderResetBtn" class="btn btn-outline-secondary btn-sm" type="button">Clear</button>
+            <a class="btn btn-outline-secondary btn-sm" href="/merchants"><i class="fas fa-store me-1"></i>Official Merchants</a>
           </div>
         </div>
-        <div class="merchant-summary-strip mb-3">
-          <div class="merchant-summary-item">
-            <div class="small-muted text-uppercase">Selected category</div>
-            <div id="merchantCategoryName" class="fw-semibold text-truncate">All categories</div>
+        <div class="split-layout merchant-content-layout">
+          <div class="merchant-chart-stack">
+            <div class="finance-chart-frame compact"><canvas id="merchantSpendChart"></canvas></div>
+            <div class="finance-chart-frame compact"><canvas id="merchantActiveSpendChart"></canvas></div>
           </div>
-          <div class="merchant-summary-item">
-            <div class="small-muted text-uppercase">Selected merchant</div>
-            <div id="merchantSummaryName" class="fw-semibold text-truncate">-</div>
-          </div>
-          <div class="merchant-summary-item">
-            <div class="small-muted text-uppercase">Spend</div>
-            <div id="merchantSummaryAmount" class="fw-semibold">-</div>
-          </div>
-          <div class="merchant-summary-item">
-            <div class="small-muted text-uppercase">Transactions</div>
-            <div id="merchantSummaryCount" class="fw-semibold">-</div>
-          </div>
-          <div class="merchant-summary-item">
-            <div class="small-muted text-uppercase">Timeline</div>
-            <div id="merchantSummaryGrain" class="fw-semibold">-</div>
-          </div>
-        </div>
-        <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
-          <label class="small-muted text-uppercase mb-0" for="merchantSubSelect">Merchant</label>
-          <select id="merchantSubSelect" class="form-select form-select-sm" style="max-width:320px"></select>
-        </div>
-        <div class="split-layout">
-          <div class="finance-chart-frame compact"><canvas id="merchantSpendChart"></canvas></div>
           <div id="merchantRankList" class="rank-list"></div>
         </div>
       </section>
@@ -321,6 +381,7 @@
             <h5 class="mb-1">Transaction Search</h5>
             <div class="small-muted" id="searchCount">0 records</div>
           </div>
+          <div class="small-muted text-uppercase">Release v<%= typeof appVersion !== 'undefined' ? appVersion : '0.2.0' %></div>
           <div class="d-flex flex-wrap gap-2">
             <select id="typeFilter" class="form-select form-select-sm" style="width:150px">
               <option value="">All types</option>
@@ -380,9 +441,18 @@ let selectedMerchantId = '';
 let monthlyCashFlowChart = null;
 let categorySpendChart = null;
 let merchantSpendChart = null;
+let merchantActiveSpendChart = null;
 let trendChartData = null;
 let merchantTrendData = null;
+let merchantActiveTrendData = null;
 let explorerRows = [];
+let categoryChartRows = [];
+let preferTopMerchantOnNextLoad = false;
+let merchantRenderSeq = 0;
+let activeKpiMetric = '';
+let kpiDetailData = null;
+let availableYears = [];
+let defaultYear = String(new Date().getFullYear());
 
 function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -392,6 +462,12 @@ function authHeaders(json) {
 }
 function esc(value) {
   return String(value == null ? '' : value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+function attr(value) {
+  return esc(value);
+}
+function csvCell(value) {
+  return '"' + String(value == null ? '' : value).replace(/"/g, '""') + '"';
 }
 function money(value, currency) {
   const code = currency && currency !== 'ALL' ? currency : (document.getElementById('currencyFilter').value !== 'ALL' ? document.getElementById('currencyFilter').value : 'USD');
@@ -406,6 +482,41 @@ function toast(message, type) {
 function qs(params) {
   return Object.keys(params).filter(key => params[key] !== '' && params[key] != null).map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key])).join('&');
 }
+function populateYearSelect(selectId, payload) {
+  const select = document.getElementById(selectId);
+  const previous = select.value;
+  const years = (payload && Array.isArray(payload.years) ? payload.years : [])
+    .map(year => String(year))
+    .filter(year => /^\d{4}$/.test(year));
+  if (!years.length) years.push(String(new Date().getFullYear()));
+  availableYears = years;
+  defaultYear = String((payload && payload.defaultYear) || years[0]);
+  select.innerHTML = '<option value="all">All years</option>' + years.map(year => '<option value="' + esc(year) + '">' + esc(year) + '</option>').join('');
+  select.value = previous === 'all' ? 'all' : (years.includes(previous) ? previous : (years.includes(defaultYear) ? defaultYear : years[0]));
+  syncYearMode();
+}
+function syncYearMode() {
+  const isAllYears = document.getElementById('yearFilter').value === 'all';
+  const monthFilter = document.getElementById('monthFilter');
+  if (isAllYears) monthFilter.value = '';
+  monthFilter.disabled = isAllYears;
+}
+function merchantLabel(row) {
+  return row.merchantDisplayName || row.merchantOfficialName || row.merchant || row.receiptMerchant || row.normalizedMerchant || row.description || '';
+}
+function merchantDetail(row) {
+  const primary = merchantLabel(row);
+  return [row.merchantOfficialName, row.merchantGroupName, row.receiptMerchant, row.rawMerchant, row.normalizedMerchant]
+    .filter(value => value && value !== primary)
+    .find(Boolean) || '';
+}
+function merchantRowKey(row) {
+  if (!row) return '';
+  return row.merchantKey || (row.merchantId ? 'merchant:' + row.merchantId : '');
+}
+function merchantOptionHtml(row) {
+  return '<option value="' + esc(merchantRowKey(row)) + '">' + esc(row.name) + '</option>';
+}
 function percentBar(value, colorClass) {
   const width = Math.max(0, Math.min(100, Number(value || 0)));
   return '<div class="bar-track"><div class="bar-fill ' + (colorClass || 'bar-net') + '" style="width:' + width + '%"></div></div>';
@@ -417,13 +528,82 @@ function chartColor(index) {
   const colors = ['#0d6efd', '#198754', '#dc3545', '#f59e0b', '#14b8a6', '#7c3aed', '#0ea5e9', '#db2777', '#64748b', '#84cc16'];
   return colors[index % colors.length];
 }
+function merchantCustomRange() {
+  return {
+    from: document.getElementById('merchantFromDate').value,
+    to: document.getElementById('merchantToDate').value
+  };
+}
+function normalizeMerchantCustomRange(options) {
+  const opts = options || {};
+  const fromInput = document.getElementById('merchantFromDate');
+  const toInput = document.getElementById('merchantToDate');
+  let from = fromInput.value;
+  let to = toInput.value;
+
+  if (opts.fillSingleDate) {
+    if (from && !to) to = from;
+    if (to && !from) from = to;
+  }
+  if (from && to && from > to) {
+    const lower = to;
+    to = from;
+    from = lower;
+  }
+
+  if (opts.updateInputs) {
+    fromInput.value = from;
+    toInput.value = to;
+  }
+
+  return { from, to };
+}
+function merchantCardFilterParams() {
+  const f = filters();
+  const grain = document.getElementById('merchantTrendGrain').value || 'month';
+  const rangeMode = document.getElementById('merchantRangeMode').value || 'page';
+  const useCustomRange = rangeMode === 'custom';
+  const customRange = useCustomRange ? normalizeMerchantCustomRange({ updateInputs: true }) : merchantCustomRange();
+  return {
+    year: f.year,
+    month: f.month,
+    accountId: f.accountId,
+    accountClass: f.accountClass,
+    currency: f.currency,
+    status: document.getElementById('statusFilter').value,
+    categoryId: selectedCategoryId || '',
+    merchantKey: selectedMerchantId || '',
+    from: useCustomRange ? customRange.from : document.getElementById('fromFilter').value,
+    to: useCustomRange ? customRange.to : document.getElementById('toFilter').value,
+    grain,
+    rangeMode,
+    chartType: document.getElementById('merchantTrendType').value || 'bar'
+  };
+}
+function syncMerchantDateBounds(changedField) {
+  normalizeMerchantCustomRange({ updateInputs: changedField === 'apply', fillSingleDate: changedField === 'apply' });
+}
+function syncMerchantRangeVisibility() {
+  const isCustom = (document.getElementById('merchantRangeMode').value || 'page') === 'custom';
+  const rangeGroup = document.getElementById('merchantRangeGroup');
+  const fromInput = document.getElementById('merchantFromDate');
+  const toInput = document.getElementById('merchantToDate');
+  rangeGroup.classList.toggle('is-inactive', !isCustom);
+  syncMerchantDateBounds();
+}
+function applyMerchantCustomRange() {
+  document.getElementById('merchantRangeMode').value = 'custom';
+  syncMerchantRangeVisibility();
+  syncMerchantDateBounds('apply');
+  renderMerchantSummary();
+}
 function buildMerchantSummary(rows) {
   const map = new Map();
   (rows || []).forEach(row => {
     const amount = Math.abs(Number(row.amount || 0));
-    const name = row.merchant || row.receiptMerchant || row.normalizedMerchant || row.description || 'No merchant';
-    const key = row.merchantId ? 'merchant:' + row.merchantId : name.toLowerCase();
-    if (!map.has(key)) map.set(key, { merchantId: row.merchantId || null, name, amount: 0, count: 0 });
+    const name = merchantLabel(row) || 'No merchant';
+    const key = row.merchantKey || (row.merchantId ? 'merchant:' + row.merchantId : 'text:' + name.toLowerCase());
+    if (!map.has(key)) map.set(key, { merchantKey: key, merchantId: row.merchantId || null, name, amount: 0, count: 0 });
     const item = map.get(key);
     item.amount += amount;
     item.count += 1;
@@ -432,19 +612,21 @@ function buildMerchantSummary(rows) {
 }
 
 async function loadLookups() {
-  const [accountRows, categoryRows] = await Promise.all([
+  const [accountRows, categoryRows, yearPayload] = await Promise.all([
     fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
-    fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : [])
+    fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
+    fetch('/api/finance/years', { headers: authHeaders() }).then(r => r.ok ? r.json() : null)
   ]);
   accounts = accountRows;
   categories = categoryRows;
+  populateYearSelect('yearFilter', yearPayload);
   document.getElementById('accountFilter').innerHTML = '<option value="">All accounts</option>' + accounts.map(account => '<option value="' + account.id + '">' + esc(account.name) + '</option>').join('');
-  document.getElementById('categoryExplorerSelect').innerHTML = '<option value="">All categories</option>' + categories.map(category => '<option value="' + category.id + '">' + esc(category.name) + '</option>').join('');
-  document.getElementById('merchantExplorerSelect').innerHTML = '<option value="">All merchants</option>';
+  document.getElementById('merchantCategorySelect').innerHTML = '<option value="">All categories</option>' + categories.map(category => '<option value="' + category.id + '">' + esc(category.name) + '</option>').join('');
+  document.getElementById('merchantSummarySelect').innerHTML = '<option value="">All merchants</option>';
 }
 
 function filters() {
-  const year = document.getElementById('yearFilter').value || '2026';
+  const year = document.getElementById('yearFilter').value || defaultYear;
   const month = document.getElementById('monthFilter').value;
   return {
     year,
@@ -471,12 +653,14 @@ async function loadSearch() {
   const f = filters();
   const params = {
     q: document.getElementById('searchFilter').value.trim(),
+    year: f.year,
+    month: f.month,
     accountId: f.accountId,
     currency: f.currency,
     type: document.getElementById('typeFilter').value,
     status: document.getElementById('statusFilter').value,
-    categoryId: document.getElementById('categoryExplorerSelect').value || selectedCategoryId,
-    merchantId: document.getElementById('merchantExplorerSelect').value || selectedMerchantId,
+    categoryId: document.getElementById('merchantCategorySelect').value || selectedCategoryId,
+    merchantKey: document.getElementById('merchantSummarySelect').value || selectedMerchantId,
     from: document.getElementById('fromFilter').value,
     to: document.getElementById('toFilter').value,
     limit: 500
@@ -487,51 +671,46 @@ async function loadSearch() {
   searchRows = data.rows || [];
   searchSummary = { merchantSummary: data.merchantSummary || buildMerchantSummary(searchRows) };
   explorerRows = searchSummary.merchantSummary || [];
-  const merchantExplorer = document.getElementById('merchantExplorerSelect');
-  merchantExplorer.innerHTML = '<option value="">All merchants</option>' + explorerRows.map(row => '<option value="' + (row.merchantId || '') + '">' + esc(row.name) + '</option>').join('');
-  if (selectedCategoryId && !selectedMerchantId && explorerRows.length) {
-    selectedMerchantId = explorerRows[0].merchantId || '';
-    merchantExplorer.value = selectedMerchantId;
-  }
-  if (selectedMerchantId) merchantExplorer.value = selectedMerchantId;
-  document.getElementById('merchantSubSelect').innerHTML = '<option value="">Choose merchant...</option>' + explorerRows.map(row => '<option value="' + (row.merchantId || '') + '">' + esc(row.name) + '</option>').join('');
-  document.getElementById('merchantSubSelect').value = selectedMerchantId || '';
+  preferTopMerchantOnNextLoad = false;
+  document.getElementById('merchantSummarySelect').innerHTML = '<option value="">All merchants</option>' + explorerRows.map(merchantOptionHtml).join('');
+  document.getElementById('merchantSummarySelect').value = selectedMerchantId || '';
+  document.getElementById('merchantCategorySelect').value = selectedCategoryId || '';
   renderLedger();
   renderMerchantSummary();
 }
 
 function renderKpis(summary) {
   const cards = [
-    ['Net Worth', summary.netWorth, 'fa-wallet', 'Includes eligible accounts and holdings'],
-    ['Cash Flow', summary.cashFlow, 'fa-scale-balanced', 'Income less expenses'],
-    ['Income', summary.income, 'fa-arrow-trend-up', 'Reviewed activity'],
-    ['Expenses', summary.expenses, 'fa-arrow-trend-down', 'Spend categories'],
-    ['Savings Rate', summary.savingsRatePct + '%', 'fa-piggy-bank', 'Cash flow over income', true],
-    ['Credit Utilization', summary.creditUtilizationPct + '%', 'fa-credit-card', 'Current card use', true],
-    ['Investments', summary.investmentValue, 'fa-chart-area', 'Market value'],
-    ['Budget Used', summary.budgetUsagePct + '%', 'fa-clipboard-check', 'Actual over plan', true]
+    { key: 'netWorth', label: 'Net Worth', value: summary.netWorth, icon: 'fa-wallet', hint: 'Includes eligible accounts and holdings' },
+    { key: 'cashFlow', label: 'Cash Flow', value: summary.cashFlow, icon: 'fa-scale-balanced', hint: 'Income less expenses' },
+    { key: 'income', label: 'Income', value: summary.income, icon: 'fa-arrow-trend-up', hint: 'Reviewed activity' },
+    { key: 'expenses', label: 'Expenses', value: summary.expenses, icon: 'fa-arrow-trend-down', hint: 'Spend categories' },
+    { key: 'savingsRate', label: 'Savings Rate', value: summary.savingsRatePct + '%', icon: 'fa-piggy-bank', hint: 'Cash flow over income', plain: true },
+    { key: 'creditUtilization', label: 'Credit Utilization', value: summary.creditUtilizationPct + '%', icon: 'fa-credit-card', hint: 'Current card use', plain: true },
+    { key: 'investments', label: 'Investments', value: summary.investmentValue, icon: 'fa-chart-area', hint: 'Market value' },
+    { key: 'budgetUsed', label: 'Budget Used', value: summary.budgetUsagePct + '%', icon: 'fa-clipboard-check', hint: 'Actual over plan', plain: true }
   ];
   document.getElementById('kpiGrid').innerHTML = cards.map(card => (
-    '<div class="kpi-card">' +
+    '<button class="kpi-card kpi-card-action ' + (activeKpiMetric === card.key ? 'is-active' : '') + '" type="button" data-kpi="' + esc(card.key) + '" aria-label="Open ' + esc(card.label) + ' detail">' +
       '<div class="d-flex justify-content-between align-items-start mb-3">' +
-        '<div class="small-muted">' + esc(card[0]) + '</div>' +
-        '<span class="kpi-icon"><i class="fas ' + card[2] + '"></i></span>' +
+        '<div class="small-muted">' + esc(card.label) + '</div>' +
+        '<span class="kpi-icon"><i class="fas ' + card.icon + '"></i></span>' +
       '</div>' +
-      '<div class="kpi-value">' + (card[4] ? esc(card[1]) : money(card[1])) + '</div>' +
-      '<div class="small-muted mt-2">' + esc(card[3]) + '</div>' +
-    '</div>'
+      '<div class="kpi-value">' + (card.plain ? esc(card.value) : money(card.value)) + '</div>' +
+      '<div class="small-muted mt-2">' + esc(card.hint) + '</div>' +
+    '</button>'
   )).join('');
 }
 
 async function renderMonthly() {
   if (!overview) return;
   const selectedMonth = overview.filters && overview.filters.month ? Number(overview.filters.month) : null;
-  const selectedYear = overview.filters ? overview.filters.year : '2026';
+  const selectedYear = overview.filters ? overview.filters.year : defaultYear;
   const groupBy = document.getElementById('trendGroup').value;
   const grain = document.getElementById('trendGrain').value;
   const measure = document.getElementById('trendMeasure').value;
   const chartType = document.getElementById('trendChartType').value;
-  document.getElementById('periodLabel').textContent = selectedYear + (overview.filters.month ? '-' + String(overview.filters.month).padStart(2, '0') : '');
+  document.getElementById('periodLabel').textContent = selectedYear === 'all' ? 'All years' : selectedYear + (overview.filters.month ? '-' + String(overview.filters.month).padStart(2, '0') : '');
   const response = await fetch('/api/finance/trends?' + qs({
     year: selectedYear,
     month: selectedMonth || '',
@@ -572,6 +751,7 @@ async function renderMonthly() {
 function renderCategories() {
   const rows = overview.categoryTotals || [];
   const chartRows = rows.slice(0, 12);
+  categoryChartRows = chartRows;
   if (categorySpendChart) categorySpendChart.destroy();
   categorySpendChart = new Chart(document.getElementById('categorySpendChart'), {
     type: 'bar',
@@ -595,87 +775,230 @@ function renderCategories() {
   });
 }
 
-function renderMerchantSummary() {
-  const rows = (searchSummary.merchantSummary || []).slice(0, 10);
-  const grain = document.getElementById('merchantTrendGrain').value || 'month';
-  const chartType = document.getElementById('merchantTrendType').value || 'bar';
-  if (!selectedMerchantId && rows.length) selectedMerchantId = rows[0].merchantId || '';
-  const selectedRow = rows.find(row => String(row.merchantId || '') === String(selectedMerchantId || '')) || rows[0] || null;
-  const categoryRow = (overview.categoryTotals || []).find(row => String(row.categoryId || '') === String(selectedCategoryId || ''));
-  const merchantSelect = document.getElementById('merchantSubSelect');
-  merchantSelect.innerHTML = rows.length ? '<option value="">Choose merchant...</option>' + rows.map(row => '<option value="' + (row.merchantId || '') + '">' + esc(row.name) + '</option>').join('') : '<option value="">No merchants</option>';
-  merchantSelect.value = selectedMerchantId || '';
-  const f = filters();
-  const params = {
-    page: null,
-    limit: null,
-    sort: null,
-    dir: null,
-    groupBy: 'merchant',
-    grain: grain === 'custom' ? 'month' : grain,
-    measure: 'expense',
-    from: grain === 'custom' ? document.getElementById('fromFilter').value : '',
-    to: grain === 'custom' ? document.getElementById('toFilter').value : '',
-    accountId: f.accountId,
-    accountClass: f.accountClass,
-    currency: f.currency
+function merchantVisibleSeries(data, selectedRow) {
+  const seriesList = Array.isArray(data && data.series) ? data.series : [];
+  const targetName = selectedRow ? selectedRow.name : '';
+  const targetKey = merchantRowKey(selectedRow);
+  const chosen = seriesList.find(serie => String(serie.key || '') === String(targetKey || '') || String(serie.name || '') === String(targetName || '')) || seriesList[0] || null;
+  return selectedRow ? (chosen ? [chosen] : []) : seriesList.slice(0, 8);
+}
+
+function parseTrendDate(value) {
+  const text = String(value || '').trim();
+  const iso = /^\d{4}-\d{2}-\d{2}/.test(text)
+    ? text.slice(0, 10)
+    : (/^\d{4}-\d{2}$/.test(text) ? text + '-01' : (/^\d{4}$/.test(text) ? text + '-01-01' : ''));
+  if (!iso) return null;
+  const date = new Date(iso + 'T00:00:00Z');
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function trendIsoDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function trendDayOffset(date, startDate) {
+  return Math.round((date.getTime() - startDate.getTime()) / 86400000);
+}
+
+function trendDateFromOffset(startDate, offset) {
+  return new Date(startDate.getTime() + (Number(offset) || 0) * 86400000);
+}
+
+function merchantCalendarAxis(data, cardFilters) {
+  const labels = data && Array.isArray(data.labels) ? data.labels : [];
+  const labelDates = labels.map(parseTrendDate).filter(Boolean);
+  let startDate = parseTrendDate(cardFilters && cardFilters.from) || labelDates[0] || null;
+  let endDate = parseTrendDate(cardFilters && cardFilters.to) || labelDates[labelDates.length - 1] || startDate;
+  if (!startDate || !endDate) return null;
+  if (startDate > endDate) {
+    const swap = startDate;
+    startDate = endDate;
+    endDate = swap;
+  }
+  return {
+    startDate,
+    endDate,
+    min: 0,
+    max: Math.max(1, trendDayOffset(endDate, startDate))
   };
-  fetch('/api/finance/trends?' + qs(params), { headers: authHeaders() })
-    .then(r => r.ok ? r.json() : null)
-    .then(data => {
-      if (!data) return;
-      merchantTrendData = data;
-      if (merchantSpendChart) merchantSpendChart.destroy();
-      const seriesList = Array.isArray(data.series) ? data.series : [];
-      const targetName = selectedRow ? selectedRow.name : '';
-      const targetKey = String(selectedRow && selectedRow.merchantId ? selectedRow.merchantId : '');
-      const chosen = seriesList.find(serie => String(serie.key || '').includes(targetKey) || String(serie.name || '') === String(targetName || '')) || seriesList[0] || null;
-      const datasets = chosen ? [{
-        label: chosen.name || 'Merchant',
-        data: chosen.values || [],
-        borderColor: chartColor(0),
-        backgroundColor: chartType === 'area' ? chartColor(0) + '22' : (chartType === 'line' ? chartColor(0) + '22' : chartColor(0) + 'bb'),
-        borderWidth: 2,
-        tension: chartType === 'bar' ? 0 : .35,
-        fill: chartType !== 'bar',
-        pointRadius: chartType === 'bar' ? 0 : 3
-      }] : [];
-      const type = chartType === 'bar' ? 'bar' : 'line';
-      const canvas = document.getElementById('merchantSpendChart');
-      merchantSpendChart = new Chart(document.getElementById('merchantSpendChart'), {
-        type,
-        data: {
-          labels: data.labels || [],
-          datasets
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: !!chosen, position: 'bottom' },
-            title: {
-              display: !!selectedRow,
-              text: selectedRow ? (selectedRow.name + ' over time') : 'Select a merchant'
-            }
-          },
-          scales: chartType === 'bar'
-            ? { y: { beginAtZero: true } }
-            : { y: { beginAtZero: true } }
+}
+
+function merchantCalendarValues(values, labels, axisMeta) {
+  return (values || []).map((value, index) => {
+    const date = parseTrendDate(labels[index]);
+    return {
+      x: date ? trendDayOffset(date, axisMeta.startDate) : index,
+      y: Number(value || 0)
+    };
+  });
+}
+
+function merchantChartDatasets(data, selectedRow, chartType, axisMeta) {
+  const labels = data && Array.isArray(data.labels) ? data.labels : [];
+  return merchantVisibleSeries(data, selectedRow).map((serie, index) => ({
+    label: serie.name || 'Merchant',
+    data: axisMeta ? merchantCalendarValues(serie.values || [], labels, axisMeta) : (serie.values || []),
+    borderColor: chartColor(index),
+    backgroundColor: chartType === 'area' ? chartColor(index) + '22' : (chartType === 'line' ? chartColor(index) + '22' : chartColor(index) + 'bb'),
+    borderWidth: 2,
+    tension: chartType === 'bar' ? 0 : .35,
+    fill: chartType !== 'bar',
+    pointRadius: chartType === 'bar' ? 0 : 3
+  }));
+}
+
+function renderMerchantTrendCanvas(canvasId, data, selectedRow, chartType, titleText, options) {
+  const opts = options || {};
+  const axisMeta = opts.calendarAxis ? merchantCalendarAxis(data, opts.cardFilters || {}) : null;
+  const datasets = merchantChartDatasets(data, selectedRow, chartType, axisMeta);
+  return new Chart(document.getElementById(canvasId), {
+    type: chartType === 'bar' ? 'bar' : 'line',
+    data: axisMeta ? {
+      datasets
+    } : {
+      labels: data && data.labels ? data.labels : [],
+      datasets
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: datasets.length > 0, position: 'bottom' },
+        title: {
+          display: true,
+          text: titleText
         }
+      },
+      scales: axisMeta
+        ? {
+            x: {
+              type: 'linear',
+              min: axisMeta.min,
+              max: axisMeta.max,
+              title: { display: true, text: 'Calendar position' },
+              ticks: {
+                callback: value => trendIsoDate(trendDateFromOffset(axisMeta.startDate, value))
+              }
+            },
+            y: { beginAtZero: true }
+          }
+        : { y: { beginAtZero: true } }
+    }
+  });
+}
+
+function renderMerchantSummary() {
+  const renderSeq = ++merchantRenderSeq;
+  selectedMerchantId = document.getElementById('merchantSummarySelect').value || '';
+  const cardFilters = merchantCardFilterParams();
+  const grain = cardFilters.grain;
+  const chartType = cardFilters.chartType;
+  const summaryParams = {
+    q: '',
+    year: cardFilters.year,
+    month: cardFilters.month,
+    accountId: cardFilters.accountId,
+    accountClass: cardFilters.accountClass,
+    currency: cardFilters.currency,
+    type: 'expense',
+    status: cardFilters.status,
+    categoryId: cardFilters.categoryId,
+    from: cardFilters.from,
+    to: cardFilters.to,
+    limit: 500
+  };
+  fetch('/api/finance/search?' + qs(summaryParams), { headers: authHeaders() })
+    .then(r => r.ok ? r.json() : null)
+    .then(summaryData => {
+      if (renderSeq !== merchantRenderSeq) return null;
+      if (!summaryData) return null;
+      const allRows = summaryData.merchantSummary || [];
+      const rows = allRows.slice(0, 20);
+      const selectedRow = selectedMerchantId
+        ? rows.find(row => String(merchantRowKey(row)) === String(selectedMerchantId || '')) || null
+        : null;
+      if (selectedMerchantId && !selectedRow) selectedMerchantId = '';
+      const totalAmount = allRows.reduce((sum, row) => sum + Number(row.amount || 0), 0);
+      const totalCount = allRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+      document.getElementById('merchantSummarySelect').innerHTML = '<option value="">All merchants</option>' + rows.map(merchantOptionHtml).join('');
+      document.getElementById('merchantSummarySelect').value = selectedMerchantId || '';
+      document.getElementById('merchantSummaryAmount').textContent = rows.length ? money(selectedRow ? selectedRow.amount : totalAmount) : money(0);
+      document.getElementById('merchantSummaryCount').textContent = rows.length ? ((selectedRow ? selectedRow.count : totalCount) + ' tx') : '-';
+      document.getElementById('merchantCategorySelect').value = selectedCategoryId || '';
+      document.getElementById('merchantRankList').innerHTML = rows.length ? rows.map(row => (
+        '<button class="rank-row merchant-rank-btn text-start merchant-jump ' + (String(merchantRowKey(row)) === String(selectedMerchantId || '') ? 'active' : '') + '" type="button" data-merchant="' + esc(merchantRowKey(row)) + '" data-name="' + esc(row.name) + '">' +
+          '<span class="merchant-rank-main"><span class="fw-semibold text-truncate">' + esc(row.name) + '</span></span>' +
+          '<span class="text-end">' + money(row.amount) + '</span>' +
+          '<span class="small-muted text-end">' + esc(row.count) + ' tx</span>' +
+        '</button>'
+      )).join('') : '<div class="merchant-empty-state text-muted">No merchant activity for this filter.</div>';
+      return { selectedRow, showAll: !selectedRow && rows.length > 0 };
+    })
+    .then(selection => {
+      if (renderSeq !== merchantRenderSeq) return;
+      if (selection === null) return;
+      const selectedRow = selection.selectedRow;
+      const showAll = selection.showAll;
+      if (!selectedRow && !showAll) {
+        if (merchantSpendChart) {
+          merchantSpendChart.destroy();
+          merchantSpendChart = null;
+        }
+        if (merchantActiveSpendChart) {
+          merchantActiveSpendChart.destroy();
+          merchantActiveSpendChart = null;
+        }
+        return;
+      }
+      const params = {
+        page: null,
+        limit: null,
+        sort: null,
+        dir: null,
+        groupBy: selectedRow ? 'merchant' : 'total',
+        grain,
+        measure: 'expense',
+        categoryId: cardFilters.categoryId,
+        merchantKey: selectedRow ? merchantRowKey(selectedRow) : '',
+        year: cardFilters.year,
+        month: cardFilters.month,
+        from: cardFilters.from,
+        to: cardFilters.to,
+        accountId: cardFilters.accountId,
+        accountClass: cardFilters.accountClass,
+        currency: cardFilters.currency
+      };
+      const activeParams = { ...params, calendar: 'active' };
+      Promise.all([
+        fetch('/api/finance/trends?' + qs(params), { headers: authHeaders() }).then(r => r.ok ? r.json() : null),
+        fetch('/api/finance/trends?' + qs(activeParams), { headers: authHeaders() }).then(r => r.ok ? r.json() : null)
+      ]).then(([rangeData, activeData]) => {
+        if (renderSeq !== merchantRenderSeq) return;
+        if (!rangeData || !activeData) return;
+        merchantTrendData = rangeData;
+        merchantActiveTrendData = activeData;
+        if (merchantSpendChart) merchantSpendChart.destroy();
+        if (merchantActiveSpendChart) merchantActiveSpendChart.destroy();
+        const baseTitle = selectedRow ? selectedRow.name + ' expenditure' : 'Total expenditure';
+        merchantSpendChart = renderMerchantTrendCanvas(
+          'merchantSpendChart',
+          rangeData,
+          selectedRow,
+          chartType,
+          selectedRow ? (selectedRow.name + ' expenditure over time') : 'Total expenditure over time'
+        );
+        merchantActiveSpendChart = renderMerchantTrendCanvas(
+          'merchantActiveSpendChart',
+          activeData,
+          selectedRow,
+          chartType,
+          baseTitle + ' on active dates only'
+        );
+        document.getElementById('merchantTrendGrain').value = grain;
+        document.getElementById('merchantCategorySelect').value = selectedCategoryId || '';
       });
-      document.getElementById('merchantSummaryName').textContent = selectedRow ? selectedRow.name : 'All merchants';
-      document.getElementById('merchantSummaryAmount').textContent = selectedRow ? money(selectedRow.amount) : money(0);
-      document.getElementById('merchantSummaryCount').textContent = selectedRow ? (selectedRow.count + ' tx') : '-';
-      document.getElementById('merchantSummaryGrain').textContent = grain.charAt(0).toUpperCase() + grain.slice(1);
-      document.getElementById('merchantCategoryName').textContent = categoryRow ? categoryRow.name : 'All categories';
     });
-  document.getElementById('merchantRankList').innerHTML = rows.length ? rows.map(row => (
-    '<button class="rank-row btn btn-link text-start p-0 merchant-jump ' + (String(row.merchantId || '') === String(selectedMerchantId || '') ? 'active' : '') + '" type="button" data-merchant="' + (row.merchantId || '') + '" data-name="' + esc(row.name) + '">' +
-      '<span class="fw-semibold text-truncate">' + esc(row.name) + '</span>' +
-      '<span class="text-end">' + money(row.amount) + '</span>' +
-      '<span class="small-muted text-end">' + esc(row.count) + ' tx</span>' +
-    '</button>'
-  )).join('') : '<div class="text-muted">No merchant activity for this filter.</div>';
 }
 
 function renderAccounts() {
@@ -756,7 +1079,7 @@ function renderLedger() {
       '<td>' + esc(row.transactionDate) + '</td>' +
       '<td>' + esc(row.accountName) + '</td>' +
       '<td>' + esc(row.categoryName) + '</td>' +
-      '<td>' + esc(row.merchant || '') + '<div class="small-muted">' + esc(row.receiptMerchant && row.receiptMerchant !== row.merchant ? row.receiptMerchant : '') + '</div></td>' +
+      '<td>' + esc(merchantLabel(row)) + '<div class="small-muted">' + esc(merchantDetail(row)) + '</div></td>' +
       '<td>' + esc(row.description) + '<div class="small-muted">' + esc(row.tags || '') + '</div></td>' +
       '<td>' + esc(row.transactionType) + '</td>' +
       '<td class="text-end fw-semibold">' + money(row.amount, row.currency) + '</td>' +
@@ -765,10 +1088,230 @@ function renderLedger() {
   )).join('') : '<tr><td colspan="8" class="text-muted">No transactions match this search.</td></tr>';
 }
 
+function kpiDetailParams(metric) {
+  const f = filters();
+  return {
+    metric,
+    year: f.year,
+    month: f.month,
+    accountId: f.accountId,
+    accountClass: f.accountClass,
+    currency: f.currency,
+    limit: 20000
+  };
+}
+
+function sourceFileLabel(source) {
+  return source && (source.originalFileName || source.importBatchFileName) ? (source.originalFileName || source.importBatchFileName) : '';
+}
+
+function sourceFilePath(source) {
+  return source && source.relativePath ? source.relativePath : '';
+}
+
+function detailChip(label, value, isMoney) {
+  return '<div class="kpi-detail-chip"><div class="small-muted text-uppercase">' + esc(label) + '</div><div class="fw-semibold">' + (isMoney ? money(value) : esc(value)) + '</div></div>';
+}
+
+function renderKpiDetailSummary(data) {
+  const s = data.summary || {};
+  const chips = [];
+  if (data.detailType === 'transactions') {
+    if (data.metric === 'income') chips.push(detailChip('Income', s.income || 0, true));
+    if (data.metric === 'expenses') chips.push(detailChip('Expenses', s.expenses || 0, true));
+    if (data.metric === 'transfers') chips.push(detailChip('Transfers', s.transfers || 0, true));
+    if (data.metric === 'cashFlow' || data.metric === 'savingsRate') {
+      chips.push(detailChip('Income', s.income || 0, true));
+      chips.push(detailChip('Expenses', s.expenses || 0, true));
+      chips.push(detailChip('Cash Flow', s.cashFlow || 0, true));
+    }
+    if (data.metric === 'savingsRate') chips.push(detailChip('Savings Rate', (s.savingsRatePct || 0) + '%', false));
+    chips.push(detailChip('Rows', Number(s.rowCount || 0).toLocaleString(), false));
+    if (s.returnedRowCount != null && Number(s.returnedRowCount) !== Number(s.rowCount || 0)) {
+      chips.push(detailChip('Visible', Number(s.returnedRowCount || 0).toLocaleString(), false));
+    }
+    chips.push(detailChip('Source Files', Number(s.sourceFileCount || 0).toLocaleString(), false));
+  } else if (data.detailType === 'accounts') {
+    chips.push(detailChip(data.metric === 'netWorth' ? 'Net Worth' : 'Credit Utilization', data.metric === 'netWorth' ? (s.total || 0) : ((s.total || 0) + '%'), data.metric === 'netWorth'));
+    if (data.metric !== 'netWorth') {
+      chips.push(detailChip('Credit Used', s.creditUsed || 0, true));
+      chips.push(detailChip('Credit Limit', s.creditLimit || 0, true));
+    }
+    chips.push(detailChip('Accounts', Number(s.rowCount || 0).toLocaleString(), false));
+  } else if (data.detailType === 'holdings') {
+    chips.push(detailChip('Market Value', s.total || 0, true));
+    chips.push(detailChip('Holdings', Number(s.rowCount || 0).toLocaleString(), false));
+  } else if (data.detailType === 'budgets') {
+    chips.push(detailChip('Budget Used', (s.total || 0) + '%', false));
+    chips.push(detailChip('Planned', s.plannedTotal || 0, true));
+    chips.push(detailChip('Actual', s.actualTotal || 0, true));
+    chips.push(detailChip('Budget Rows', Number(s.rowCount || 0).toLocaleString(), false));
+  }
+  document.getElementById('kpiDetailSummary').innerHTML = chips.join('');
+}
+
+function renderKpiTransactionRows(rows, metric) {
+  document.getElementById('kpiDetailHead').innerHTML =
+    '<tr><th>Date</th><th>Account</th><th>Kind</th><th>Merchant</th><th>Category</th><th>Description</th><th class="text-end">Amount</th><th class="text-end">KPI Contribution</th><th>Transfer Reason</th><th>Source File</th><th>Statement</th></tr>';
+  document.getElementById('kpiDetailRows').innerHTML = rows.length ? rows.map(row => {
+    const source = row.source || {};
+    const sourceName = sourceFileLabel(source);
+    const sourcePath = sourceFilePath(source);
+    return '<tr>' +
+      '<td>' + esc(row.transactionDate || '') + '</td>' +
+      '<td><div class="fw-semibold">' + esc(row.accountName || '') + '</div><div class="small-muted">' + esc(row.accountClass || '') + '</div></td>' +
+      '<td>' + esc(row.metricKind || row.transactionType || '') + '</td>' +
+      '<td><div class="fw-semibold">' + esc(merchantLabel(row)) + '</div><div class="small-muted">' + esc(merchantDetail(row)) + '</div></td>' +
+      '<td>' + esc(row.categoryName || 'Uncategorized') + '<div class="small-muted">' + esc(row.categoryGroup || '') + '</div></td>' +
+      '<td><div>' + esc(row.description || '') + '</div><div class="small-muted">' + esc(row.tags || '') + '</div></td>' +
+      '<td class="text-end">' + money(row.amount, row.currency) + '</td>' +
+      '<td class="text-end fw-semibold">' + money(row.metricContribution, row.currency) + '</td>' +
+      '<td>' + esc(row.transferReason || '') + '</td>' +
+      '<td class="source-file-cell"><div class="fw-semibold text-truncate" title="' + attr(sourceName) + '">' + esc(sourceName || 'Not available') + '</div><div class="small-muted text-truncate" title="' + attr(sourcePath) + '">' + esc(sourcePath) + '</div></td>' +
+      '<td><div>' + esc(source.statementDate || '') + '</div><div class="small-muted">' + esc(source.statementSection || source.cardholder || '') + '</div></td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="11" class="text-muted">No transactions represent this KPI for the selected filters.</td></tr>';
+}
+
+function renderKpiAccountRows(rows) {
+  document.getElementById('kpiDetailHead').innerHTML =
+    '<tr><th>Account</th><th>Class</th><th>Subtype</th><th class="text-end">Current Balance</th><th class="text-end">Period Movement</th><th class="text-end">KPI Balance</th><th class="text-end">Net Worth Value</th><th class="text-end">Credit Limit</th><th>Status</th></tr>';
+  document.getElementById('kpiDetailRows').innerHTML = rows.length ? rows.map(row => (
+    '<tr>' +
+      '<td><div class="fw-semibold">' + esc(row.name || '') + '</div><div class="small-muted">' + esc(row.accountCode || '') + '</div></td>' +
+      '<td>' + esc(row.accountClass || '') + '</td>' +
+      '<td>' + esc(row.accountSubtype || '') + '</td>' +
+      '<td class="text-end">' + money(row.currentBalance, row.currency) + '</td>' +
+      '<td class="text-end">' + money(row.periodMovement, row.currency) + '</td>' +
+      '<td class="text-end fw-semibold">' + money(row.balance, row.currency) + '</td>' +
+      '<td class="text-end fw-semibold">' + money(row.netWorthValue, row.currency) + '</td>' +
+      '<td class="text-end">' + (row.creditLimit ? money(row.creditLimit, row.currency) : '-') + '</td>' +
+      '<td>' + esc(row.status || '') + '</td>' +
+    '</tr>'
+  )).join('') : '<tr><td colspan="9" class="text-muted">No accounts represent this KPI for the selected filters.</td></tr>';
+}
+
+function renderKpiHoldingRows(rows) {
+  document.getElementById('kpiDetailHead').innerHTML =
+    '<tr><th>Symbol</th><th>Name</th><th>Account</th><th>Asset Class</th><th class="text-end">Quantity</th><th class="text-end">Cost Basis</th><th class="text-end">Market Value</th><th class="text-end">Unrealized Gain</th><th>Price Date</th></tr>';
+  document.getElementById('kpiDetailRows').innerHTML = rows.length ? rows.map(row => (
+    '<tr>' +
+      '<td class="fw-semibold">' + esc(row.symbol || '') + '</td>' +
+      '<td>' + esc(row.name || '') + '</td>' +
+      '<td>' + esc(row.accountName || '') + '</td>' +
+      '<td>' + esc(row.assetClass || '') + '</td>' +
+      '<td class="text-end">' + Number(row.quantity || 0).toLocaleString() + '</td>' +
+      '<td class="text-end">' + money(row.costBasis, row.currency) + '</td>' +
+      '<td class="text-end fw-semibold">' + money(row.marketValue, row.currency) + '</td>' +
+      '<td class="text-end">' + money(row.unrealizedGain, row.currency) + '</td>' +
+      '<td>' + esc(row.priceDate || '') + '</td>' +
+    '</tr>'
+  )).join('') : '<tr><td colspan="9" class="text-muted">No holdings represent this KPI.</td></tr>';
+}
+
+function renderKpiBudgetRows(rows) {
+  document.getElementById('kpiDetailHead').innerHTML =
+    '<tr><th>Budget</th><th>Period</th><th>Category</th><th class="text-end">Planned</th><th class="text-end">Actual</th><th class="text-end">Variance</th><th class="text-end">Usage</th></tr>';
+  document.getElementById('kpiDetailRows').innerHTML = rows.length ? rows.map(row => (
+    '<tr>' +
+      '<td class="fw-semibold">' + esc(row.name || '') + '</td>' +
+      '<td>' + esc(row.year || '') + (row.month ? '-' + String(row.month).padStart(2, '0') : '') + '</td>' +
+      '<td>' + esc(row.categoryName || 'All expenses') + '<div class="small-muted">' + esc(row.categoryGroup || '') + '</div></td>' +
+      '<td class="text-end">' + money(row.plannedAmount, row.currency) + '</td>' +
+      '<td class="text-end fw-semibold">' + money(row.actualAmount, row.currency) + '</td>' +
+      '<td class="text-end">' + money(row.variance, row.currency) + '</td>' +
+      '<td class="text-end">' + esc(row.usagePct || 0) + '%</td>' +
+    '</tr>'
+  )).join('') : '<tr><td colspan="7" class="text-muted">No budget rows represent this KPI.</td></tr>';
+}
+
+function renderKpiDetail(data) {
+  kpiDetailData = data;
+  document.getElementById('kpiDetailTitle').textContent = data.title || 'KPI Detail Report';
+  document.getElementById('kpiDetailFormula').textContent = data.formula || '';
+  renderKpiDetailSummary(data);
+  const rows = data.rows || [];
+  if (data.detailType === 'transactions') renderKpiTransactionRows(rows, data.metric);
+  else if (data.detailType === 'accounts') renderKpiAccountRows(rows);
+  else if (data.detailType === 'holdings') renderKpiHoldingRows(rows);
+  else if (data.detailType === 'budgets') renderKpiBudgetRows(rows);
+}
+
+function kpiDetailCsvLines(data) {
+  const rows = data.rows || [];
+  if (data.detailType === 'transactions') {
+    const headers = ['Date', 'Account', 'Account Class', 'KPI Kind', 'Merchant', 'Official Merchant', 'Merchant Group', 'Category', 'Category Group', 'Description', 'Transaction Type', 'Amount', 'Currency', 'KPI Contribution', 'Transfer Reason', 'Status', 'Source File', 'Source Path', 'Import Batch', 'Import Row', 'Statement Date', 'Statement Section', 'Reference', 'Tags', 'Memo'];
+    return [headers].concat(rows.map(row => {
+      const source = row.source || {};
+      return [
+        row.transactionDate, row.accountName, row.accountClass, row.metricKind, merchantLabel(row), row.merchantOfficialName || row.merchant || '',
+        row.merchantGroupName || '', row.categoryName || 'Uncategorized', row.categoryGroup || '', row.description, row.transactionType,
+        row.amount, row.currency, row.metricContribution, row.transferReason || '', row.status, sourceFileLabel(source), sourceFilePath(source),
+        source.importBatchFileName || '', source.importRowId || '', source.statementDate || '', source.statementSection || source.cardholder || '',
+        row.referenceNumber || '', row.tags || '', row.memo || ''
+      ];
+    }));
+  }
+  if (data.detailType === 'accounts') {
+    const headers = ['Account', 'Account Code', 'Class', 'Subtype', 'Current Balance', 'Period Movement', 'KPI Balance', 'Net Worth Value', 'Credit Limit', 'Currency', 'Status'];
+    return [headers].concat(rows.map(row => [
+      row.name, row.accountCode, row.accountClass, row.accountSubtype, row.currentBalance, row.periodMovement, row.balance, row.netWorthValue, row.creditLimit, row.currency, row.status
+    ]));
+  }
+  if (data.detailType === 'holdings') {
+    const headers = ['Symbol', 'Name', 'Account', 'Asset Class', 'Quantity', 'Cost Basis', 'Market Value', 'Unrealized Gain', 'Currency', 'Price Date'];
+    return [headers].concat(rows.map(row => [
+      row.symbol, row.name, row.accountName, row.assetClass, row.quantity, row.costBasis, row.marketValue, row.unrealizedGain, row.currency, row.priceDate
+    ]));
+  }
+  const headers = ['Budget', 'Year', 'Month', 'Category', 'Category Group', 'Planned', 'Actual', 'Variance', 'Usage %', 'Currency'];
+  return [headers].concat(rows.map(row => [
+    row.name, row.year, row.month || '', row.categoryName || 'All expenses', row.categoryGroup || '', row.plannedAmount, row.actualAmount, row.variance, row.usagePct, row.currency
+  ]));
+}
+
+function exportKpiDetailCsv() {
+  if (!kpiDetailData) return toast('Open a KPI card first.', 'warning');
+  const lines = kpiDetailCsvLines(kpiDetailData);
+  const csv = lines.map(row => row.map(csvCell).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const year = (document.getElementById('yearFilter').value || defaultYear) === 'all' ? 'all_years' : (document.getElementById('yearFilter').value || defaultYear);
+  a.download = 'home_accounting_kpi_detail_' + String(kpiDetailData.metric || 'report').replace(/[^a-z0-9_-]/gi, '_') + '_' + year + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function openKpiDetail(metric, options) {
+  if (!overview) return;
+  const opts = options || {};
+  activeKpiMetric = metric;
+  renderKpis(overview.summary || {});
+  const panel = document.getElementById('kpiDetailPanel');
+  panel.classList.remove('d-none');
+  document.getElementById('kpiDetailTitle').textContent = 'Loading KPI detail...';
+  document.getElementById('kpiDetailFormula').textContent = 'Gathering rows from the same filters as the cards.';
+  document.getElementById('kpiDetailSummary').innerHTML = '';
+  document.getElementById('kpiDetailHead').innerHTML = '';
+  document.getElementById('kpiDetailRows').innerHTML = '<tr><td class="text-muted">Loading...</td></tr>';
+  if (opts.scroll !== false) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const response = await fetch('/api/finance/kpi-detail?' + qs(kpiDetailParams(metric)), { headers: authHeaders() });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    document.getElementById('kpiDetailRows').innerHTML = '<tr><td class="text-danger">' + esc(data.error || 'Unable to load KPI detail.') + '</td></tr>';
+    return;
+  }
+  renderKpiDetail(data);
+}
+
 async function loadAll() {
   try {
     await loadOverview();
     await loadSearch();
+    const panel = document.getElementById('kpiDetailPanel');
+    if (activeKpiMetric && panel && !panel.classList.contains('d-none')) {
+      await openKpiDetail(activeKpiMetric, { scroll: false });
+    }
   } catch (err) {
     toast('Unable to load financial workspace.', 'danger');
   }
@@ -793,16 +1336,37 @@ async function clearSimulation() {
   await loadAll();
 }
 
-function exportCsv() {
-  const headers = ['Date', 'Account', 'Category', 'Merchant', 'Receipt Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Tags'];
-  const lines = [headers].concat(searchRows.map(row => [
-    row.transactionDate, row.accountName, row.categoryName, row.merchant || '', row.receiptMerchant || '', row.description,
-    row.transactionType, row.amount, row.currency, row.status, row.tags || ''
+async function exportCsv() {
+  const f = filters();
+  const params = {
+    q: document.getElementById('searchFilter').value.trim(),
+    year: f.year,
+    month: f.month,
+    accountId: f.accountId,
+    currency: f.currency,
+    type: document.getElementById('typeFilter').value,
+    status: document.getElementById('statusFilter').value,
+    categoryId: document.getElementById('merchantCategorySelect').value || selectedCategoryId,
+    merchantKey: document.getElementById('merchantSummarySelect').value || selectedMerchantId,
+    from: document.getElementById('fromFilter').value,
+    to: document.getElementById('toFilter').value,
+    exportAll: 'true',
+    limit: 20000
+  };
+  const response = await fetch('/api/finance/search?' + qs(params), { headers: authHeaders() });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) return toast('Export failed.', 'danger');
+  const exportRows = data.rows || [];
+  const headers = ['Date', 'Account', 'Category', 'Merchant', 'Official Merchant', 'Merchant Group', 'Receipt Merchant', 'Raw Merchant', 'Normalized Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Source', 'Reference', 'Tags', 'Memo'];
+  const lines = [headers].concat(exportRows.map(row => [
+    row.transactionDate, row.accountName, row.categoryName || 'Uncategorized', merchantLabel(row), row.merchantOfficialName || row.merchant || '', row.merchantGroupName || '',
+    row.receiptMerchant || '', row.rawMerchant || '', row.normalizedMerchant || '', row.description,
+    row.transactionType, row.amount, row.currency, row.status, row.sourceType || '', row.referenceNumber || '', row.tags || '', row.memo || ''
   ]));
   const csv = lines.map(row => row.map(cell => typeof sanitizeCsvCell === 'function' ? sanitizeCsvCell(cell) : '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"').join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
-  a.download = 'home_accounting_financial_workspace_2026.csv';
+  a.download = 'home_accounting_financial_workspace_' + ((document.getElementById('yearFilter').value || defaultYear) === 'all' ? 'all_years' : (document.getElementById('yearFilter').value || defaultYear)) + '.csv';
   a.click();
   URL.revokeObjectURL(a.href);
 }
@@ -816,6 +1380,8 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
 });
 document.getElementById('runBtn').addEventListener('click', loadAll);
 document.getElementById('resetBtn').addEventListener('click', () => {
+  document.getElementById('yearFilter').value = defaultYear;
+  syncYearMode();
   document.getElementById('monthFilter').value = '';
   document.getElementById('accountFilter').value = '';
   document.getElementById('accountClassFilter').value = '';
@@ -825,58 +1391,88 @@ document.getElementById('resetBtn').addEventListener('click', () => {
   document.getElementById('statusFilter').value = '';
   document.getElementById('fromFilter').value = '';
   document.getElementById('toFilter').value = '';
+  document.getElementById('merchantCategorySelect').value = '';
+  document.getElementById('merchantSummarySelect').value = '';
+  document.getElementById('merchantFromDate').value = '';
+  document.getElementById('merchantToDate').value = '';
+  document.getElementById('merchantRangeMode').value = 'page';
+  document.getElementById('merchantTrendGrain').value = 'month';
+  document.getElementById('merchantTrendType').value = 'bar';
   selectedCategoryId = '';
   selectedMerchantId = '';
+  syncMerchantRangeVisibility();
   loadAll();
 });
-['monthFilter', 'accountFilter', 'accountClassFilter', 'currencyFilter', 'typeFilter', 'statusFilter', 'fromFilter', 'toFilter'].forEach(id => {
-  document.getElementById(id).addEventListener('change', loadAll);
+['yearFilter', 'monthFilter', 'accountFilter', 'accountClassFilter', 'currencyFilter', 'typeFilter', 'statusFilter', 'fromFilter', 'toFilter'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (id === 'yearFilter') syncYearMode();
+    loadAll();
+  });
 });
 ['trendGroup', 'trendGrain', 'trendMeasure', 'trendChartType'].forEach(id => {
   document.getElementById(id).addEventListener('change', () => renderMonthly());
 });
+document.getElementById('merchantRangeMode').addEventListener('change', () => {
+  syncMerchantRangeVisibility();
+  if (document.getElementById('merchantRangeMode').value === 'custom' && !document.getElementById('merchantFromDate').value && !document.getElementById('merchantToDate').value) return;
+  renderMerchantSummary();
+});
 ['merchantTrendGrain', 'merchantTrendType'].forEach(id => {
-  document.getElementById(id).addEventListener('change', () => renderMerchantSummary());
+  document.getElementById(id).addEventListener('change', () => {
+    renderMerchantSummary();
+  });
 });
-['explorerGrain', 'explorerType'].forEach(id => {
-  document.getElementById(id).addEventListener('change', () => renderMonthly());
+['merchantFromDate', 'merchantToDate'].forEach(id => {
+  document.getElementById(id).addEventListener('focus', () => {
+    if (document.getElementById('merchantRangeMode').value !== 'custom') {
+      document.getElementById('merchantRangeMode').value = 'custom';
+      document.getElementById('merchantFromDate').value = '';
+      document.getElementById('merchantToDate').value = '';
+      syncMerchantRangeVisibility();
+    }
+  });
+  document.getElementById(id).addEventListener('change', () => {
+    document.getElementById('merchantRangeMode').value = 'custom';
+    syncMerchantRangeVisibility();
+    renderMerchantSummary();
+  });
+  document.getElementById(id).addEventListener('keydown', event => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.getElementById('merchantRangeMode').value = 'custom';
+      syncMerchantDateBounds(id);
+      applyMerchantCustomRange();
+    }
+  });
 });
-document.getElementById('categoryExplorerSelect').addEventListener('change', () => {
-  selectedCategoryId = document.getElementById('categoryExplorerSelect').value || '';
+document.getElementById('merchantDateApplyBtn').addEventListener('click', () => {
+  applyMerchantCustomRange();
+});
+document.getElementById('merchantCategorySelect').addEventListener('change', () => {
+  selectedCategoryId = document.getElementById('merchantCategorySelect').value || '';
   selectedMerchantId = '';
-  document.getElementById('merchantExplorerSelect').value = '';
-  document.getElementById('merchantSubSelect').value = '';
-  loadSearch();
-  renderMonthly();
+  document.getElementById('merchantSummarySelect').value = '';
+  renderMerchantSummary();
 });
-document.getElementById('merchantExplorerSelect').addEventListener('change', () => {
-  selectedMerchantId = document.getElementById('merchantExplorerSelect').value || '';
-  loadSearch();
-  renderMonthly();
+document.getElementById('merchantSummarySelect').addEventListener('change', () => {
+  selectedMerchantId = document.getElementById('merchantSummarySelect').value || '';
+  renderMerchantSummary();
 });
-document.getElementById('merchantSubSelect').addEventListener('change', () => {
-  selectedMerchantId = document.getElementById('merchantSubSelect').value || '';
-  document.getElementById('merchantExplorerSelect').value = selectedMerchantId;
-  loadSearch();
-  renderMonthly();
-});
-document.getElementById('explorerRunBtn').addEventListener('click', () => {
-  document.getElementById('fromFilter').value = document.getElementById('explorerFrom').value;
-  document.getElementById('toFilter').value = document.getElementById('explorerTo').value;
-  document.getElementById('merchantTrendGrain').value = document.getElementById('explorerGrain').value;
-  document.getElementById('merchantTrendType').value = document.getElementById('explorerType').value;
-  loadSearch();
-  renderMonthly();
-});
-document.getElementById('explorerClearBtn').addEventListener('click', () => {
-  document.getElementById('categoryExplorerSelect').value = '';
-  document.getElementById('merchantExplorerSelect').value = '';
-  document.getElementById('explorerFrom').value = '';
-  document.getElementById('explorerTo').value = '';
+document.getElementById('merchantHeaderResetBtn').addEventListener('click', () => {
   selectedCategoryId = '';
   selectedMerchantId = '';
-  loadSearch();
-  renderMonthly();
+  preferTopMerchantOnNextLoad = true;
+  document.getElementById('merchantFromDate').value = '';
+  document.getElementById('merchantToDate').value = '';
+  document.getElementById('merchantCategorySelect').value = '';
+  document.getElementById('merchantSummarySelect').value = '';
+  document.getElementById('trendGroup').value = 'category';
+  document.getElementById('trendMeasure').value = 'expense';
+  document.getElementById('merchantRangeMode').value = 'page';
+  document.getElementById('merchantTrendGrain').value = 'month';
+  document.getElementById('merchantTrendType').value = 'bar';
+  syncMerchantRangeVisibility();
+  renderMerchantSummary();
 });
 document.getElementById('trendRefreshBtn').addEventListener('click', () => renderMonthly());
 document.getElementById('searchFilter').addEventListener('keydown', event => {
@@ -885,22 +1481,33 @@ document.getElementById('searchFilter').addEventListener('keydown', event => {
 document.getElementById('seedBtn').addEventListener('click', seedSimulation);
 document.getElementById('clearBtn').addEventListener('click', clearSimulation);
 document.getElementById('exportBtn').addEventListener('click', exportCsv);
+document.getElementById('kpiGrid').addEventListener('click', event => {
+  const card = event.target.closest('[data-kpi]');
+  if (!card) return;
+  openKpiDetail(card.dataset.kpi);
+});
+document.getElementById('kpiDetailCloseBtn').addEventListener('click', () => {
+  activeKpiMetric = '';
+  kpiDetailData = null;
+  document.getElementById('kpiDetailPanel').classList.add('d-none');
+  renderKpis(overview.summary || {});
+});
+document.getElementById('kpiDetailExportBtn').addEventListener('click', exportKpiDetailCsv);
 document.getElementById('categorySpendChart').addEventListener('click', event => {
   if (!categorySpendChart) return;
   const points = categorySpendChart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
   if (!points.length) return;
   const index = points[0].index;
-  const row = (overview.categoryTotals || [])[index];
+  const row = categoryChartRows[index];
   if (!row) return;
   selectedCategoryId = row.categoryId || '';
   selectedMerchantId = '';
-  document.getElementById('merchantExplorerSelect').value = '';
-  document.getElementById('merchantSubSelect').value = '';
+  document.getElementById('merchantCategorySelect').value = selectedCategoryId;
+  document.getElementById('merchantSummarySelect').value = '';
+  document.getElementById('searchFilter').value = '';
   document.getElementById('trendGroup').value = 'category';
   document.getElementById('trendMeasure').value = 'expense';
-  document.getElementById('searchFilter').value = row.name || '';
-  loadSearch();
-  renderMonthly();
+  renderMerchantSummary();
 });
 document.getElementById('merchantRankList').addEventListener('click', event => {
   const btn = event.target.closest('.merchant-jump');
@@ -909,11 +1516,13 @@ document.getElementById('merchantRankList').addEventListener('click', event => {
   selectedCategoryId = '';
   document.getElementById('trendGroup').value = 'merchant';
   document.getElementById('trendMeasure').value = 'expense';
+  document.getElementById('merchantCategorySelect').value = '';
+  document.getElementById('merchantSummarySelect').value = selectedMerchantId;
   if (!selectedMerchantId && btn.dataset.name) document.getElementById('searchFilter').value = btn.dataset.name;
-  loadSearch();
-  renderMonthly();
+  renderMerchantSummary();
 });
 document.addEventListener('DOMContentLoaded', async function() {
+  syncMerchantRangeVisibility();
   await loadLookups();
   await loadAll();
 });

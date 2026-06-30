@@ -24,6 +24,15 @@ function dateRange(year, month) {
   return [`${y}-01-01`, `${y}-12-31`];
 }
 
+function addYearFromValue(years, value) {
+  const year = Number(String(value || '').slice(0, 4));
+  if (Number.isInteger(year) && year >= 1900 && year <= 2200) years.add(year);
+}
+
+function isAllYears(value) {
+  return ['all', 'all_years', '*'].includes(String(value || '').trim().toLowerCase());
+}
+
 function cleanText(value) {
   return String(value == null ? '' : value).trim();
 }
@@ -31,6 +40,62 @@ function cleanText(value) {
 function cleanId(value) {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function merchantDisplayName(row) {
+  return cleanText(row.Merchant && row.Merchant.merchantGroupName)
+    || cleanText(row.Merchant && row.Merchant.officialName)
+    || cleanText(row.merchant || row.normalizedMerchant || row.description)
+    || 'No merchant';
+}
+
+function merchantFilterKey(row) {
+  const groupName = cleanText(row.Merchant && row.Merchant.merchantGroupName);
+  if (groupName) return `group:${groupName}`;
+  if (row.merchantId) return `merchant:${row.merchantId}`;
+  return `text:${merchantResolver.normalizeMerchantKey(merchantDisplayName(row)) || 'no-merchant'}`;
+}
+
+function transactionSearchOr(q, fields = {}) {
+  const like = { [Op.iLike]: `%${q}%` };
+  const clauses = [
+    { description: like },
+    { merchant: like },
+    { receiptMerchant: like },
+    { normalizedMerchant: like },
+    { '$Merchant.officialName$': like },
+    { '$Merchant.normalizedName$': like },
+    { '$Merchant.merchantGroupName$': like },
+    { '$Merchant.merchantType$': like }
+  ];
+  if (fields.referenceNumber !== false) clauses.push({ referenceNumber: like });
+  if (fields.memo !== false) clauses.push({ memo: like });
+  if (fields.tags) clauses.push({ tags: like });
+  return clauses;
+}
+
+function internalTransferReason(row) {
+  const categoryType = String(row.Category && row.Category.categoryType || '').toLowerCase();
+  if (String(row.transactionType || '').toLowerCase() === 'transfer') return 'ledger_transfer';
+  if (categoryType === 'transfer') return 'category_transfer';
+
+  const text = [
+    row.description,
+    row.merchant,
+    row.receiptMerchant,
+    row.normalizedMerchant,
+    row.memo,
+    row.Category && row.Category.name,
+    row.Category && row.Category.groupName
+  ].filter(Boolean).join(' ').toLowerCase();
+
+  if (/online payment, thank you|citi card online payment/.test(text)) return 'credit_card_payment';
+  if (/\btransfer\s+(to|from)\b/.test(text)) return 'bank_transfer';
+  if (/\bmoney market\b/.test(text)) return 'money_market_transfer';
+  if (/\bult(?:imate)?\s+savings\b|\bsavings plus\b/.test(text)) return 'savings_transfer';
+  if (/certificate(?:s)? of deposit|\bcd account\b|\b(to|from) cd\b/.test(text)) return 'cd_transfer';
+  if (/\b(to|from)\s+(checking|savings)\b/.test(text)) return 'account_transfer';
+  return '';
 }
 
 function parseJsonField(value, fallback) {
@@ -43,6 +108,42 @@ function parseJsonField(value, fallback) {
   }
 }
 
+function importSourceFromRow(importRow) {
+  if (!importRow) return null;
+  const raw = importRow.rawData || {};
+  const normalized = importRow.normalizedData || {};
+  const batch = importRow.ImportBatch || null;
+  const notes = parseJsonField(batch && batch.notes, {});
+  const sourceCopies = Array.isArray(notes.sourceCopies) ? notes.sourceCopies : [];
+  const firstCopy = sourceCopies[0] || {};
+  return {
+    importRowId: importRow.id,
+    importBatchId: importRow.importBatchId,
+    importBatchFileName: batch ? batch.fileName : '',
+    originalFileName: notes.originalFileName || (batch ? batch.fileName : ''),
+    relativePath: notes.relativePath || firstCopy.relativePath || '',
+    statementDate: raw.statementDate || normalized.statementDate || (notes.metadata && notes.metadata.statementDate) || '',
+    statementSection: raw.section || normalized.statementSection || '',
+    cardholder: raw.cardholder || normalized.cardholder || '',
+    parserVersion: normalized.parserVersion || notes.parserVersion || ''
+  };
+}
+
+async function importSourcesByTransactionId(transactionIds) {
+  const ids = Array.from(new Set((transactionIds || []).map(cleanId).filter(Boolean)));
+  if (!ids.length) return new Map();
+  const rows = await db.ImportRow.findAll({
+    where: { postedTransactionId: { [Op.in]: ids } },
+    include: [{ model: db.ImportBatch, attributes: ['id', 'fileName', 'notes'], required: false }],
+    order: [['id', 'ASC']]
+  });
+  const map = new Map();
+  rows.forEach((row) => {
+    if (!map.has(row.postedTransactionId)) map.set(row.postedTransactionId, importSourceFromRow(row));
+  });
+  return map;
+}
+
 async function getStoredMerchantRules() {
   const row = await db.SystemSetting.findOne({ where: { key: 'merchant_category_rules' } });
   const rules = parseJsonField(row && row.value, []);
@@ -50,28 +151,119 @@ async function getStoredMerchantRules() {
 }
 
 function pickDateWhere(query, defaultYear = 2026) {
-  const year = Number(query.year) || defaultYear;
-  const month = query.month ? Number(query.month) : null;
   const where = {};
   if (query.from || query.to) {
     if (query.from) where[Op.gte] = query.from;
     if (query.to) where[Op.lte] = query.to;
-    return Object.keys(where).length ? where : null;
+    return where;
   }
+  if (isAllYears(query.year)) return null;
+  const year = Number(query.year) || defaultYear;
+  const month = query.month ? Number(query.month) : null;
   const [from, to] = dateRange(year, month);
   return { [Op.between]: [from, to] };
+}
+
+function parseIsoDay(value) {
+  const text = String(value || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
+  const date = new Date(text + 'T00:00:00Z');
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isoDay(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function bucketDate(dateValue, grain) {
+  const date = parseIsoDay(dateValue);
+  if (!date) return String(dateValue || '').slice(0, 10);
+  if (grain === 'day') return isoDay(date);
+  if (grain === 'week') {
+    const copy = new Date(date);
+    const day = (copy.getUTCDay() + 6) % 7;
+    copy.setUTCDate(copy.getUTCDate() - day);
+    return isoDay(copy);
+  }
+  if (grain === 'year') return String(date.getUTCFullYear());
+  return isoDay(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1))).slice(0, 7);
+}
+
+function rangeStartDate(date, grain) {
+  if (grain === 'week') {
+    const copy = new Date(date);
+    const day = (copy.getUTCDay() + 6) % 7;
+    copy.setUTCDate(copy.getUTCDate() - day);
+    return copy;
+  }
+  if (grain === 'month') return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+  if (grain === 'year') return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return new Date(date);
+}
+
+function stepBucket(date, grain) {
+  const next = new Date(date);
+  if (grain === 'week') next.setUTCDate(next.getUTCDate() + 7);
+  else if (grain === 'month') next.setUTCMonth(next.getUTCMonth() + 1);
+  else if (grain === 'year') next.setUTCFullYear(next.getUTCFullYear() + 1);
+  else next.setUTCDate(next.getUTCDate() + 1);
+  return next;
+}
+
+function buildTrendBuckets(query, rows, grain) {
+  const rowDates = rows.map((row) => parseIsoDay(row.transactionDate)).filter(Boolean);
+  const sortedRowDates = rowDates.slice().sort((a, b) => a - b);
+  const [defaultFrom, defaultTo] = dateRange(query.year, query.month);
+  let start = parseIsoDay(query.from) || sortedRowDates[0] || parseIsoDay(defaultFrom);
+  let end = parseIsoDay(query.to) || sortedRowDates[sortedRowDates.length - 1] || parseIsoDay(query.from) || parseIsoDay(defaultTo);
+
+  if (!start || !end) {
+    return Array.from(new Set(rows.map((row) => bucketDate(row.transactionDate, grain)))).sort();
+  }
+  if (start > end) {
+    const swap = start;
+    start = end;
+    end = swap;
+  }
+
+  const labels = [];
+  let cursor = rangeStartDate(start, grain);
+  let guard = 0;
+  while (cursor <= end && guard < 2500) {
+    labels.push(bucketDate(isoDay(cursor), grain));
+    cursor = stepBucket(cursor, grain);
+    guard += 1;
+  }
+  return labels;
+}
+
+function buildActiveTrendBuckets(rows, grain) {
+  return Array.from(new Set(rows.map((row) => bucketDate(row.transactionDate, grain)))).sort();
 }
 
 function transactionQueryParts(query, options = {}) {
   const where = {};
   const accountWhere = {};
+  const merchantWhere = {};
   const q = cleanText(query.q);
 
   const dateWhere = pickDateWhere(query, options.defaultYear || 2026);
   if (dateWhere) where.transactionDate = dateWhere;
 
   if (query.accountId) where.accountId = Number(query.accountId);
-  if (query.merchantId) where.merchantId = Number(query.merchantId);
+  const merchantKey = cleanText(query.merchantKey || query.merchantId);
+  if (merchantKey) {
+    if (merchantKey.startsWith('group:')) {
+      const groupName = cleanText(merchantKey.slice('group:'.length));
+      if (groupName) merchantWhere.merchantGroupName = groupName;
+    } else if (merchantKey.startsWith('merchant:')) {
+      const merchantId = cleanId(merchantKey.slice('merchant:'.length));
+      if (merchantId) where.merchantId = merchantId;
+    } else {
+      const merchantId = cleanId(merchantKey);
+      if (merchantId) where.merchantId = merchantId;
+    }
+  }
   if (query.categoryId === 'uncategorized' || query.categoryId === 'none') {
     where.categoryId = { [Op.is]: null };
   } else if (query.categoryId) {
@@ -82,21 +274,9 @@ function transactionQueryParts(query, options = {}) {
   if (query.currency && query.currency !== 'ALL') where.currency = cleanText(query.currency).toUpperCase();
   if (query.sourceType) where.sourceType = cleanText(query.sourceType);
   if (query.searchScope === 'entry' && q) {
-    where[Op.or] = [
-      { description: { [Op.iLike]: `%${q}%` } },
-      { merchant: { [Op.iLike]: `%${q}%` } },
-      { receiptMerchant: { [Op.iLike]: `%${q}%` } },
-      { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
-      { memo: { [Op.iLike]: `%${q}%` } }
-    ];
+    where[Op.or] = transactionSearchOr(q, { referenceNumber: false, tags: false });
   } else if (query.searchScope === 'group' && q) {
-    where[Op.or] = [
-      { description: { [Op.iLike]: `%${q}%` } },
-      { merchant: { [Op.iLike]: `%${q}%` } },
-      { receiptMerchant: { [Op.iLike]: `%${q}%` } },
-      { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
-      { tags: { [Op.iLike]: `%${q}%` } }
-    ];
+    where[Op.or] = transactionSearchOr(q, { memo: false, tags: true });
   }
   if (query.onlyUncategorized === 'true' || query.onlyUncategorized === true) where.categoryId = { [Op.is]: null };
   if (query.min || query.max) {
@@ -105,22 +285,14 @@ function transactionQueryParts(query, options = {}) {
     if (query.max) where.amount[Op.lte] = Number(query.max);
   }
   if (query.tag) where.tags = { [Op.iLike]: `%${cleanText(query.tag)}%` };
-  if (q) {
-    where[Op.or] = [
-      { description: { [Op.iLike]: `%${q}%` } },
-      { merchant: { [Op.iLike]: `%${q}%` } },
-      { receiptMerchant: { [Op.iLike]: `%${q}%` } },
-      { normalizedMerchant: { [Op.iLike]: `%${q}%` } },
-      { referenceNumber: { [Op.iLike]: `%${q}%` } },
-      { memo: { [Op.iLike]: `%${q}%` } },
-      { tags: { [Op.iLike]: `%${q}%` } }
-    ];
+  if (q && !where[Op.or]) {
+    where[Op.or] = transactionSearchOr(q, { tags: true });
   }
 
   if (query.accountClass) accountWhere.accountClass = cleanText(query.accountClass);
   if (query.accountType) accountWhere.accountType = cleanText(query.accountType);
 
-  return { where, accountWhere };
+  return { where, accountWhere, merchantWhere };
 }
 
 function accountInclude(accountWhere = {}) {
@@ -136,15 +308,20 @@ function categoryInclude() {
   return { model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'], required: false };
 }
 
-function merchantInclude() {
-  return { model: db.Merchant, attributes: ['id', 'officialName', 'normalizedName', 'merchantType'], required: false };
+function merchantInclude(merchantWhere = {}) {
+  const hasMerchantWhere = Object.keys(merchantWhere).length > 0;
+  return {
+    model: db.Merchant,
+    attributes: ['id', 'officialName', 'normalizedName', 'merchantGroupName', 'merchantType'],
+    where: hasMerchantWhere ? merchantWhere : undefined,
+    required: hasMerchantWhere
+  };
 }
 
 function sortOrder(sortKey, sortDir) {
   const dir = String(sortDir || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
   const direct = {
     transactionDate: ['transactionDate', dir],
-    merchant: ['merchant', dir],
     description: ['description', dir],
     transactionType: ['transactionType', dir],
     amount: ['amount', dir],
@@ -155,10 +332,12 @@ function sortOrder(sortKey, sortDir) {
   };
   if (sortKey === 'accountName') return [[db.Account, 'name', dir], ['transactionDate', 'DESC'], ['id', 'DESC']];
   if (sortKey === 'categoryName') return [[db.Category, 'name', dir], ['transactionDate', 'DESC'], ['id', 'DESC']];
+  if (sortKey === 'merchant') return [[db.Merchant, 'merchantGroupName', dir], [db.Merchant, 'officialName', dir], ['merchant', dir], ['transactionDate', 'DESC'], ['id', 'DESC']];
   return [direct[sortKey] || ['transactionDate', 'DESC'], ['id', 'DESC']];
 }
 
 function transactionDto(row) {
+  const displayMerchant = merchantDisplayName(row);
   return {
     id: row.id,
     transactionDate: row.transactionDate,
@@ -173,6 +352,11 @@ function transactionDto(row) {
     relatedAccountId: row.relatedAccountId,
     description: row.description,
     merchant: row.Merchant ? row.Merchant.officialName : row.merchant,
+    merchantOfficialName: row.Merchant ? row.Merchant.officialName : '',
+    merchantGroupName: row.Merchant ? row.Merchant.merchantGroupName : '',
+    merchantDisplayName: displayMerchant,
+    rawMerchant: row.merchant || '',
+    merchantKey: merchantFilterKey(row),
     receiptMerchant: row.receiptMerchant,
     normalizedMerchant: row.normalizedMerchant,
     merchantMatchConfidence: row.merchantMatchConfidence == null ? null : toNumber(row.merchantMatchConfidence),
@@ -194,12 +378,27 @@ function transactionDto(row) {
   };
 }
 
+function transactionDetailDto(row, sourceMap, metric) {
+  const dto = transactionDto(row);
+  const kind = classifyTransaction(row);
+  const amount = toNumber(row.amount);
+  const contribution = metric === 'cashFlow'
+    ? (kind === 'income' ? Math.abs(amount) : (kind === 'expense' ? -Math.abs(amount) : 0))
+    : Math.abs(amount);
+  return {
+    ...dto,
+    metricKind: kind,
+    transferReason: internalTransferReason(row),
+    metricContribution: contribution,
+    source: sourceMap.get(row.id) || null
+  };
+}
+
 function classifyTransaction(row) {
   const amount = toNumber(row.amount);
   const type = String(row.transactionType || '').toLowerCase();
-  if (type === 'income') return 'income';
-  if (type === 'expense') return 'expense';
-  if (type === 'transfer') return 'transfer';
+  if (internalTransferReason(row)) return 'transfer';
+  if (type === 'adjustment') return 'adjustment';
   if (amount > 0) return 'income';
   if (amount < 0) return 'expense';
   return type || 'adjustment';
@@ -219,19 +418,56 @@ function accountLabel(account) {
   return account.name + (account.currency ? ` (${account.currency})` : '');
 }
 
+exports.years = async (req, res, next) => {
+  try {
+    const [transactions, budgets, snapshots, reconciliations, currencyRates] = await Promise.all([
+      db.Transaction.findAll({ attributes: ['transactionDate'], raw: true }),
+      db.Budget.findAll({ attributes: ['year'], raw: true }),
+      db.AccountBalanceSnapshot.findAll({ attributes: ['snapshotDate'], raw: true }),
+      db.Reconciliation.findAll({ attributes: ['periodStart', 'periodEnd'], raw: true }),
+      db.CurrencyRate.findAll({ attributes: ['rateDate'], raw: true })
+    ]);
+
+    const years = new Set();
+    transactions.forEach((row) => addYearFromValue(years, row.transactionDate));
+    budgets.forEach((row) => addYearFromValue(years, row.year));
+    snapshots.forEach((row) => addYearFromValue(years, row.snapshotDate));
+    reconciliations.forEach((row) => {
+      addYearFromValue(years, row.periodStart);
+      addYearFromValue(years, row.periodEnd);
+    });
+    currencyRates.forEach((row) => addYearFromValue(years, row.rateDate));
+
+    const currentYear = new Date().getFullYear();
+    const sortedYears = Array.from(years).sort((a, b) => b - a);
+    if (!sortedYears.length) sortedYears.push(currentYear);
+
+    res.json({
+      years: sortedYears,
+      defaultYear: sortedYears[0],
+      currentYear,
+      minYear: Math.min(...sortedYears),
+      maxYear: Math.max(...sortedYears)
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.overview = async (req, res, next) => {
   try {
-    const year = Number(req.query.year) || 2026;
-    const month = req.query.month ? Number(req.query.month) : null;
+    const allYears = isAllYears(req.query.year);
+    const year = allYears ? null : (Number(req.query.year) || 2026);
+    const month = !allYears && req.query.month ? Number(req.query.month) : null;
     const accountId = req.query.accountId ? Number(req.query.accountId) : null;
     const accountClass = cleanText(req.query.accountClass);
     const currency = req.query.currency && req.query.currency !== 'ALL' ? String(req.query.currency) : null;
-    const [from, to] = dateRange(year, month);
+    const [from, to] = allYears ? [null, null] : dateRange(year, month);
 
     const txWhere = {
-      transactionDate: { [Op.between]: [from, to] },
       status: { [Op.ne]: 'void' }
     };
+    if (!allYears) txWhere.transactionDate = { [Op.between]: [from, to] };
     if (accountId) txWhere.accountId = accountId;
     if (currency) txWhere.currency = currency;
     const overviewAccountWhere = accountClass ? { accountClass } : {};
@@ -261,7 +497,7 @@ exports.overview = async (req, res, next) => {
       }),
       db.Budget.findAll({
         where: {
-          year,
+          ...(allYears ? {} : { year }),
           isActive: true,
           ...(month ? { [Op.or]: [{ month }, { month: null }] } : {}),
           ...(currency ? { currency } : {})
@@ -290,7 +526,7 @@ exports.overview = async (req, res, next) => {
       }),
       db.AccountBalanceSnapshot.findAll({
         where: {
-          snapshotDate: { [Op.lte]: to },
+          ...(allYears ? {} : { snapshotDate: { [Op.lte]: to } }),
           ...(accountId ? { accountId } : {}),
           ...(currency ? { currency } : {})
         },
@@ -305,7 +541,15 @@ exports.overview = async (req, res, next) => {
     ]);
 
     const categoryMap = new Map(categories.map((category) => [Number(category.id), category]));
-    const monthly = Array.from({ length: 12 }, (_, idx) => ({
+    const allYearLabels = Array.from(new Set(transactions.map((tx) => String(tx.transactionDate || '').slice(0, 4)).filter(Boolean))).sort();
+    const monthly = allYears ? allYearLabels.map((label) => ({
+      month: null,
+      label,
+      income: 0,
+      expenses: 0,
+      transfers: 0,
+      net: 0
+    })) : Array.from({ length: 12 }, (_, idx) => ({
       month: idx + 1,
       label: `${year}-${String(idx + 1).padStart(2, '0')}`,
       income: 0,
@@ -313,6 +557,7 @@ exports.overview = async (req, res, next) => {
       transfers: 0,
       net: 0
     }));
+    const periodIndex = new Map(monthly.map((item, index) => [item.label, index]));
     const accountMovement = new Map();
     const categoryTotals = new Map();
     let income = 0;
@@ -322,7 +567,11 @@ exports.overview = async (req, res, next) => {
     transactions.forEach((tx) => {
       const amount = toNumber(tx.amount);
       const kind = classifyTransaction(tx);
-      const monthIndex = Math.max(0, Math.min(11, Number(String(tx.transactionDate).slice(5, 7)) - 1));
+      const periodLabel = allYears ? String(tx.transactionDate || '').slice(0, 4) : `${year}-${String(tx.transactionDate).slice(5, 7)}`;
+      const monthIndex = allYears
+        ? periodIndex.get(periodLabel)
+        : Math.max(0, Math.min(11, Number(String(tx.transactionDate).slice(5, 7)) - 1));
+      if (monthIndex == null || !monthly[monthIndex]) return;
       if (!accountMovement.has(tx.accountId)) accountMovement.set(tx.accountId, 0);
       accountMovement.set(tx.accountId, accountMovement.get(tx.accountId) + amount);
 
@@ -424,7 +673,7 @@ exports.overview = async (req, res, next) => {
 
     res.json({
       filters: {
-        year,
+        year: allYears ? 'all' : year,
         month,
         accountId,
         accountClass,
@@ -520,14 +769,14 @@ exports.overview = async (req, res, next) => {
 
 exports.search = async (req, res, next) => {
   try {
-    const { where, accountWhere } = transactionQueryParts(req.query);
+    const { where, accountWhere, merchantWhere } = transactionQueryParts(req.query);
     const exportAll = req.query.exportAll === 'true';
     const page = Math.max(1, Number(req.query.page) || 1);
     const limit = exportAll
       ? Math.min(Math.max(Number(req.query.limit) || 5000, 1), 20000)
       : Math.min(Math.max(Number(req.query.limit) || 50, 1), 500);
     const offset = exportAll ? 0 : (page - 1) * limit;
-    const include = [accountInclude(accountWhere), categoryInclude(), merchantInclude()];
+    const include = [accountInclude(accountWhere), categoryInclude(), merchantInclude(merchantWhere)];
 
     const result = await db.Transaction.findAndCountAll({
       where,
@@ -562,10 +811,18 @@ exports.search = async (req, res, next) => {
       category.amount += amount;
       category.count += 1;
 
-      const merchantName = cleanText(row.Merchant ? row.Merchant.officialName : (row.merchant || row.normalizedMerchant || row.description)) || 'No merchant';
-      const merchantKey = row.merchantId ? `merchant:${row.merchantId}` : merchantResolver.normalizeMerchantKey(merchantName);
+      const merchantName = merchantDisplayName(row);
+      const merchantKey = merchantFilterKey(row);
+      const groupName = cleanText(row.Merchant && row.Merchant.merchantGroupName);
       if (!merchantSummary.has(merchantKey)) {
-        merchantSummary.set(merchantKey, { merchantId: row.merchantId || null, name: merchantName, amount: 0, count: 0 });
+        merchantSummary.set(merchantKey, {
+          merchantKey,
+          merchantId: groupName ? null : (row.merchantId || null),
+          groupName,
+          name: merchantName,
+          amount: 0,
+          count: 0
+        });
       }
       const merchant = merchantSummary.get(merchantKey);
       merchant.amount += amount;
@@ -588,35 +845,259 @@ exports.search = async (req, res, next) => {
   }
 };
 
+exports.kpiDetail = async (req, res, next) => {
+  try {
+    const metric = cleanText(req.query.metric) || 'income';
+    const transactionMetrics = new Set(['income', 'expenses', 'cashFlow', 'transfers', 'savingsRate']);
+    const allYears = isAllYears(req.query.year);
+    const year = allYears ? null : (Number(req.query.year) || 2026);
+    const month = !allYears && req.query.month ? Number(req.query.month) : null;
+    const currency = req.query.currency && req.query.currency !== 'ALL' ? cleanText(req.query.currency).toUpperCase() : null;
+    const accountId = cleanId(req.query.accountId);
+    const accountClass = cleanText(req.query.accountClass);
+    const limit = Math.min(Math.max(Number(req.query.limit) || 20000, 1), 20000);
+
+    if (transactionMetrics.has(metric)) {
+      const detailLimit = limit;
+      const { where, accountWhere, merchantWhere } = transactionQueryParts({
+        ...req.query,
+        status: req.query.status || ''
+      });
+      if (!req.query.status) where.status = { [Op.ne]: 'void' };
+      const rows = await db.Transaction.findAll({
+        where,
+        include: [accountInclude(accountWhere), categoryInclude(), merchantInclude(merchantWhere)],
+        order: [['transactionDate', 'DESC'], ['id', 'DESC']],
+        limit: 20000
+      });
+
+      const filteredRows = rows.filter((row) => {
+        const kind = classifyTransaction(row);
+        if (metric === 'income') return kind === 'income';
+        if (metric === 'expenses') return kind === 'expense';
+        if (metric === 'transfers') return kind === 'transfer';
+        return kind === 'income' || kind === 'expense';
+      });
+      const sourceMap = await importSourcesByTransactionId(filteredRows.map((row) => row.id));
+      const details = filteredRows.map((row) => transactionDetailDto(row, sourceMap, metric));
+      const returnedDetails = details.slice(0, detailLimit);
+      const income = details.filter((row) => row.metricKind === 'income').reduce((sum, row) => sum + Math.abs(toNumber(row.amount)), 0);
+      const expenses = details.filter((row) => row.metricKind === 'expense').reduce((sum, row) => sum + Math.abs(toNumber(row.amount)), 0);
+      const transfers = details.filter((row) => row.metricKind === 'transfer').reduce((sum, row) => sum + Math.abs(toNumber(row.amount)), 0);
+      const total = metric === 'cashFlow' || metric === 'savingsRate'
+        ? income - expenses
+        : metric === 'income'
+          ? income
+          : metric === 'expenses'
+            ? expenses
+            : transfers;
+
+      return res.json({
+        metric,
+        detailType: 'transactions',
+        title: {
+          income: 'Income Detail',
+          expenses: 'Expense Detail',
+          cashFlow: 'Cash Flow Detail',
+          transfers: 'Transfer Detail',
+          savingsRate: 'Savings Rate Basis'
+        }[metric],
+        formula: metric === 'cashFlow'
+          ? 'Income transactions minus expense transactions. Transfers are excluded.'
+          : metric === 'savingsRate'
+            ? 'Cash flow divided by income. Rows include the income and expense basis.'
+            : metric === 'transfers'
+              ? 'Internal movements, credit-card payments, and explicit transfer rows.'
+              : 'Rows classified with the same KPI rules used by the dashboard.',
+        filters: { year: allYears ? 'all' : year, month, accountId, accountClass, currency: currency || 'ALL' },
+        summary: {
+          total,
+          income,
+          expenses,
+          cashFlow: income - expenses,
+          transfers,
+          savingsRatePct: income > 0 ? pct(((income - expenses) / income) * 100) : 0,
+          rowCount: details.length,
+          returnedRowCount: returnedDetails.length,
+          sourceFileCount: new Set(details.map((row) => row.source && (row.source.originalFileName || row.source.importBatchFileName)).filter(Boolean)).size
+        },
+        rows: returnedDetails
+      });
+    }
+
+    const [from, to] = allYears ? [null, null] : dateRange(year, month);
+    const txWhere = { status: { [Op.ne]: 'void' } };
+    if (!allYears) txWhere.transactionDate = { [Op.between]: [from, to] };
+    if (accountId) txWhere.accountId = accountId;
+    if (currency) txWhere.currency = currency;
+    const reportAccountWhere = {
+      ...(accountClass ? { accountClass } : {}),
+      ...(currency ? { currency } : {})
+    };
+
+    if (metric === 'netWorth' || metric === 'creditUtilization') {
+      const [accounts, transactions] = await Promise.all([
+        db.Account.findAll({ where: reportAccountWhere, order: [['accountClass', 'ASC'], ['name', 'ASC']] }),
+        db.Transaction.findAll({ where: txWhere, include: [accountInclude(accountClass ? { accountClass } : {})] })
+      ]);
+      const movement = new Map();
+      transactions.forEach((row) => {
+        movement.set(row.accountId, toNumber(movement.get(row.accountId)) + toNumber(row.amount));
+      });
+      const rows = accounts
+        .filter((account) => !accountId || Number(account.id) === accountId)
+        .map((account) => {
+          const balance = toNumber(account.currentBalance || account.openingBalance) + toNumber(movement.get(account.id));
+          return {
+            id: account.id,
+            name: account.name,
+            accountCode: account.accountCode,
+            accountClass: account.accountClass,
+            accountSubtype: account.accountSubtype,
+            accountType: account.accountType,
+            currency: account.currency,
+            currentBalance: toNumber(account.currentBalance),
+            periodMovement: toNumber(movement.get(account.id)),
+            balance,
+            netWorthValue: accountNetValue(account, balance),
+            creditLimit: toNumber(account.creditLimit),
+            status: account.status,
+            includeInNetWorth: account.includeInNetWorth !== false
+          };
+        })
+        .filter((row) => metric === 'netWorth' || /credit|card|loan|liability/i.test(`${row.accountClass} ${row.accountType}`) || row.creditLimit > 0);
+      const creditLimit = rows.reduce((sum, row) => sum + toNumber(row.creditLimit), 0);
+      const creditUsed = rows.reduce((sum, row) => sum + Math.abs(Math.min(0, toNumber(row.balance))), 0);
+      return res.json({
+        metric,
+        detailType: 'accounts',
+        title: metric === 'netWorth' ? 'Net Worth Detail' : 'Credit Utilization Detail',
+        formula: metric === 'netWorth'
+          ? 'Eligible account balances plus period movement, using liability sign rules.'
+          : 'Credit used divided by credit limit for credit/liability accounts.',
+        filters: { year: allYears ? 'all' : year, month, accountId, accountClass, currency: currency || 'ALL' },
+        summary: {
+          total: metric === 'netWorth' ? rows.reduce((sum, row) => sum + toNumber(row.netWorthValue), 0) : (creditLimit > 0 ? pct((creditUsed / creditLimit) * 100) : 0),
+          creditLimit,
+          creditUsed,
+          rowCount: rows.length
+        },
+        rows
+      });
+    }
+
+    if (metric === 'investments') {
+      const rows = await db.InvestmentHolding.findAll({
+        where: currency ? { currency } : {},
+        include: [{ model: db.Account, attributes: ['id', 'name', 'accountClass', 'currency'], required: false }],
+        order: [['assetClass', 'ASC'], ['symbol', 'ASC']]
+      });
+      const details = rows.map((row) => ({
+        id: row.id,
+        symbol: row.symbol,
+        name: row.name,
+        assetClass: row.assetClass,
+        quantity: toNumber(row.quantity),
+        costBasis: toNumber(row.costBasis),
+        marketValue: toNumber(row.marketValue),
+        unrealizedGain: toNumber(row.marketValue) - toNumber(row.costBasis),
+        currency: row.currency,
+        priceDate: row.priceDate,
+        accountName: row.Account ? row.Account.name : ''
+      }));
+      return res.json({
+        metric,
+        detailType: 'holdings',
+        title: 'Investment Detail',
+        formula: 'Sum of investment holding market values.',
+        filters: { year: allYears ? 'all' : year, month, accountId, accountClass, currency: currency || 'ALL' },
+        summary: { total: details.reduce((sum, row) => sum + row.marketValue, 0), rowCount: details.length },
+        rows: details
+      });
+    }
+
+    if (metric === 'budgetUsed') {
+      const [budgets, transactions] = await Promise.all([
+        db.Budget.findAll({
+          where: {
+            ...(allYears ? {} : { year }),
+            isActive: true,
+            ...(month ? { [Op.or]: [{ month }, { month: null }] } : {}),
+            ...(currency ? { currency } : {})
+          },
+          include: [{ model: db.Category, attributes: ['id', 'name', 'groupName', 'categoryType'], required: false }],
+          order: [['month', 'ASC'], ['name', 'ASC']]
+        }),
+        db.Transaction.findAll({ where: txWhere, include: [categoryInclude(), accountInclude(accountClass ? { accountClass } : {})], limit: 20000 })
+      ]);
+      const actualByCategory = new Map();
+      transactions.forEach((row) => {
+        if (classifyTransaction(row) !== 'expense') return;
+        const key = row.categoryId || 'uncategorized';
+        actualByCategory.set(key, toNumber(actualByCategory.get(key)) + Math.abs(toNumber(row.amount)));
+      });
+      const expenseTotal = Array.from(actualByCategory.values()).reduce((sum, value) => sum + toNumber(value), 0);
+      const details = budgets.map((budget) => {
+        const planned = toNumber(budget.plannedAmount) * (!month && budget.budgetType === 'monthly' && !budget.month ? 12 : 1);
+        const actual = budget.categoryId ? toNumber(actualByCategory.get(Number(budget.categoryId))) : expenseTotal;
+        return {
+          id: budget.id,
+          name: budget.name,
+          year: budget.year,
+          month: budget.month,
+          categoryName: budget.Category ? budget.Category.name : '',
+          categoryGroup: budget.Category ? budget.Category.groupName : '',
+          plannedAmount: planned,
+          actualAmount: actual,
+          variance: planned - actual,
+          usagePct: planned > 0 ? pct((actual / planned) * 100) : 0,
+          currency: budget.currency
+        };
+      });
+      const plannedTotal = details.reduce((sum, row) => sum + row.plannedAmount, 0);
+      const actualTotal = details.reduce((sum, row) => sum + row.actualAmount, 0);
+      return res.json({
+        metric,
+        detailType: 'budgets',
+        title: 'Budget Usage Detail',
+        formula: 'Actual expense rows divided by planned budget rows.',
+        filters: { year: allYears ? 'all' : year, month, accountId, accountClass, currency: currency || 'ALL' },
+        summary: {
+          total: plannedTotal > 0 ? pct((actualTotal / plannedTotal) * 100) : 0,
+          plannedTotal,
+          actualTotal,
+          rowCount: details.length
+        },
+        rows: details
+      });
+    }
+
+    res.status(400).json({ error: 'Unknown KPI metric.' });
+  } catch (err) {
+    next(err);
+  }
+};
+
 exports.trends = async (req, res, next) => {
   try {
-    const groupBy = ['account', 'merchant', 'category'].includes(req.query.groupBy) ? req.query.groupBy : 'category';
+    const groupBy = ['account', 'merchant', 'category', 'total'].includes(req.query.groupBy) ? req.query.groupBy : 'category';
     const grain = ['day', 'week', 'month', 'year'].includes(req.query.grain) ? req.query.grain : 'month';
     const measure = ['income', 'expense', 'transfer', 'net'].includes(req.query.measure) ? req.query.measure : 'expense';
-    const { where, accountWhere } = transactionQueryParts({
+    const calendarMode = req.query.calendar === 'active' ? 'active' : 'range';
+    const { where, accountWhere, merchantWhere } = transactionQueryParts({
       ...req.query,
       status: req.query.status || ''
     });
     if (!req.query.status) where.status = { [Op.ne]: 'void' };
     const rows = await db.Transaction.findAll({
       where,
-      include: [accountInclude(accountWhere), categoryInclude(), merchantInclude()],
+      include: [accountInclude(accountWhere), categoryInclude(), merchantInclude(merchantWhere)],
       order: [['transactionDate', 'ASC'], ['id', 'ASC']],
       limit: 20000
     });
 
     function timeBucket(dateValue) {
-      const text = String(dateValue || '');
-      if (grain === 'day') return text.slice(0, 10);
-      if (grain === 'week') {
-        const date = new Date(text + 'T00:00:00Z');
-        if (Number.isNaN(date.getTime())) return text.slice(0, 10);
-        const day = (date.getUTCDay() + 6) % 7;
-        date.setUTCDate(date.getUTCDate() - day);
-        return date.toISOString().slice(0, 10);
-      }
-      if (grain === 'year') return text.slice(0, 4);
-      return text.slice(0, 7);
+      return bucketDate(dateValue, grain);
     }
 
     function bucketLabel(value) {
@@ -625,39 +1106,50 @@ exports.trends = async (req, res, next) => {
         if (Number.isNaN(start.getTime())) return value;
         const end = new Date(start);
         end.setUTCDate(end.getUTCDate() + 6);
-        return `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`;
+        if (calendarMode === 'active') return `${isoDay(start)} -> ${isoDay(end)}`;
+        const selectedStart = parseIsoDay(req.query.from);
+        const selectedEnd = parseIsoDay(req.query.to);
+        const displayStart = selectedStart && selectedStart > start ? selectedStart : start;
+        const displayEnd = selectedEnd && selectedEnd < end ? selectedEnd : end;
+        return `${isoDay(displayStart)} -> ${isoDay(displayEnd)}`;
       }
       return value;
     }
 
-    const labels = Array.from(new Set(rows.map((row) => timeBucket(row.transactionDate)))).sort();
+    const labels = calendarMode === 'active' ? buildActiveTrendBuckets(rows, grain) : buildTrendBuckets(req.query, rows, grain);
     const labelIndex = new Map(labels.map((label, index) => [label, index]));
     const groups = new Map();
     rows.forEach((row) => {
       const kind = classifyTransaction(row);
       if (measure !== 'net' && kind !== measure) return;
       const label = timeBucket(row.transactionDate);
+      const bucketIndex = labelIndex.get(label);
+      if (bucketIndex == null) return;
       const amount = measure === 'net' ? toNumber(row.amount) : Math.abs(toNumber(row.amount));
-      const name = groupBy === 'merchant'
-        ? (cleanText(row.Merchant ? row.Merchant.officialName : (row.merchant || row.normalizedMerchant || row.description)) || 'No merchant')
+      const name = groupBy === 'total'
+        ? 'All merchants'
+        : groupBy === 'merchant'
+        ? merchantDisplayName(row)
         : groupBy === 'account'
           ? (row.Account ? row.Account.name : 'Unassigned account')
           : (row.Category ? row.Category.name : 'Uncategorized');
-      const key = groupBy === 'merchant'
-        ? (row.merchantId ? `merchant:${row.merchantId}` : merchantResolver.normalizeMerchantKey(name) || 'uncategorized')
+      const key = groupBy === 'total'
+        ? 'total'
+        : groupBy === 'merchant'
+        ? merchantFilterKey(row)
         : groupBy === 'account'
           ? `account:${row.accountId || 'uncategorized'}`
         : merchantCategorizer.normalize(name) || 'uncategorized';
       if (!groups.has(key)) groups.set(key, { key, name, total: 0, values: Array(labels.length).fill(0) });
       const group = groups.get(key);
-      group.values[labelIndex.get(label)] += amount;
+      group.values[bucketIndex] += amount;
       group.total += Math.abs(amount);
     });
 
     const series = Array.from(groups.values())
       .sort((a, b) => b.total - a.total)
       .slice(0, Math.min(Math.max(Number(req.query.top) || 8, 1), 15));
-    res.json({ labels: labels.map(bucketLabel), groupBy, measure, grain, series });
+    res.json({ labels: labels.map(bucketLabel), groupBy, measure, grain, calendar: calendarMode, series });
   } catch (err) {
     next(err);
   }

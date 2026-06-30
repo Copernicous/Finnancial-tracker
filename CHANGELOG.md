@@ -1,5 +1,16 @@
 # Home Accounting Changelog
 
+## 0.3.0 - 2026-06-30
+
+- Added KPI drill-down reports in the Financial Workspace so dashboard cards can show the transactions, accounts, merchants, transfer reasons, and source statement files behind each number.
+- Added source-file enrichment for imported transaction detail using posted import rows and import batch metadata.
+- Reclassified internal transfers and credit-card payments out of income/expense calculations to make cash-flow KPIs more realistic.
+- Added Citi statement account registry support for checking, savings, AAdvantage credit card, and CD account discovery.
+- Added statement PDF review, staging, reset, account-sync, date-normalization, and bank-import audit scripts for safer iterative imports.
+- Added the read-only time-machine reconciliation report that extracts statement checkpoints, reconciles statement-to-statement balances using PostgreSQL source-statement queries, flags mismatch reasons, and exports CSV/JSON/Markdown evidence.
+- Created the first time-machine validation report from 110 posted statement batches: AAdvantage reconciles fully, while Day to Day Savings 8293 and several historical gaps require additional transaction import/review before the dashboard can be considered fully reconciled.
+- Created a fresh PostgreSQL backup after validation: `backups/backup_2026-06-30T02-35-50.dump`.
+
 ## 0.2.0 - 2026-06-29
 
 - Added a dedicated financial explorer for categories and merchants with combo-based selection and timeline controls.

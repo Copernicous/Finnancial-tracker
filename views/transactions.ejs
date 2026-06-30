@@ -229,7 +229,7 @@
         <div class="tx-panel-header">
           <div>
             <h5 class="tx-title" id="entryTitle">New Transaction</h5>
-            <div class="tx-muted">2026 ledger entry, correction, transfer, and category review.</div>
+            <div class="tx-muted">Ledger entry, correction, transfer, and category review.</div>
           </div>
           <div class="d-flex gap-2 no-print">
             <button class="btn btn-outline-secondary btn-sm" type="button" data-bs-toggle="collapse" data-bs-target="#advancedEntry">
@@ -387,7 +387,7 @@
             </div>
             <div class="tx-field">
               <label for="yearFilter">Year</label>
-              <select class="form-select form-select-sm" id="yearFilter"><option value="2026">2026</option></select>
+              <select class="form-select form-select-sm" id="yearFilter"><option value="">Loading...</option></select>
             </div>
             <div class="tx-field">
               <label for="monthFilter">Month</label>
@@ -644,6 +644,8 @@ let trendChart = null;
 let trendVerticalChart = null;
 let categoryModal = null;
 let modalRows = [];
+let availableYears = [];
+let defaultYear = String(new Date().getFullYear());
 
 function authHeaders(json) {
   const token = localStorage.getItem('haToken') || localStorage.getItem('token') || '';
@@ -664,6 +666,25 @@ function qs(params) {
     .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(params[key]))
     .join('&');
 }
+function populateYearSelect(selectId, payload) {
+  const select = document.getElementById(selectId);
+  const previous = select.value;
+  const years = (payload && Array.isArray(payload.years) ? payload.years : [])
+    .map(year => String(year))
+    .filter(year => /^\d{4}$/.test(year));
+  if (!years.length) years.push(String(new Date().getFullYear()));
+  availableYears = years;
+  defaultYear = String((payload && payload.defaultYear) || years[0]);
+  select.innerHTML = '<option value="all">All years</option>' + years.map(year => '<option value="' + esc(year) + '">' + esc(year) + '</option>').join('');
+  select.value = previous === 'all' ? 'all' : (years.includes(previous) ? previous : (years.includes(defaultYear) ? defaultYear : years[0]));
+  syncYearMode();
+}
+function syncYearMode() {
+  const isAllYears = document.getElementById('yearFilter').value === 'all';
+  const monthFilter = document.getElementById('monthFilter');
+  if (isAllYears) monthFilter.value = '';
+  monthFilter.disabled = isAllYears;
+}
 function money(value, currency) {
   const code = currency || 'USD';
   return Number(value || 0).toLocaleString(undefined, { style: 'currency', currency: code, maximumFractionDigits: code === 'COP' ? 0 : 2 });
@@ -676,6 +697,15 @@ function accountLabel(account) {
 }
 function categoryLabel(category) {
   return category ? category.name + (category.groupName ? ' [' + category.groupName + ']' : '') : '';
+}
+function merchantLabel(row) {
+  return row.merchantDisplayName || row.merchantOfficialName || row.merchant || row.receiptMerchant || row.normalizedMerchant || row.description || '';
+}
+function merchantDetail(row) {
+  const primary = merchantLabel(row);
+  return [row.merchantOfficialName, row.merchantGroupName, row.receiptMerchant, row.rawMerchant, row.normalizedMerchant, row.sourceType]
+    .filter(value => value && value !== primary)
+    .find(Boolean) || '';
 }
 function findByLabel(collection, label, mapper) {
   const key = normalize(label);
@@ -719,12 +749,14 @@ function bindCombo(inputId, hiddenId, collectionGetter, mapper, required) {
 }
 
 async function loadLookups() {
-  const [accountRows, categoryRows] = await Promise.all([
+  const [accountRows, categoryRows, yearPayload] = await Promise.all([
     fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
-    fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : [])
+    fetch('/api/categories', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
+    fetch('/api/finance/years', { headers: authHeaders() }).then(r => r.ok ? r.json() : null)
   ]);
   accounts = accountRows.sort((a, b) => accountLabel(a).localeCompare(accountLabel(b)));
   categories = categoryRows.sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)));
+  populateYearSelect('yearFilter', yearPayload);
 
   const accountOpts = activeAccounts().map(account => '<option value="' + attr(accountLabel(account)) + '"></option>').join('');
   document.getElementById('accountOptions').innerHTML = accountOpts;
@@ -838,7 +870,7 @@ function filterParams(extra) {
   return {
     q: document.getElementById('qFilter').value.trim(),
     searchScope: document.getElementById('searchScope').value,
-    year: document.getElementById('yearFilter').value || '2026',
+    year: document.getElementById('yearFilter').value || defaultYear,
     month: document.getElementById('monthFilter').value,
     accountClass: document.getElementById('accountClassFilter').value,
     accountId: document.getElementById('accountFilter').value,
@@ -890,7 +922,7 @@ function renderRows() {
         '<select class="form-select form-select-sm row-category" data-id="' + row.id + '">' + categoryOptionsHtml(row.categoryId, true) + '</select>' +
         '<button class="btn btn-outline-secondary btn-sm no-print category-drill" type="button" data-category="' + (row.categoryId || 'uncategorized') + '" data-name="' + attr(row.categoryName || 'Uncategorized') + '"><i class="fas fa-magnifying-glass"></i></button>' +
       '</div></td>' +
-      '<td><div class="fw-semibold">' + esc(row.merchant || '') + '</div><div class="tx-muted">' + esc(row.receiptMerchant && row.receiptMerchant !== row.merchant ? row.receiptMerchant : row.sourceType || '') + '</div></td>' +
+      '<td><div class="fw-semibold">' + esc(merchantLabel(row)) + '</div><div class="tx-muted">' + esc(merchantDetail(row)) + '</div></td>' +
       '<td><div>' + esc(row.description || '') + '</div><div class="tx-row-note">' + esc(row.tags || row.memo || '') + '</div></td>' +
       '<td>' + esc(row.transactionType || '') + '</td>' +
       '<td class="text-end tx-amount ' + amountClass + '">' + money(row.amount, row.currency) + '</td>' +
@@ -997,7 +1029,7 @@ async function suggestOne(row, onlineLookup) {
     method: 'POST',
     headers: authHeaders(true),
     body: JSON.stringify({
-      merchant: row.merchant || row.description,
+      merchant: merchantLabel(row) || row.merchant || row.description,
       description: row.description,
       transactionType: row.transactionType,
       onlineLookup: !!onlineLookup
@@ -1066,16 +1098,17 @@ async function exportCsv() {
   const data = await res.json().catch(() => ({}));
   if (!res.ok) return toast('Export failed.', 'danger');
   const exportRows = data.rows || [];
-  const headers = ['Date', 'Account', 'Account Type', 'Category', 'Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Source', 'Reference', 'Tags', 'Memo'];
+  const headers = ['Date', 'Account', 'Account Type', 'Category', 'Merchant', 'Official Merchant', 'Merchant Group', 'Receipt Merchant', 'Raw Merchant', 'Normalized Merchant', 'Description', 'Type', 'Amount', 'Currency', 'Status', 'Source', 'Reference', 'Tags', 'Memo'];
   const lines = [headers].concat(exportRows.map(row => [
-    row.transactionDate, row.accountName, row.accountClass, row.categoryName || 'Uncategorized', row.merchant || '',
+    row.transactionDate, row.accountName, row.accountClass, row.categoryName || 'Uncategorized', merchantLabel(row), row.merchantOfficialName || row.merchant || '',
+    row.merchantGroupName || '', row.receiptMerchant || '', row.rawMerchant || '', row.normalizedMerchant || '',
     row.description || '', row.transactionType, row.amount, row.currency, row.status, row.sourceType,
     row.referenceNumber || '', row.tags || '', row.memo || ''
   ]));
   const csv = lines.map(line => line.map(cell => typeof sanitizeCsvCell === 'function' ? sanitizeCsvCell(cell) : '"' + String(cell == null ? '' : cell).replace(/"/g, '""') + '"').join(',')).join('\n');
   const link = document.createElement('a');
   link.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  link.download = 'home_accounting_transactions_2026.csv';
+  link.download = 'home_accounting_transactions_' + ((document.getElementById('yearFilter').value || defaultYear) === 'all' ? 'all_years' : (document.getElementById('yearFilter').value || defaultYear)) + '.csv';
   link.click();
   URL.revokeObjectURL(link.href);
 }
@@ -1174,7 +1207,7 @@ async function openCategory(categoryId, name) {
   document.getElementById('categoryModalTitle').textContent = name || 'Category Review';
   document.getElementById('categoryModalMeta').textContent = (data.total || modalRows.length) + ' transaction(s) in current filter';
   document.getElementById('categoryModalRows').innerHTML = modalRows.length ? modalRows.map(row => (
-    '<tr><td>' + esc(row.transactionDate) + '</td><td>' + esc(row.accountName) + '</td><td>' + esc(row.merchant || '') + '</td><td>' + esc(row.description || '') + '</td><td class="text-end">' + money(row.amount, row.currency) + '</td></tr>'
+    '<tr><td>' + esc(row.transactionDate) + '</td><td>' + esc(row.accountName) + '</td><td>' + esc(merchantLabel(row)) + '</td><td>' + esc(row.description || '') + '</td><td class="text-end">' + money(row.amount, row.currency) + '</td></tr>'
   )).join('') : '<tr><td colspan="5" class="text-muted">No transactions in this category.</td></tr>';
   categoryModal.show();
 }
@@ -1196,6 +1229,8 @@ async function modalApplyCategory() {
 
 function resetFilters() {
   document.getElementById('filterForm').reset();
+  document.getElementById('yearFilter').value = defaultYear;
+  syncYearMode();
   document.getElementById('currencyFilter').value = 'ALL';
   document.getElementById('perPageFilter').value = '50';
   lastSearch.page = 1;
@@ -1204,6 +1239,7 @@ function resetFilters() {
 document.getElementById('transactionForm').addEventListener('submit', saveEntry);
 document.getElementById('clearEntryBtn').addEventListener('click', resetEntry);
 document.getElementById('newEntryBtn').addEventListener('click', resetEntry);
+document.getElementById('yearFilter').addEventListener('change', syncYearMode);
 document.getElementById('filterForm').addEventListener('change', () => { lastSearch.page = 1; loadRows(); loadTrend(); });
 document.getElementById('qFilter').addEventListener('keydown', event => {
   if (event.key === 'Enter') {

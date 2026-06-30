@@ -1,6 +1,6 @@
 {
   "name": "home-accounting",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Home Accounting management system with roles, audit, reporting, uploads, staging, and deployment tooling",
   "main": "app.js",
   "scripts": {
@@ -13,6 +13,14 @@
     "db:seed": "sequelize-cli db:seed:all",
     "db:reset:financial": "node scripts/reset-financial-db.js",
     "db:reset:financial:staging": "node scripts/reset-financial-db.js --staging",
+    "import:bank-folders": "node scripts/stage-bank-statement-folders.js",
+    "audit:bank-imports": "node scripts/audit-bank-statement-imports.js",
+    "review:bank-pdfs": "node scripts/review-bank-statement-pdfs.js",
+    "accounts:sync-bank": "node scripts/sync-bank-statement-accounts.js",
+    "reconcile:time-machine": "node scripts/time-machine-reconciliation.js",
+    "transactions:reclassify-transfers": "node scripts/reclassify-internal-transfers.js",
+    "reset:bank-imports": "node scripts/reset-bank-statement-imports.js",
+    "normalize:statement-dates": "node scripts/normalize-statement-file-dates.js",
     "smoke:local": "node scripts/smoke-home-accounting.js",
     "smoke:local:seed": "node scripts/smoke-home-accounting.js --seed",
     "build:exe": "npx --yes @yao-pkg/pkg app.js --target node22-win-x64 --output dist/server.exe --compress GZip && node scripts/post-build.js"

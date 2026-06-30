@@ -12,6 +12,7 @@ module.exports = (sequelize, DataTypes) => {
   Merchant.init({
     officialName: { type: DataTypes.STRING, allowNull: false },
     normalizedName: { type: DataTypes.STRING, allowNull: false, unique: true },
+    merchantGroupName: DataTypes.STRING,
     merchantType: DataTypes.STRING,
     website: DataTypes.STRING,
     defaultCategoryId: DataTypes.INTEGER,

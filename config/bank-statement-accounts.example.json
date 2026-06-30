@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "unknownAccountPolicy": "review_required",
+  "accounts": [
+    {
+      "key": "citi_checking_example",
+      "label": "Citi Checking Example",
+      "accountType": "checking",
+      "productPatterns": ["Regular Checking"],
+      "accountNumbers": ["0000000000"],
+      "last4": ["0000"],
+      "profile": "citi_checking_pdf",
+      "ledgerAccountCode": "CITI-CHECKING-0000",
+      "ledgerAccountSpec": {
+        "name": "Citi Checking 0000",
+        "accountCode": "CITI-CHECKING-0000",
+        "accountType": "asset",
+        "accountClass": "checking",
+        "accountSubtype": "checking",
+        "currency": "USD",
+        "status": "active",
+        "includeInNetWorth": true,
+        "notes": "Example account mapping for bank statement imports."
+      },
+      "status": "known"
+    }
+  ]
+}

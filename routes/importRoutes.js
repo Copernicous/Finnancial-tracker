@@ -55,6 +55,8 @@ router.get('/template/:dataset', importController.getTemplate);
 
 // Staged import history
 router.get('/batches', rbac.requirePermission('import', 'read'), importController.getBatches);
+router.post('/batches/archive', rbac.requirePermission('import', 'edit'), importController.archiveBatches);
+router.post('/batches/unarchive', rbac.requirePermission('import', 'edit'), importController.unarchiveBatches);
 router.get('/batches/:id/rows', rbac.requirePermission('import', 'read'), importController.getBatchRows);
 router.put('/batches/:id/rows', rbac.requirePermission('import', 'edit'), importController.updateBatchRows);
 router.delete('/batches/:id/purge', rbac.requireMaster, importController.purgeBatch);

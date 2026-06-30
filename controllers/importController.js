@@ -3,7 +3,7 @@ const { Readable } = require('stream');
 const crypto = require('crypto');
 const { Op } = require('sequelize');
 const db = require('../models');
-const { parseBankStatement } = require('../services/bankStatementParser');
+const { parseBankStatement, PROFILE_CONFIG } = require('../services/bankStatementParser');
 const merchantCategorizer = require('../services/merchantCategorizer');
 const merchantResolver = require('../services/merchantResolver');
 
@@ -76,6 +76,33 @@ function parseJsonField(value, fallback) {
 
 function batchNotes(batch) {
   return parseJsonField(batch && batch.notes, {});
+}
+
+function batchArchiveMetadata(batch) {
+  const notes = batchNotes(batch);
+  return {
+    notes,
+    archived: notes.archived === true,
+    archivedAt: notes.archivedAt || null,
+    archiveReason: notes.archiveReason || ''
+  };
+}
+
+function editableBatchNotes(batch) {
+  const notes = batchNotes(batch);
+  const rawNotes = batch && typeof batch.notes === 'string' ? batch.notes.trim() : '';
+  if (!rawNotes) return notes;
+  try {
+    JSON.parse(rawNotes);
+    return notes;
+  } catch (err) {
+    return { originalNotes: rawNotes };
+  }
+}
+
+function canonicalBankStatementProfile(profile) {
+  const config = PROFILE_CONFIG[profile] || {};
+  return config.canonicalProfile || config.profile || profile;
 }
 
 async function getStoredMerchantRules() {
@@ -283,7 +310,7 @@ async function resolveDefaultBankAccountId(requestedAccountId, profile, metadata
 
   const profileMatchers = [];
   if (normalizedProfile.includes('checking')) profileMatchers.push(/checking/i, /current/i);
-  if (normalizedProfile.includes('savings')) profileMatchers.push(/savings/i, /deposit/i);
+  if (normalizedProfile.includes('savings') || normalizedProfile.includes('ultimate')) profileMatchers.push(/savings/i, /deposit/i, /ultimate/i);
   if (normalizedProfile.includes('credit')) profileMatchers.push(/credit/i, /card/i);
   if (!profileMatchers.length) profileMatchers.push(/checking/i, /savings/i, /bank/i);
 
@@ -510,26 +537,89 @@ exports.importCategories = async (req, res) => {
 };
 
 exports.getBatches = async (req, res) => {
-  const includeRemoved = ['1', 'true', 'yes'].includes(String(req.query.includeRemoved || '').toLowerCase());
+  const includeRemoved = cleanBoolean(req.query.includeRemoved, false);
+  const includeArchived = cleanBoolean(req.query.includeArchived, false);
   const batches = await db.ImportBatch.findAll({
     where: includeRemoved ? {} : { status: { [Op.ne]: 'removed' } },
     include: [{ model: db.User, as: 'CreatedBy', attributes: ['id', 'firstName', 'lastName', 'username'] }],
     order: [['createdAt', 'DESC']],
-    limit: 100
+    limit: 500
   });
-  res.json(batches.map((batch) => ({
-    id: batch.id,
-    importType: batch.importType,
-    fileName: batch.fileName,
-    status: batch.status,
-    rowCount: batch.rowCount,
-    acceptedCount: batch.acceptedCount,
-    rejectedCount: batch.rejectedCount,
-    notes: batch.notes,
-    createdAt: batch.createdAt,
-    createdBy: batch.CreatedBy ? `${batch.CreatedBy.firstName || ''} ${batch.CreatedBy.lastName || ''}`.trim() || batch.CreatedBy.username : ''
-  })));
+  const rows = batches.map((batch) => {
+    const archive = batchArchiveMetadata(batch);
+    return {
+      id: batch.id,
+      importType: batch.importType,
+      fileName: batch.fileName,
+      status: batch.status,
+      archived: archive.archived,
+      archivedAt: archive.archivedAt,
+      archiveReason: archive.archiveReason,
+      rowCount: batch.rowCount,
+      acceptedCount: batch.acceptedCount,
+      rejectedCount: batch.rejectedCount,
+      notes: batch.notes,
+      createdAt: batch.createdAt,
+      createdBy: batch.CreatedBy ? `${batch.CreatedBy.firstName || ''} ${batch.CreatedBy.lastName || ''}`.trim() || batch.CreatedBy.username : ''
+    };
+  }).filter((row) => includeArchived || !row.archived);
+  res.json(rows);
 };
+
+async function setBatchArchiveState(req, res, archived) {
+  const rawIds = Array.isArray(req.body && req.body.ids) ? req.body.ids : [];
+  const ids = Array.from(new Set(rawIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0)));
+  if (!ids.length) return res.status(400).json({ error: 'Select at least one staged document.' });
+
+  const batches = await db.ImportBatch.findAll({ where: { id: ids } });
+  const now = new Date().toISOString();
+  let updated = 0;
+
+  await db.sequelize.transaction(async (transaction) => {
+    for (const batch of batches) {
+      if (batch.status === 'removed') continue;
+      const existingNotes = editableBatchNotes(batch);
+      if (archived && existingNotes.archived === true) continue;
+      if (!archived && existingNotes.archived !== true) continue;
+
+      const archiveFields = archived
+        ? {
+            archived: true,
+            archivedAt: now,
+            archivedByUserId: req.user && req.user.id,
+            archiveReason: cleanText(req.body && req.body.reason) || 'Archived from import screen.',
+            unarchivedAt: null,
+            unarchivedByUserId: null
+          }
+        : {
+            archived: false,
+            unarchivedAt: now,
+            unarchivedByUserId: req.user && req.user.id
+          };
+
+      await batch.update({
+        notes: JSON.stringify({
+          ...existingNotes,
+          ...archiveFields
+        })
+      }, { transaction });
+      updated += 1;
+    }
+  });
+
+  res.json({
+    ok: true,
+    updated,
+    requested: ids.length,
+    message: archived
+      ? `${updated} staged document(s) archived.`
+      : `${updated} staged document(s) unarchived.`
+  });
+}
+
+exports.archiveBatches = async (req, res) => setBatchArchiveState(req, res, true);
+
+exports.unarchiveBatches = async (req, res) => setBatchArchiveState(req, res, false);
 
 exports.getBatchRows = async (req, res) => {
   const rows = await db.ImportRow.findAll({
@@ -548,7 +638,7 @@ exports.removeBatch = async (req, res) => {
   }
 
   const reason = cleanText(req.body && req.body.reason) || 'Removed from staging queue by user.';
-  const existingNotes = batchNotes(batch);
+  const existingNotes = editableBatchNotes(batch);
   const rows = await db.ImportRow.findAll({ where: { importBatchId: batch.id } });
   const postedRows = rows.filter((row) => row.status === 'posted' || row.postedTransactionId).length;
   const removableRows = rows.filter((row) => row.status !== 'posted' && !row.postedTransactionId);
@@ -692,7 +782,23 @@ exports.getBankStatementProfiles = async (req, res) => {
     },
     {
       key: 'citi_checking_pdf',
-      label: 'Citi Checking PDF',
+      label: 'Citi Checking PDF - Auto format',
+      institution: 'Citi Checking',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_checking_legacy_pdf',
+      label: 'Citi Checking PDF - Legacy statement',
+      institution: 'Citi Checking',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_checking_simplified_pdf',
+      label: 'Citi Checking PDF - Simplified statement',
       institution: 'Citi Checking',
       fileTypes: ['pdf'],
       importMode: 'stage_only',
@@ -700,7 +806,23 @@ exports.getBankStatementProfiles = async (req, res) => {
     },
     {
       key: 'citi_ultimate_plus_pdf',
-      label: 'Citi Ultimate Plus PDF',
+      label: 'Citi Ultimate Plus PDF - Auto format',
+      institution: 'Citi Ultimate Plus',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_ultimate_plus_legacy_pdf',
+      label: 'Citi Ultimate Plus PDF - Legacy statement',
+      institution: 'Citi Ultimate Plus',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_ultimate_plus_simplified_pdf',
+      label: 'Citi Ultimate Plus PDF - Simplified statement',
       institution: 'Citi Ultimate Plus',
       fileTypes: ['pdf'],
       importMode: 'stage_only',
@@ -708,7 +830,23 @@ exports.getBankStatementProfiles = async (req, res) => {
     },
     {
       key: 'citi_savings_pdf',
-      label: 'Day to Day Savings PDF',
+      label: 'Day to Day Savings PDF - Auto format',
+      institution: 'Day to Day Savings',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_savings_legacy_pdf',
+      label: 'Day to Day Savings PDF - Legacy statement',
+      institution: 'Day to Day Savings',
+      fileTypes: ['pdf'],
+      importMode: 'stage_only',
+      posting: 'manual_review_required'
+    },
+    {
+      key: 'citi_savings_simplified_pdf',
+      label: 'Day to Day Savings PDF - Simplified statement',
       institution: 'Day to Day Savings',
       fileTypes: ['pdf'],
       importMode: 'stage_only',
@@ -955,6 +1093,8 @@ exports.importBankStatement = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'Statement file is required.' });
 
   const profile = req.body.profile || 'advantage_citi_pdf';
+  const canonicalProfile = canonicalBankStatementProfile(profile);
+  const importType = 'bank_statement_' + canonicalProfile;
   const hash = crypto.createHash('sha256').update(req.file.buffer).digest('hex');
   const parsed = await parseBankStatement({ buffer: req.file.buffer, profile });
   const accountResolution = await resolveDefaultBankAccountId(req.body.accountId, profile, parsed.metadata || {});
@@ -968,7 +1108,7 @@ exports.importBankStatement = async (req, res) => {
   }
   const existingBatch = await db.ImportBatch.findOne({
     where: {
-      importType: 'bank_statement_' + profile,
+      importType,
       status: { [Op.ne]: 'removed' },
       notes: { [Op.iLike]: `%${hash}%` }
     },
@@ -1015,6 +1155,7 @@ exports.importBankStatement = async (req, res) => {
   const notesPayload = {
     source: 'bank_statement_web_upload',
     profile,
+    canonicalProfile,
     parserVersion: parsed.parserVersion,
     fileHashSha256: hash,
     originalFileName: req.file.originalname,
@@ -1029,7 +1170,7 @@ exports.importBankStatement = async (req, res) => {
 
   const batch = await db.sequelize.transaction(async (transaction) => {
     const created = await db.ImportBatch.create({
-      importType: 'bank_statement_' + profile,
+      importType,
       fileName: req.file.originalname,
       status: parsed.transactions.length && duplicateCount < parsed.transactions.length ? 'staged' : 'needs_review',
       rowCount: parsed.transactions.length,
@@ -1068,7 +1209,7 @@ exports.importBankStatement = async (req, res) => {
           status: 'draft',
           sourceType: 'bank_statement',
           referenceNumber: row.fingerprint,
-          tags: ['bank-statement', profile, row.transactionType].filter(Boolean).join(','),
+          tags: ['bank-statement', canonicalProfile, profile !== canonicalProfile ? profile : null, row.transactionType].filter(Boolean).join(','),
           statementAmount: row.amount,
           statementSection: row.section,
           cardholder: row.cardholder,
@@ -1089,6 +1230,7 @@ exports.importBankStatement = async (req, res) => {
     ok: true,
     batchId: batch.id,
     profile,
+    canonicalProfile,
     rowCount: parsed.transactions.length,
     duplicateCount,
     metadata: parsed.metadata,
