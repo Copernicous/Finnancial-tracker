@@ -82,6 +82,10 @@ router.get('/reports', (req, res) => {
   res.render('reports', { title: 'Reports', activePage: 'reports' });
 });
 
+router.get('/statement-lab', (req, res) => {
+  res.render('statement-lab', { title: 'Statement Lab', activePage: 'statement-lab' });
+});
+
 router.get('/import', (req, res) => {
   res.render('import', { title: 'Curated Data Import', activePage: 'import' });
 });

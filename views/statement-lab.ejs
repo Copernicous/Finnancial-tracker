@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Statement Lab - Home Accounting</title>
+  <link href="/assets/bootstrap.min.css" rel="stylesheet">
+  <link href="/assets/inter.css" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/fontawesome.all.min.css">
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .lab-shell { display: grid; gap: 1rem; }
+    .lab-hero {
+      position: relative;
+      overflow: hidden;
+      border: 1px solid rgba(148,163,184,.18);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 15% 15%, rgba(20,184,166,.25), transparent 28%),
+        radial-gradient(circle at 80% 0%, rgba(245,158,11,.18), transparent 24%),
+        linear-gradient(135deg, rgba(15,23,42,.96), rgba(30,41,59,.92));
+      color: #f8fafc;
+      padding: 1.25rem;
+    }
+    [data-theme="light"] .lab-hero { color: #f8fafc; }
+    .lab-kicker { letter-spacing: .16em; text-transform: uppercase; color: rgba(226,232,240,.72); font-size: .72rem; font-weight: 800; }
+    .lab-filter-grid { display: grid; grid-template-columns: 110px 100px minmax(220px, 1fr) 110px auto; gap: .65rem; align-items: end; }
+    .lab-filter-grid .form-label { color: rgba(226,232,240,.72); }
+    .lab-filter-grid .form-control,
+    .lab-filter-grid .form-select { min-height: 40px; }
+    .lab-card {
+      border: 1px solid var(--border,#e5e7eb);
+      border-radius: 14px;
+      background: var(--surface,#fff);
+      padding: 1rem;
+      min-width: 0;
+    }
+    .lab-card.tint {
+      background:
+        linear-gradient(180deg, rgba(13,110,253,.08), transparent 80%),
+        var(--surface,#fff);
+    }
+    .lab-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; }
+    .lab-value { font-size: clamp(1.15rem, 2.2vw, 1.85rem); font-weight: 900; line-height: 1.1; }
+    .lab-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); gap: 1rem; align-items: start; }
+    .snapshot-strip { display: flex; gap: .5rem; overflow-x: auto; padding: .25rem 0 .35rem; }
+    .snapshot-pill {
+      flex: 0 0 auto;
+      min-width: 138px;
+      border: 1px solid rgba(148,163,184,.22);
+      border-radius: 14px;
+      padding: .55rem .65rem;
+      background: rgba(148,163,184,.08);
+    }
+    .snapshot-pill.active { border-color: rgba(13,110,253,.55); box-shadow: 0 0 0 3px rgba(13,110,253,.14); }
+    .formula-box {
+      border: 1px dashed rgba(20,184,166,.45);
+      border-radius: 14px;
+      padding: .8rem;
+      background: rgba(20,184,166,.08);
+    }
+    .status-badge { min-width: 72px; text-transform: capitalize; }
+    .status-badge.matched { background: rgba(25,135,84,.16); color: #198754; border: 1px solid rgba(25,135,84,.28); }
+    .status-badge.review { background: rgba(245,158,11,.18); color: #f59e0b; border: 1px solid rgba(245,158,11,.32); }
+    .status-badge.baseline { background: rgba(100,116,139,.16); color: #94a3b8; border: 1px solid rgba(100,116,139,.28); }
+    .suggestion-table-wrap,
+    .detail-table-wrap { max-height: 420px; overflow: auto; }
+    .suggestion-table-wrap th,
+    .detail-table-wrap th { position: sticky; top: 0; z-index: 1; background: var(--surface-2,#f1f5f9); white-space: nowrap; }
+    .clue-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; }
+    .clue-card { border: 1px solid rgba(148,163,184,.18); border-radius: 12px; padding: .65rem; background: rgba(148,163,184,.07); }
+    .muted-mini { color: var(--text-muted,#64748b); font-size: .78rem; }
+    .lab-actions { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+    @media (max-width: 1180px) {
+      .lab-filter-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .lab-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .lab-layout { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 680px) {
+      .lab-filter-grid, .lab-grid, .clue-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+  <%- include('partials/sidebar') %>
+  <div id="content">
+    <nav class="navbar navbar-expand-lg px-4 mb-4">
+      <button type="button" id="sidebarCollapse" class="btn btn-primary btn-sm"><i class="fas fa-bars"></i></button>
+      <span class="ms-3 fw-bold fs-5">Statement Lab</span>
+      <div class="ms-auto d-flex align-items-center gap-3">
+        <span id="userGreeting" class="text-muted small"></span>
+        <button id="logoutBtn" class="btn btn-danger btn-sm"><i class="fas fa-sign-out-alt me-1"></i>Logout</button>
+      </div>
+    </nav>
+
+    <div class="container-fluid px-4 lab-shell">
+      <section class="lab-hero">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3">
+          <div>
+            <div class="lab-kicker mb-2">Concept construction</div>
+            <h3 class="mb-1">Statement balance, cutoff, and diff workbench</h3>
+            <div class="text-white-50">A live mockup for comparing what the dashboard says against what the imported statement says.</div>
+          </div>
+          <div class="lab-actions">
+            <a class="btn btn-outline-light btn-sm" href="/finance"><i class="fas fa-gauge-high me-1"></i>Financial Workspace</a>
+            <a class="btn btn-outline-light btn-sm" href="/reconciliations"><i class="fas fa-scale-balanced me-1"></i>Reconciliations</a>
+            <a class="btn btn-light btn-sm" href="/balance-snapshots"><i class="fas fa-camera-retro me-1"></i>Snapshots</a>
+          </div>
+        </div>
+        <div class="lab-filter-grid">
+          <div>
+            <label class="form-label">Year</label>
+            <select id="yearFilter" class="form-select"><option value="">Loading...</option></select>
+          </div>
+          <div>
+            <label class="form-label">Month</label>
+            <select id="monthFilter" class="form-select">
+              <option value="">All</option>
+              <option value="1">Jan</option><option value="2">Feb</option><option value="3">Mar</option>
+              <option value="4">Apr</option><option value="5">May</option><option value="6">Jun</option>
+              <option value="7">Jul</option><option value="8">Aug</option><option value="9">Sep</option>
+              <option value="10">Oct</option><option value="11">Nov</option><option value="12">Dec</option>
+            </select>
+          </div>
+          <div>
+            <label class="form-label">Account</label>
+            <select id="accountFilter" class="form-select"><option value="">All accounts</option></select>
+          </div>
+          <div>
+            <label class="form-label">Currency</label>
+            <select id="currencyFilter" class="form-select"><option value="USD">USD</option><option value="ALL">All</option><option value="COP">COP</option><option value="EUR">EUR</option></select>
+          </div>
+          <div>
+            <button class="btn btn-info w-100" id="runBtn" type="button"><i class="fas fa-search me-1"></i>Load Lab</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="lab-grid" id="comparisonCards"></section>
+
+      <section class="lab-layout">
+        <div class="lab-card tint">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="mb-1">Statement Timeline</h5>
+              <div class="muted-mini" id="timelineSubtitle">Select an account to see statement cutoff checkpoints.</div>
+            </div>
+            <span class="badge text-bg-primary" id="snapshotCount">0 snapshots</span>
+          </div>
+          <div class="snapshot-strip mb-3" id="snapshotStrip"><div class="text-muted">Loading snapshots...</div></div>
+          <div class="formula-box">
+            <div class="fw-semibold mb-1">Reality-check formula</div>
+            <div class="muted-mini">Diff = statement balance - (prior statement balance + posted ledger movement inside the statement cutoff period).</div>
+            <div class="muted-mini mt-2">If the diff is not zero, first suspects are missing staged rows, duplicate/misdated ledger rows, wrong account posting, sign errors, or an incorrect opening/snapshot balance.</div>
+          </div>
+        </div>
+
+        <div class="lab-card">
+          <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+            <div>
+              <h5 class="mb-1">Diff Investigation</h5>
+              <div class="muted-mini">Open a cutoff suggestion to see the rows behind the number.</div>
+            </div>
+            <button class="btn btn-outline-secondary btn-sm" id="clearDetailBtn" type="button"><i class="fas fa-times me-1"></i>Clear</button>
+          </div>
+          <div id="detailPanel">
+            <div class="text-muted">No statement cutoff selected yet.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="lab-card">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+          <div>
+            <h5 class="mb-1">Statement Cutoff Suggestions</h5>
+            <div class="muted-mini">These are real imported statement checkpoints, not calendar-month guesses.</div>
+          </div>
+          <button class="btn btn-outline-primary btn-sm" id="refreshSuggestionsBtn" type="button"><i class="fas fa-sync-alt me-1"></i>Refresh</button>
+        </div>
+        <div class="table-responsive suggestion-table-wrap">
+          <table class="table table-sm table-hover align-middle mb-0">
+            <thead><tr><th>Status</th><th>Account</th><th>Cutoff Period</th><th class="text-end">Statement</th><th class="text-end">Book</th><th class="text-end">Diff</th><th>Source</th><th class="text-end">Action</th></tr></thead>
+            <tbody id="suggestionRows"><tr><td colspan="8" class="text-muted">Loading suggestions...</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<script src="/assets/bootstrap.bundle.min.js"></script>
+<a id="xa-base" href="/login" style="display:none"></a>
+<script src="/js/base.js"></script>
+<script src="/js/main.js"></script>
+<script>
+let accounts = [];
+let overview = null;
+let suggestions = [];
+let defaultYear = String(new Date().getFullYear());
+
+function authHeaders(){ const t=localStorage.getItem('haToken')||localStorage.getItem('token')||''; return t?{Authorization:'Bearer '+t}:{}; }
+function esc(v){ return String(v == null ? '' : v).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
+function attr(v){ return esc(v).replace(/`/g, '&#96;'); }
+function qs(params){ const p = new URLSearchParams(); Object.entries(params).forEach(([k,v]) => { if (v !== undefined && v !== null && v !== '') p.set(k, v); }); return p.toString(); }
+function money(v, currency){ return Number(v || 0).toLocaleString(undefined, { style: 'currency', currency: currency || 'USD' }); }
+function num(v){ return Number(v || 0); }
+function monthLabel(value){ return ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][Number(value)-1] || value; }
+function syncMonthState() {
+  const isAll = document.getElementById('yearFilter').value === 'all';
+  if (isAll) document.getElementById('monthFilter').value = '';
+  document.getElementById('monthFilter').disabled = isAll;
+}
+function populateYears(payload) {
+  const select = document.getElementById('yearFilter');
+  const years = (payload && Array.isArray(payload.years) ? payload.years : []).map(String).filter(year => /^\d{4}$/.test(year));
+  if (!years.length) years.push(String(new Date().getFullYear()));
+  defaultYear = String(payload && payload.defaultYear || years[0]);
+  select.innerHTML = '<option value="all">All years</option>' + years.map(year => '<option value="' + esc(year) + '">' + esc(year) + '</option>').join('');
+  select.value = years.includes(defaultYear) ? defaultYear : years[0];
+  syncMonthState();
+}
+function selectedAccountId() {
+  return document.getElementById('accountFilter').value;
+}
+function effectiveAccount() {
+  const selected = selectedAccountId();
+  if (selected && overview) return (overview.accountTotals || []).find(account => String(account.id) === String(selected)) || null;
+  if (!overview) return null;
+  return (overview.accountTotals || []).find(account => account.statementBalance != null) || (overview.accountTotals || [])[0] || null;
+}
+function accountSnapshots(accountId) {
+  return (overview && overview.statementSnapshots ? overview.statementSnapshots : [])
+    .filter(snapshot => String(snapshot.accountId) === String(accountId || ''))
+    .sort((a, b) => String(b.snapshotDate || '').localeCompare(String(a.snapshotDate || '')));
+}
+function selectedSnapshot(accountId) {
+  const rows = accountSnapshots(accountId);
+  if (!rows.length) return null;
+  const year = document.getElementById('yearFilter').value;
+  const month = document.getElementById('monthFilter').value;
+  if (year && year !== 'all' && month) {
+    const prefix = year + '-' + String(month).padStart(2, '0');
+    return rows.find(row => String(row.snapshotDate || '').startsWith(prefix)) || rows.find(row => String(row.snapshotDate || '') <= prefix + '-31') || rows[0];
+  }
+  if (year && year !== 'all') return rows.find(row => String(row.snapshotDate || '').startsWith(year + '-')) || rows[0];
+  return rows[0];
+}
+function cardHtml(label, value, note, tone) {
+  return '<div class="lab-card">' +
+    '<div class="muted-mini text-uppercase">' + esc(label) + '</div>' +
+    '<div class="lab-value ' + (tone || '') + '">' + esc(value) + '</div>' +
+    '<div class="muted-mini mt-2">' + esc(note || '') + '</div>' +
+  '</div>';
+}
+function renderComparison() {
+  const account = effectiveAccount();
+  const container = document.getElementById('comparisonCards');
+  if (!account) {
+    container.innerHTML = cardHtml('Account', 'No account', 'Import statements or create an account first.');
+    return;
+  }
+  const snapshot = selectedSnapshot(account.id);
+  const dashboardBalance = num(account.balance);
+  const statementBalance = snapshot ? num(snapshot.balance) : null;
+  const difference = snapshot ? dashboardBalance - statementBalance : null;
+  const matched = snapshot && Math.abs(difference) <= 0.01;
+  container.innerHTML = [
+    cardHtml('Account in focus', account.name || 'Account', account.accountClass || ''),
+    cardHtml('Dashboard balance', money(dashboardBalance, account.currency), 'Value currently used by the Financial Workspace.'),
+    cardHtml('Statement balance', snapshot ? money(statementBalance, snapshot.currency) : 'No snapshot', snapshot ? ('Cutoff ' + snapshot.snapshotDate) : 'No imported statement checkpoint found.'),
+    cardHtml('Difference', snapshot ? money(difference, account.currency) : '-', snapshot ? 'Dashboard minus statement.' : 'Select an account with snapshots.', matched ? 'text-success' : 'text-warning')
+  ].join('');
+}
+function renderTimeline() {
+  const account = effectiveAccount();
+  const strip = document.getElementById('snapshotStrip');
+  const count = document.getElementById('snapshotCount');
+  if (!account) {
+    strip.innerHTML = '<div class="text-muted">No account selected.</div>';
+    count.textContent = '0 snapshots';
+    return;
+  }
+  const rows = accountSnapshots(account.id);
+  const active = selectedSnapshot(account.id);
+  document.getElementById('timelineSubtitle').textContent = account.name + ' statement checkpoints';
+  count.textContent = rows.length + ' snapshots';
+  strip.innerHTML = rows.length ? rows.slice(0, 30).map(row => (
+    '<div class="snapshot-pill ' + (active && active.id === row.id ? 'active' : '') + '">' +
+      '<div class="fw-semibold">' + esc(row.snapshotDate || '') + '</div>' +
+      '<div>' + esc(money(row.balance, row.currency)) + '</div>' +
+      '<div class="muted-mini text-truncate" title="' + attr(row.source || '') + '">' + esc(row.source || '') + '</div>' +
+    '</div>'
+  )).join('') : '<div class="text-muted">No statement snapshots found for this account.</div>';
+}
+function statusBadge(status) {
+  return '<span class="badge rounded-pill status-badge ' + esc(status || 'review') + '">' + esc(status || 'review') + '</span>';
+}
+function renderSuggestions() {
+  const body = document.getElementById('suggestionRows');
+  if (!suggestions.length) {
+    body.innerHTML = '<tr><td colspan="8" class="text-muted">No statement cutoff suggestions found.</td></tr>';
+    return;
+  }
+  body.innerHTML = suggestions.map((row, index) => {
+    const period = row.periodStart ? row.periodStart + ' -> ' + row.periodEnd : 'Baseline ' + row.periodEnd;
+    const source = [row.sourceFile, row.sourceBatches ? 'Batch ' + row.sourceBatches : ''].filter(Boolean).join(' | ');
+    return '<tr>' +
+      '<td>' + statusBadge(row.status) + '</td>' +
+      '<td><div class="fw-semibold">' + esc(row.accountName || '') + '</div><div class="muted-mini">' + esc(row.accountCode || row.accountClass || '') + '</div></td>' +
+      '<td><div>' + esc(period) + '</div><div class="muted-mini">' + esc(row.transactionCount || 0) + ' tx, movement ' + esc(money(row.transactionSum, row.currency)) + '</div></td>' +
+      '<td class="text-end">' + esc(money(row.statementBalance, row.currency)) + '</td>' +
+      '<td class="text-end">' + (row.bookBalance == null ? '<span class="text-muted">-</span>' : esc(money(row.bookBalance, row.currency))) + '</td>' +
+      '<td class="text-end ' + (row.difference != null && Math.abs(num(row.difference)) > 0.01 ? 'text-warning fw-semibold' : '') + '">' + (row.difference == null ? '<span class="text-muted">-</span>' : esc(money(row.difference, row.currency))) + '</td>' +
+      '<td><span class="muted-mini">' + esc(source || row.source || '') + '</span></td>' +
+      '<td class="text-end"><button class="btn btn-outline-primary btn-sm detail-btn" type="button" data-index="' + index + '">Inspect</button></td>' +
+    '</tr>';
+  }).join('');
+}
+function renderDetail(data) {
+  const s = data.summary || {};
+  const txRows = data.transactions || [];
+  const stagedRows = data.stagedRows || [];
+  const unposted = stagedRows.filter(row => !row.postedTransactionId);
+  const currency = data.account && data.account.currency || 'USD';
+  const txHtml = txRows.length ? txRows.slice(0, 60).map(row => (
+    '<tr><td>' + esc(row.transactionDate || '') + '</td><td>' + esc(row.metricKind || row.transactionType || '') + '</td><td>' + esc(row.merchantDisplayName || row.merchant || row.description || '') + '</td><td class="text-end">' + esc(money(row.amount, row.currency || currency)) + '</td><td>' + esc(row.status || '') + '</td></tr>'
+  )).join('') : '<tr><td colspan="5" class="text-muted">No posted ledger rows in this cutoff period.</td></tr>';
+  const stagedHtml = stagedRows.length ? stagedRows.slice(0, 60).map(row => (
+    '<tr><td>#' + esc(row.importBatchId) + ' / ' + esc(row.rowNumber) + '</td><td>' + esc(row.status || '') + '</td><td>' + esc(row.date || '') + '</td><td>' + esc(row.merchant || row.description || '') + '</td><td class="text-end">' + esc(money(row.amount, currency)) + '</td><td>' + esc(row.postedTransactionId || 'not posted') + '</td></tr>'
+  )).join('') : '<tr><td colspan="6" class="text-muted">No staged source rows were found from batch metadata.</td></tr>';
+  document.getElementById('detailPanel').innerHTML =
+    '<div class="d-flex justify-content-between gap-2 flex-wrap mb-3">' +
+      '<div><div class="fw-semibold">' + esc(data.account && data.account.name || '') + '</div><div class="muted-mini">' + esc(data.periodStart || '') + ' -> ' + esc(data.periodEnd || '') + '</div></div>' +
+      '<span class="badge text-bg-' + (Math.abs(num(s.difference)) <= 0.01 ? 'success' : 'warning') + '">' + esc(money(s.difference, currency)) + ' diff</span>' +
+    '</div>' +
+    '<div class="clue-grid mb-3">' +
+      '<div class="clue-card"><div class="muted-mini">Prior statement</div><div class="fw-semibold">' + esc(money(s.priorBalance, currency)) + '</div></div>' +
+      '<div class="clue-card"><div class="muted-mini">Posted movement</div><div class="fw-semibold">' + esc(money(s.transactionSum, currency)) + '</div></div>' +
+      '<div class="clue-card"><div class="muted-mini">Unposted staged rows</div><div class="fw-semibold">' + esc(unposted.length) + '</div></div>' +
+    '</div>' +
+    '<div class="formula-box mb-3"><div class="fw-semibold">Where the diff comes from</div><div class="muted-mini">Statement ' + esc(money(s.statementBalance, currency)) + ' minus book ' + esc(money(s.bookBalance, currency)) + ' = ' + esc(money(s.difference, currency)) + '.</div></div>' +
+    '<h6>Posted ledger rows</h6><div class="table-responsive detail-table-wrap mb-3"><table class="table table-sm align-middle"><thead><tr><th>Date</th><th>Kind</th><th>Merchant</th><th class="text-end">Amount</th><th>Status</th></tr></thead><tbody>' + txHtml + '</tbody></table></div>' +
+    '<h6>Source / staged rows</h6><div class="table-responsive detail-table-wrap"><table class="table table-sm align-middle"><thead><tr><th>Batch / Row</th><th>Status</th><th>Date</th><th>Merchant</th><th class="text-end">Amount</th><th>Posted Tx</th></tr></thead><tbody>' + stagedHtml + '</tbody></table></div>';
+}
+async function loadDetail(index) {
+  const row = suggestions[index];
+  if (!row || !row.periodStart) {
+    document.getElementById('detailPanel').innerHTML = '<div class="text-muted">Baseline checkpoints do not have a prior cutoff period to inspect.</div>';
+    return;
+  }
+  document.getElementById('detailPanel').innerHTML = '<div class="text-muted">Loading cutoff detail...</div>';
+  const res = await fetch('/api/finance/statement-reconciliation-detail?' + qs({ accountId: row.accountId, periodStart: row.periodStart, periodEnd: row.periodEnd }), { headers: authHeaders() });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    document.getElementById('detailPanel').innerHTML = '<div class="text-danger">Unable to load cutoff detail.</div>';
+    return;
+  }
+  renderDetail(data);
+}
+async function loadLookups() {
+  const [accountRows, yearPayload] = await Promise.all([
+    fetch('/api/accounts', { headers: authHeaders() }).then(r => r.ok ? r.json() : []),
+    fetch('/api/finance/years', { headers: authHeaders() }).then(r => r.ok ? r.json() : null)
+  ]);
+  accounts = accountRows || [];
+  populateYears(yearPayload);
+  document.getElementById('accountFilter').innerHTML = '<option value="">All accounts</option>' + accounts.map(account => '<option value="' + esc(account.id) + '">' + esc(account.name) + '</option>').join('');
+}
+async function loadLab() {
+  syncMonthState();
+  const params = {
+    year: document.getElementById('yearFilter').value || defaultYear,
+    month: document.getElementById('monthFilter').value,
+    accountId: selectedAccountId(),
+    currency: document.getElementById('currencyFilter').value || 'USD'
+  };
+  document.getElementById('comparisonCards').innerHTML = cardHtml('Loading', '...', 'Gathering overview and snapshots.');
+  const [overviewRes, suggestionRes] = await Promise.all([
+    fetch('/api/finance/overview?' + qs(params), { headers: authHeaders() }),
+    fetch('/api/finance/statement-reconciliation-suggestions?' + qs({ accountId: params.accountId, currency: params.currency, limit: 100 }), { headers: authHeaders() })
+  ]);
+  overview = await overviewRes.json().catch(() => ({}));
+  const suggestionPayload = await suggestionRes.json().catch(() => ({}));
+  if (!overviewRes.ok) {
+    document.getElementById('comparisonCards').innerHTML = cardHtml('Error', 'Unable to load', 'Check login or finance permissions.', 'text-danger');
+    return;
+  }
+  suggestions = suggestionRes.ok ? (suggestionPayload.rows || []) : [];
+  renderComparison();
+  renderTimeline();
+  renderSuggestions();
+}
+document.getElementById('runBtn').addEventListener('click', loadLab);
+document.getElementById('refreshSuggestionsBtn').addEventListener('click', loadLab);
+document.getElementById('clearDetailBtn').addEventListener('click', () => {
+  document.getElementById('detailPanel').innerHTML = '<div class="text-muted">No statement cutoff selected yet.</div>';
+});
+['yearFilter','monthFilter','accountFilter','currencyFilter'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    if (id === 'yearFilter') syncMonthState();
+    loadLab();
+  });
+});
+document.getElementById('suggestionRows').addEventListener('click', event => {
+  const btn = event.target.closest('.detail-btn');
+  if (!btn) return;
+  loadDetail(Number(btn.dataset.index));
+});
+document.addEventListener('DOMContentLoaded', async () => {
+  await loadLookups();
+  await loadLab();
+});
+</script>
+</body>
+</html>

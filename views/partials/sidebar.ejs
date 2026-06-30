@@ -23,7 +23,7 @@
   const ap = locals.activePage || '';
   const refActive   = ['financial-institutions','categories','merchants','merchant-aliases','reconciliations','proofs'].includes(ap);
   const planningActive = ['finance','budgets','recurring','financial-goals','investments','currency-rates','balance-snapshots'].includes(ap);
-  const rptActive   = ['reports','audit-log'].includes(ap);
+  const rptActive   = ['reports','statement-lab','audit-log'].includes(ap);
   const adminActive = ['roles','users','system-settings','backups','import','active-users','backoffice'].includes(ap);
 
   const refVisible   = sv('financial_institutions') || sv('categories') || sv('merchants') || sv('merchant_aliases') || sv('reconciliations') || sv('proofs');
@@ -185,6 +185,9 @@
                 <% if (!UP || sv('reports')) { %>
                 <li class="<%= ap === 'reports' ? 'active' : '' %>">
                     <a href="/reports"><i class="fas fa-chart-pie me-2"></i>Analytics &amp; Export</a>
+                </li>
+                <li class="<%= ap === 'statement-lab' ? 'active' : '' %>">
+                    <a href="/statement-lab"><i class="fas fa-microscope me-2"></i>Statement Lab</a>
                 </li>
                 <% } %>
                 <% if (!UP || sv('audit_log')) { %>

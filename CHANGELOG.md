@@ -1,5 +1,10 @@
 # Home Accounting Changelog
 
+## 0.4.1 - 2026-06-30
+
+- Added the Statement Lab concept page at `/statement-lab` under Reports as an in-app workbench for statement snapshot comparison, cutoff suggestions, and reconciliation diff inspection.
+- Added live statement timeline chips, dashboard-versus-statement comparison cards, and cutoff detail drill-downs that show posted ledger rows and staged source rows.
+
 ## 0.4.0 - 2026-06-30
 
 - Added statement balance comparison in the Financial Workspace, including account-specific imported statement snapshot dates, balance chips, and dashboard-versus-statement differences.
