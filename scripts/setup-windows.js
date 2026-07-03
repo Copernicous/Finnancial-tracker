@@ -36,6 +36,7 @@ async function main() {
   const pkg = readPackage();
   ensureEnvFile(checkOnly);
   const settings = await loadSettings();
+  const runtimeEnv = buildRuntimeEnv(settings);
   const tools = findPostgresTools();
   const npm = findOnPath(process.platform === 'win32' ? 'npm.cmd' : 'npm');
   const npx = findOnPath(process.platform === 'win32' ? 'npx.cmd' : 'npx');
@@ -46,12 +47,12 @@ async function main() {
 
   if (!checkOnly) {
     console.log('[1/6] Installing Node.js dependencies...');
-    run(npm, ['install']);
+    run(npm, ['install'], { env: runtimeEnv });
     console.log('');
   }
 
   console.log(checkOnly ? '[1/2] Checking PostgreSQL login...' : '[2/6] Checking PostgreSQL login...');
-  const env = { ...process.env, PGPASSWORD: settings.password };
+  const env = runtimeEnv;
   const login = run(tools.psql, [
     '-U', settings.user,
     '-h', settings.host,
@@ -138,7 +139,7 @@ async function main() {
   console.log('');
 
   console.log('[5/6] Seeding initial data...');
-  runSeed(pkg);
+  runSeed(pkg, env);
   console.log('');
 
   console.log('[6/6] Setup complete.');
@@ -225,6 +226,22 @@ function readPackage() {
   return JSON.parse(fs.readFileSync(PACKAGE_PATH, 'utf8'));
 }
 
+function buildRuntimeEnv(settings) {
+  return {
+    ...process.env,
+    DB_HOST: settings.host,
+    DB_PORT: settings.port,
+    DB_USER: settings.user,
+    DB_PASS: settings.password,
+    DB_NAME: settings.database,
+    PGHOST: settings.host,
+    PGPORT: settings.port,
+    PGUSER: settings.user,
+    PGPASSWORD: settings.password,
+    PGDATABASE: settings.database
+  };
+}
+
 function findPostgresTools() {
   const psql = findOnPath(process.platform === 'win32' ? 'psql.exe' : 'psql') || findPostgresTool(process.platform === 'win32' ? 'psql.exe' : 'psql');
   if (!psql) {
@@ -278,7 +295,7 @@ function findOnPath(command) {
 function runDatabaseSetup(pkg, tools, env, settings) {
   if (pkg.scripts && pkg.scripts['db:migrate']) {
     const npx = findOnPath(process.platform === 'win32' ? 'npx.cmd' : 'npx');
-    run(npx, ['sequelize-cli', 'db:migrate']);
+    run(npx, ['sequelize-cli', 'db:migrate'], { env });
     console.log('  Migrations completed.');
     return;
   }
@@ -300,13 +317,13 @@ function runDatabaseSetup(pkg, tools, env, settings) {
   console.log('  No db:migrate script or infra/postgres/schema.sql found. Skipping.');
 }
 
-function runSeed(pkg) {
+function runSeed(pkg, env) {
   if (!(pkg.scripts && pkg.scripts['db:seed'])) {
     console.log('  No db:seed script found. Skipping.');
     return;
   }
   const npx = findOnPath(process.platform === 'win32' ? 'npx.cmd' : 'npx');
-  const seed = run(npx, ['sequelize-cli', 'db:seed:all'], { allowFailure: true });
+  const seed = run(npx, ['sequelize-cli', 'db:seed:all'], { env, allowFailure: true });
   if (seed.status !== 0 || seed.error) {
     console.log('  WARNING: Seeding failed. This can be normal if seed data already exists.');
   } else {
