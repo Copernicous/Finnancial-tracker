@@ -9,6 +9,7 @@
     "staging:check": "node scripts/check-staging-config.js",
     "staging:start": "node scripts/start-staging.js",
     "drive:auth": "node scripts/setup-google-drive-oauth.js",
+    "db:test": "node scripts/test-db-connection.js",
     "db:migrate": "sequelize-cli db:migrate",
     "db:seed": "sequelize-cli db:seed:all",
     "db:reset:financial": "node scripts/reset-financial-db.js",

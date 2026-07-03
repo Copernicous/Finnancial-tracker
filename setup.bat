@@ -203,16 +203,16 @@ for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do (
 exit /b 0
 
 :trim_var
-setlocal EnableDelayedExpansion
-set "value=!%~1!"
-for /f "tokens=* delims= " %%T in ("!value!") do set "value=%%T"
+call set "value=%%%~1%%"
+for /f "tokens=* delims= " %%T in ("%value%") do set "value=%%T"
 :trim_var_tail
-if defined value if "!value:~-1!"==" " (
-    set "value=!value:~0,-1!"
+if defined value if "%value:~-1%"==" " (
+    set "value=%value:~0,-1%"
     goto :trim_var_tail
 )
-if defined value if "!value:~0,1!"=="^"" if "!value:~-1!"=="^"" set "value=!value:~1,-1!"
-endlocal & set "%~1=%value%"
+if defined value if "%value:~0,1%"=="^"" if "%value:~-1%"=="^"" set "value=%value:~1,-1%"
+set "%~1=%value%"
+set "value="
 exit /b 0
 
 :find_postgres_tools
