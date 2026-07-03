@@ -58,6 +58,69 @@ function cleanDate(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
 }
 
+function normalizeLookup(value) {
+  return merchantCategorizer.normalize(value);
+}
+
+function exactLookup(map, value) {
+  return map.get(normalizeLookup(value)) || null;
+}
+
+function buildLookupMaps(accounts, categories) {
+  const accountMap = new Map();
+  accounts.forEach((account) => {
+    [
+      account.name,
+      account.accountCode,
+      `${account.name} ${account.currency || ''}`,
+      `${account.name} (${account.currency || ''})`
+    ].forEach((value) => {
+      const key = normalizeLookup(value);
+      if (key && !accountMap.has(key)) accountMap.set(key, account);
+    });
+  });
+
+  const categoryMap = new Map();
+  categories.forEach((category) => {
+    [
+      category.name,
+      `${category.groupName || ''} ${category.name || ''}`,
+      `${category.name || ''} ${category.categoryType || ''}`
+    ].forEach((value) => {
+      const key = normalizeLookup(value);
+      if (key && !categoryMap.has(key)) categoryMap.set(key, category);
+    });
+  });
+
+  return { accountMap, categoryMap };
+}
+
+function stableCsvReference(dataset, row, draft) {
+  if (draft.referenceNumber) return draft.referenceNumber;
+  const basis = [
+    dataset,
+    draft.transactionDate,
+    draft.accountId || cleanText(row.accountName),
+    draft.amount,
+    draft.currency,
+    draft.description,
+    draft.merchant,
+    cleanText(row.referenceNumber)
+  ].join('|');
+  return 'csv:' + crypto.createHash('sha256').update(basis).digest('hex').slice(0, 32);
+}
+
+function csvBatchNotes(req, rows) {
+  return JSON.stringify({
+    source: 'curated_csv_upload',
+    originalName: req.file.originalname,
+    fileHashSha256: crypto.createHash('sha256').update(req.file.buffer).digest('hex'),
+    rowCount: rows.length,
+    uploadedAt: new Date().toISOString(),
+    uploadMode: 'stage_for_review'
+  });
+}
+
 function cleanBoolean(value, fallback) {
   if (value === undefined || value === null || value === '') return fallback;
   if (typeof value === 'boolean') return value;
@@ -284,6 +347,104 @@ function validateDraft(draft) {
   if (draft.amount == null) errors.push('amount');
   if (!draft.transactionType) errors.push('transaction type');
   return errors;
+}
+
+function inferTransactionType(row, category) {
+  const explicit = cleanText(row.transactionType).toLowerCase();
+  if (['income', 'expense', 'transfer', 'adjustment'].includes(explicit)) return explicit;
+  if (category && ['income', 'expense', 'transfer', 'adjustment'].includes(cleanText(category.categoryType).toLowerCase())) {
+    return cleanText(category.categoryType).toLowerCase();
+  }
+  const amount = toNumber(row.amount);
+  if (amount != null && amount > 0) return 'income';
+  if (amount != null && amount < 0) return 'expense';
+  return 'expense';
+}
+
+async function normalizeTransactionCsvRows(rows) {
+  const [accounts, categories, customRules] = await Promise.all([
+    db.Account.findAll({ where: { status: { [Op.notIn]: ['inactive', 'closed'] } }, order: [['name', 'ASC']] }),
+    db.Category.findAll({ where: { isActive: { [Op.ne]: false } }, order: [['groupName', 'ASC'], ['name', 'ASC']] }),
+    getStoredMerchantRules()
+  ]);
+  const { accountMap, categoryMap } = buildLookupMaps(accounts, categories);
+
+  return rows.map((row, index) => {
+    const errors = [];
+    const accountText = cleanText(row.accountName || row.account || row.accountCode);
+    const categoryText = cleanText(row.categoryName || row.category);
+    const relatedAccountText = cleanText(row.relatedAccountName || row.relatedAccount || row.transferAccount);
+    const account = exactLookup(accountMap, accountText);
+    let category = categoryText ? exactLookup(categoryMap, categoryText) : null;
+    const relatedAccount = relatedAccountText ? exactLookup(accountMap, relatedAccountText) : null;
+
+    if (accountText && !account) errors.push(`Account not found: ${accountText}`);
+    if (categoryText && !category) errors.push(`Category not found: ${categoryText}`);
+    if (relatedAccountText && !relatedAccount) errors.push(`Related account not found: ${relatedAccountText}`);
+
+    const suggestedType = inferTransactionType(row, category);
+    const suggestion = !category ? merchantCategorizer.suggestFromRules({
+      text: [row.merchant, row.description, row.memo, row.tags].filter(Boolean).join(' '),
+      categories,
+      customRules,
+      transactionType: suggestedType,
+      amount: row.amount
+    }) : null;
+    if (suggestion && suggestion.categoryId) {
+      category = categories.find((item) => Number(item.id) === Number(suggestion.categoryId)) || category;
+    }
+
+    const draft = normalizeDraft({
+      transactionDate: row.transactionDate || row.date || row.postDate,
+      accountId: account ? account.id : null,
+      categoryId: category ? category.id : null,
+      relatedAccountId: relatedAccount ? relatedAccount.id : null,
+      description: row.description || row.memo || row.merchant,
+      merchant: row.merchant || row.payee || row.description,
+      transactionType: suggestion && suggestion.transactionType ? suggestion.transactionType : suggestedType,
+      amount: row.amount,
+      currency: row.currency || (account && account.currency) || 'USD',
+      originalAmount: row.originalAmount,
+      originalCurrency: row.originalCurrency,
+      exchangeRate: row.exchangeRate,
+      status: row.status || 'draft',
+      sourceType: 'import_batch',
+      referenceNumber: row.referenceNumber,
+      tags: mergeTags(row.tags, ['csv-import']),
+      clearedDate: row.clearedDate,
+      memo: row.memo
+    }, { sourceType: 'import_batch' });
+    draft.referenceNumber = stableCsvReference('transactions', row, draft);
+    draft.csvRowNumber = index + 1;
+    draft.csvCategorySuggestion = suggestion ? {
+      categoryName: suggestion.categoryName,
+      source: suggestion.source,
+      matchedPattern: suggestion.matchedPattern
+    } : null;
+
+    validateDraft(draft).forEach((field) => errors.push(`Missing ${field}`));
+
+    return {
+      rawData: row,
+      normalizedData: draft,
+      matchedAccountId: draft.accountId,
+      matchedCategoryId: draft.categoryId,
+      status: errors.length ? 'error' : 'ready',
+      errorMessage: errors.join('; ')
+    };
+  });
+}
+
+async function prepareCsvImportRows(dataset, rows) {
+  if (dataset === 'transactions') return normalizeTransactionCsvRows(rows);
+  return rows.map((row) => ({
+    rawData: row,
+    normalizedData: null,
+    matchedAccountId: null,
+    matchedCategoryId: null,
+    status: 'staged',
+    errorMessage: null
+  }));
 }
 
 function mergeTags(tags, extra) {
@@ -1458,25 +1619,31 @@ exports.importDataset = async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'CSV file is required.' });
 
   const rows = await parseCsv(req.file.buffer);
+  const preparedRows = await prepareCsvImportRows(dataset, rows);
+  const readyCount = preparedRows.filter((row) => row.status === 'ready').length;
+  const errorCount = preparedRows.filter((row) => row.status === 'error').length;
   const batch = await db.sequelize.transaction(async (transaction) => {
     const created = await db.ImportBatch.create({
       importType: dataset,
       fileName: req.file.originalname,
-      status: 'staged',
+      status: errorCount ? 'needs_review' : 'staged',
       rowCount: rows.length,
       acceptedCount: 0,
-      rejectedCount: 0,
-      notes: 'Rows staged only. Curated importer mapping is intentionally not auto-posting to the ledger yet.',
+      rejectedCount: errorCount,
+      notes: csvBatchNotes(req, rows),
       createdByUserId: req.user && req.user.id
     }, { transaction });
 
-    if (rows.length) {
-      await db.ImportRow.bulkCreate(rows.map((row, index) => ({
+    if (preparedRows.length) {
+      await db.ImportRow.bulkCreate(preparedRows.map((row, index) => ({
         importBatchId: created.id,
         rowNumber: index + 1,
-        rawData: row,
-        normalizedData: null,
-        status: 'staged'
+        rawData: row.rawData,
+        normalizedData: row.normalizedData,
+        matchedAccountId: row.matchedAccountId,
+        matchedCategoryId: row.matchedCategoryId,
+        status: row.status,
+        errorMessage: row.errorMessage
       })), { transaction });
     }
     return created;
@@ -1486,6 +1653,10 @@ exports.importDataset = async (req, res) => {
     ok: true,
     batchId: batch.id,
     rowCount: rows.length,
-    message: 'Curated import file received and staged row-by-row. No ledger data was posted automatically.'
+    readyCount,
+    errorCount,
+    message: dataset === 'transactions'
+      ? `Transaction CSV staged for review: ${readyCount} ready, ${errorCount} need attention. No ledger data was posted automatically.`
+      : 'Curated import file received and staged row-by-row. No ledger data was posted automatically.'
   });
 };

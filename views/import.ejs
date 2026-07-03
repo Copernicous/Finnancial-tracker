@@ -1247,9 +1247,13 @@ async function stageFile() {
   result.classList.remove('d-none', 'alert-success', 'alert-danger');
   result.classList.add(res.ok ? 'alert-success' : 'alert-danger');
   result.innerHTML = res.ok
-    ? '<strong>Batch #' + data.batchId + ' staged.</strong><br>' + esc(data.message) + '<br>Rows received: ' + esc(data.rowCount)
+    ? '<strong>Batch #' + data.batchId + ' staged.</strong><br>' + esc(data.message) + '<br>Rows received: ' + esc(data.rowCount) +
+      (data.readyCount != null ? '<br>Ready: ' + esc(data.readyCount) + ' / Needs attention: ' + esc(data.errorCount || 0) : '')
     : esc(data.error || data.message || 'Unable to stage file.');
-  if (res.ok) loadBatches();
+  if (res.ok) {
+    await loadBatches();
+    openBatch(data.batchId);
+  }
 }
 function categorySetupMessage(message, type) {
   const result = document.getElementById('categoryImportResult');

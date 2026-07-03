@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  github-release:
+    name: GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release tag
+        uses: actions/checkout@v4
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          notes_file=".github/releases/${TAG_NAME}.md"
+          if [ ! -f "$notes_file" ]; then
+            echo "Missing release notes: $notes_file" >&2
+            exit 1
+          fi
+
+          gh release create "$TAG_NAME" \
+            --title "Home Accounting ${TAG_NAME}" \
+            --notes-file "$notes_file" \
+            --target "$GITHUB_SHA"

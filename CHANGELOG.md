@@ -1,5 +1,13 @@
 # Home Accounting Changelog
 
+## 0.4.3 - 2026-07-02
+
+- Added transaction CSV staging normalization that matches accounts/categories, infers transaction types, applies merchant/category suggestions, and records ready/error row states without auto-posting ledger data.
+- Added stable CSV row reference hashing and structured import batch notes with source filename, file hash, row count, upload timestamp, and staging mode.
+- Updated the curated import UI to show ready versus needs-attention counts and open newly staged batches immediately for review.
+- Synced `package-lock.json` version metadata with `package.json` so release version sources match.
+- Added a tag-triggered GitHub Release workflow that publishes `.github/releases/v<version>.md` as the release body.
+
 ## 0.4.2 - 2026-06-30
 
 - Replaced the Financial Workspace investment KPI slot with a statement-balance card that uses the same statement cutoff reconciliation diff logic as the Reconciliation page.
