@@ -1,0 +1,13 @@
+{
+  "schema": 1,
+  "project": "CAMPEROS-ACCOUNTING",
+  "displayName": "Camperos Accounting",
+  "serviceName": "0-CAMPEROS-ACCOUNTING",
+  "serviceId": "0camperosaccounting.exe",
+  "legacyServiceId": "HomeAccountingSystem",
+  "defaultPort": 3026,
+  "healthPath": "/api/healthz",
+  "releaseBranch": "development",
+  "releaseTagPattern": "v*",
+  "logDirectory": "logs"
+}

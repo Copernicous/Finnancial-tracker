@@ -83,3 +83,6 @@ The compiled artifact is created under `dist/`. Copy the build package, environm
 - Backoffice will include clear/reset tools for simulation and accounting data while preserving users, roles, audit history, and source archives.
 - Master backoffice controls can remove staged documents or purge bad import batches with an explicit posted-transaction rollback option.
 
+# Project control
+
+Run `PROJECT-CONTROL.bat` as Administrator for the standard 24-option operational menu. The production runtime is the project-owned `0-CAMPEROS-ACCOUNTING` service. PostgreSQL remains an external dependency and is validated, but never stopped by this controller.

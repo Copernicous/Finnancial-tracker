@@ -376,6 +376,16 @@ const settingsLimiter = rateLimit({
 });
 
 // Apply rate limiters to login and sensitive endpoints
+// Project-owned service health check. It must remain before authenticated API routes.
+app.get('/api/healthz', async (req, res) => {
+    try {
+        await db.sequelize.authenticate();
+        res.json({ status: 'ok', version: packageInfo.version, process: { pid: process.pid, uptimeMs: Math.round(process.uptime() * 1000) }, database: 'ok' });
+    } catch (error) {
+        res.status(503).json({ status: 'error', version: packageInfo.version, process: { pid: process.pid, uptimeMs: Math.round(process.uptime() * 1000) }, database: 'unreachable' });
+    }
+});
+
 app.use('/api/auth/login',          loginLimiter);
 app.use('/api/auth/2fa/setup',      twoFaSetupLimiter);
 app.use('/api/auth/2fa/enable',     twoFaSetupLimiter);

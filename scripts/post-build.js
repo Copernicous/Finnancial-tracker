@@ -5,7 +5,6 @@
  *
  * Files copied:
  *   .env                â€” environment config (required to run)
- *   Home-Accounting-Manager.bat      â€” production management menu
  *   CHANGELOG.md        â€” version history / what changed
  *   DEFERRED-ITEMS.txt  â€” security / tech-debt tracking
  *   OPERATIONS_MANUAL.md â€” admin and recovery procedures
@@ -29,7 +28,6 @@ if (!fs.existsSync(distDir)) {
 const filesToCopy = [
     '.env',
     '.env.example',
-    'Home-Accounting-Manager.bat',
     'CHANGELOG.md',
     'PRODUCTION_RELEASE_CHECKLIST.md',
     'DEFERRED-ITEMS.txt',
@@ -37,6 +35,9 @@ const filesToCopy = [
     'install-service.ps1',
     'uninstall-service.ps1',
 ];
+
+// Do not carry the retired all-process-killing manager into new artifacts.
+fs.rmSync(path.join(distDir, 'Home-Accounting-Manager.bat'), { force: true });
 
 let copied = 0;
 let skipped = 0;

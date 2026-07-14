@@ -71,3 +71,9 @@
 - Replaced inherited operational pages with accounting-focused pages and removed obsolete inherited browser bundles, QA scripts, and route manifests.
 - Added financial DB reset and smoke-test commands for development and staging.
 - Preserved raw Excel files outside the import pipeline for future manual curation.
+# 0.4.4
+
+- Added the standard 24-option `PROJECT-CONTROL.bat` and independent `0-CAMPEROS-ACCOUNTING` Windows service.
+- Added unauthenticated service health reporting with verified PID, uptime, version, and PostgreSQL state.
+- Replaced legacy BAT managers whose stop workflow could terminate unrelated Node processes.
+- Added project-owned release, rollback, migration, database, dependency, port, log, and legacy-service migration controls.

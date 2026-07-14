@@ -1,6 +1,6 @@
 {
   "name": "home-accounting",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "description": "Home Accounting management system with roles, audit, reporting, uploads, staging, and deployment tooling",
   "main": "app.js",
   "scripts": {
@@ -112,6 +112,7 @@
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
     "node-cron": "^4.4.1",
+    "node-windows": "^1.0.0-beta.8",
     "nodemailer": "^9.0.1",
     "pdf-parse": "^2.4.5",
     "pg": "^8.22.0",
